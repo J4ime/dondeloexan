@@ -105,6 +105,7 @@ class DiscoverViewModel(
                             movieDao.insert(
                                 MovieEntity(
                                     contentId = preview.id,
+                                    tmdbId = preview.tmdbId,
                                     filmAffinityId = preview.filmAffinityId,
                                     title = preview.title,
                                     year = preview.year,
@@ -123,11 +124,13 @@ class DiscoverViewModel(
                             tvShowDao.insert(
                                 TvShowEntity(
                                     contentId = preview.id,
+                                    tmdbId = preview.tmdbId,
                                     filmAffinityId = preview.filmAffinityId,
                                     title = preview.title,
                                     year = preview.year,
                                     posterUrl = preview.coverUrl,
                                     ratingFa = preview.ratingFa,
+                                    totalEpisodes = preview.totalEpisodes,
                                     liked = true
                                 )
                             )
@@ -153,6 +156,7 @@ class DiscoverViewModel(
                             movieDao.insert(
                                 MovieEntity(
                                     contentId = preview.id,
+                                    tmdbId = preview.tmdbId,
                                     filmAffinityId = preview.filmAffinityId,
                                     title = preview.title,
                                     year = preview.year,
@@ -172,11 +176,13 @@ class DiscoverViewModel(
                             tvShowDao.insert(
                                 TvShowEntity(
                                     contentId = preview.id,
+                                    tmdbId = preview.tmdbId,
                                     filmAffinityId = preview.filmAffinityId,
                                     title = preview.title,
                                     year = preview.year,
                                     posterUrl = preview.coverUrl,
                                     ratingFa = preview.ratingFa,
+                                    totalEpisodes = preview.totalEpisodes,
                                     status = WatchStatus.YA_VISTA
                                 )
                             )

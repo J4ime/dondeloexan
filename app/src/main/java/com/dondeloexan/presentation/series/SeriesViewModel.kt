@@ -3,19 +3,39 @@ package com.dondeloexan.presentation.series
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dondeloexan.data.local.dao.TvShowDao
+import com.dondeloexan.data.local.dao.TvShowProgressDao
 import com.dondeloexan.data.local.entity.TvShowEntity
 import com.dondeloexan.data.local.entity.WatchStatus
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+data class SeriesWithProgress(
+    val show: TvShowEntity,
+    val watchedCount: Int,
+    val totalEpisodes: Int?
+)
+
 class SeriesViewModel(
-    private val tvShowDao: TvShowDao
+    private val tvShowDao: TvShowDao,
+    private val tvShowProgressDao: TvShowProgressDao
 ) : ViewModel() {
 
-    val series: StateFlow<List<TvShowEntity>> = tvShowDao.getAllFlow()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val seriesWithProgress: StateFlow<List<SeriesWithProgress>> = combine(
+        tvShowDao.getAllFlow(),
+        tvShowProgressDao.getWatchedCounts()
+    ) { series, counts ->
+        val countMap = counts.associate { it.tvShowId to it.count }
+        series.map { show ->
+            SeriesWithProgress(
+                show = show,
+                watchedCount = countMap[show.id] ?: 0,
+                totalEpisodes = show.totalEpisodes
+            )
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     fun toggleLike(show: TvShowEntity) {
         viewModelScope.launch {

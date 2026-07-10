@@ -24,7 +24,7 @@ data class DetailUiState(
     val seasons: List<TmdbSeasonDto> = emptyList(),
     val selectedSeason: Int = 0,
     val seasonDetail: TmdbTvSeasonDetailDto? = null,
-    val watchedEpisodes: Set<Int> = emptySet()
+    val watchedEpisodes: Set<String> = emptySet()
 )
 
 class MediaDetailViewModel(
@@ -91,7 +91,7 @@ class MediaDetailViewModel(
             val tvShow = tvShowDao.getByContentId("tmdb-$tmdbId")
             if (tvShow != null) {
                 val progress = tvShowProgressDao.getByTvShowId(tvShow.id)
-                val watchedSet = progress.map { it.episode }.toSet()
+                val watchedSet = progress.map { "S${it.season}E${it.episode}" }.toSet()
                 _uiState.value = _uiState.value.copy(watchedEpisodes = watchedSet)
             }
         } catch (e: Exception) {
@@ -118,16 +118,17 @@ class MediaDetailViewModel(
             val tmdbId = _uiState.value.content?.tmdbId ?: return@launch
             val seasonNumber = _uiState.value.selectedSeason
             val contentId = "tmdb-$tmdbId"
+            val episodeKey = "S${seasonNumber}E${episodeNumber}"
             val currentWatched = _uiState.value.watchedEpisodes.toMutableSet()
 
             val tvShow = tvShowDao.getByContentId(contentId)
             if (tvShow == null) return@launch
 
-            if (currentWatched.contains(episodeNumber)) {
-                currentWatched.remove(episodeNumber)
+            if (currentWatched.contains(episodeKey)) {
+                currentWatched.remove(episodeKey)
                 tvShowProgressDao.deleteEpisode(tvShow.id, seasonNumber, episodeNumber)
             } else {
-                currentWatched.add(episodeNumber)
+                currentWatched.add(episodeKey)
                 tvShowProgressDao.insert(
                     TvShowProgressEntity(
                         tvShowId = tvShow.id,

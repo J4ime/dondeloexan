@@ -100,11 +100,7 @@ fun DiscoverScreen(
                 likedIds = likedIds,
                 watchedIds = watchedIds,
                 onItemClick = { contentId ->
-                    val type = when {
-                        contentId.startsWith("fa-") -> "fa"
-                        else -> "tmdb"
-                    }
-                    navController.navigate("detail/$contentId/$type")
+                    navController.navigate("detail/$contentId/tmdb")
                 },
                 onFavoriteClick = viewModel::onToggleFavorite,
                 onWatchedClick = viewModel::onToggleWatched,

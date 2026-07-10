@@ -25,6 +25,7 @@ import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.Movie
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -63,6 +64,8 @@ fun LibraryItemCard(
     year: Int?,
     ratingFa: Float?,
     streamingPlatforms: List<StreamingAvailability>,
+    watchedCount: Int = 0,
+    totalEpisodes: Int? = null,
     isLiked: Boolean,
     isWatched: Boolean,
     onLikeClick: () -> Unit,
@@ -150,6 +153,42 @@ fun LibraryItemCard(
                     color = TextSecondary,
                     maxLines = 1
                 )
+            }
+
+            if (totalEpisodes != null && totalEpisodes > 0) {
+                Spacer(Modifier.height(6.dp))
+                val progress = (watchedCount.toFloat() / totalEpisodes).coerceIn(0f, 1f)
+                Column {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "$watchedCount/$totalEpisodes episodios",
+                            style = UbuntuTypography.labelSmall,
+                            color = TextSecondary,
+                            fontSize = 10.sp
+                        )
+                        Text(
+                            text = "${(progress * 100).toInt()}%",
+                            style = UbuntuTypography.labelSmall,
+                            color = if (progress >= 1f) EleganteRose else TextSecondary,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    Spacer(Modifier.height(2.dp))
+                    LinearProgressIndicator(
+                        progress = { progress },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(4.dp)
+                            .clip(RoundedCornerShape(2.dp)),
+                        color = EleganteRose,
+                        trackColor = Color.White.copy(alpha = 0.15f)
+                    )
+                }
             }
 
             if (streamingPlatforms.isNotEmpty()) {

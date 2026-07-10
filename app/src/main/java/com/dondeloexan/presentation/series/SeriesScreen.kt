@@ -57,7 +57,7 @@ fun SeriesScreen(
     navController: NavController,
     viewModel: SeriesViewModel = koinViewModel()
 ) {
-    val series by viewModel.series.collectAsState()
+    val series by viewModel.seriesWithProgress.collectAsState()
     var isGridView by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -115,21 +115,23 @@ fun SeriesScreen(
                     .fillMaxSize()
                     .padding(padding)
             ) {
-                items(series, key = { it.id }) { show ->
+                items(series, key = { it.show.id }) { item ->
+                    val s = item.show
                     LibraryItemCard(
-                        posterUrl = show.posterUrl,
-                        title = show.title,
-                        year = show.year,
-                        ratingFa = show.ratingFa,
-                        streamingPlatforms = show.streamingPlatforms.toStreamingPlatforms(),
-                        isLiked = show.liked,
-                        isWatched = show.status.name == "YA_VISTA",
-                        onLikeClick = { viewModel.toggleLike(show) },
-                        onWatchedClick = { viewModel.toggleWatched(show) },
-                        onDeleteClick = { viewModel.delete(show) },
+                        posterUrl = s.posterUrl,
+                        title = s.title,
+                        year = s.year,
+                        ratingFa = s.ratingFa,
+                        streamingPlatforms = s.streamingPlatforms.toStreamingPlatforms(),
+                        watchedCount = item.watchedCount,
+                        totalEpisodes = item.totalEpisodes,
+                        isLiked = s.liked,
+                        isWatched = s.status.name == "YA_VISTA",
+                        onLikeClick = { viewModel.toggleLike(s) },
+                        onWatchedClick = { viewModel.toggleWatched(s) },
+                        onDeleteClick = { viewModel.delete(s) },
                         onClick = {
-                            val type = if (show.contentId?.startsWith("fa-") == true) "fa" else "tmdb"
-                            navController.navigate("detail/${show.contentId ?: ""}/$type")
+                            navController.navigate("detail/${s.contentId ?: ""}/tmdb")
                         },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -147,25 +149,27 @@ fun SeriesScreen(
                     .fillMaxSize()
                     .padding(padding)
             ) {
-                items(series, key = { it.id }) { show ->
+                items(series, key = { it.show.id }) { item ->
+                    val s = item.show
                     AnimatedVisibility(
                         visible = true,
                         enter = fadeIn() + slideInVertically { it / 2 }
                     ) {
                         LibraryItemCard(
-                            posterUrl = show.posterUrl,
-                            title = show.title,
-                            year = show.year,
-                            ratingFa = show.ratingFa,
-                            streamingPlatforms = show.streamingPlatforms.toStreamingPlatforms(),
-                            isLiked = show.liked,
-                            isWatched = show.status.name == "YA_VISTA",
-                            onLikeClick = { viewModel.toggleLike(show) },
-                            onWatchedClick = { viewModel.toggleWatched(show) },
-                            onDeleteClick = { viewModel.delete(show) },
+                            posterUrl = s.posterUrl,
+                            title = s.title,
+                            year = s.year,
+                            ratingFa = s.ratingFa,
+                            streamingPlatforms = s.streamingPlatforms.toStreamingPlatforms(),
+                            watchedCount = item.watchedCount,
+                            totalEpisodes = item.totalEpisodes,
+                            isLiked = s.liked,
+                            isWatched = s.status.name == "YA_VISTA",
+                            onLikeClick = { viewModel.toggleLike(s) },
+                            onWatchedClick = { viewModel.toggleWatched(s) },
+                            onDeleteClick = { viewModel.delete(s) },
                             onClick = {
-                                val type = if (show.contentId?.startsWith("fa-") == true) "fa" else "tmdb"
-                                navController.navigate("detail/${show.contentId ?: ""}/$type")
+                                navController.navigate("detail/${s.contentId ?: ""}/tmdb")
                             },
                             modifier = Modifier
                                 .fillMaxWidth()

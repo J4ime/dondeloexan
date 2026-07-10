@@ -33,19 +33,36 @@ class DiscoverRepositoryImpl(
         emit(DataResult.Loading)
 
         try {
-            val faResult = filmAffinityApi.search(query)
-            val tmdbResult = tmdbApi.searchMulti(query)
+            val (tmdbResult, faResult) = coroutineScope {
+                val tmdbDeferred = async { tmdbApi.searchMulti(query) }
+                val faDeferred = async {
+                    try { filmAffinityApi.search(query) } catch (_: Exception) { null }
+                }
+                Pair(tmdbDeferred.await(), faDeferred.await())
+            }
 
-            val faPreviews = faResult.results.map { it.toContentPreview() }
-            val tmdbPreviews = tmdbResult.results
+            val faMap = faResult?.results?.mapNotNull { item: com.dondeloexan.data.remote.dto.FaRapidSearchItem ->
+                val key = buildString {
+                    append(item.title.trim().lowercase())
+                    append('|')
+                    item.year?.let { append(it) }
+                }
+                key to Pair(item.rating, item.id)
+            }?.toMap() ?: emptyMap()
+
+            val previews = tmdbResult.results
                 .filter { it.mediaType in listOf("movie", "tv") }
-                .map { it.toContentPreview() }
-
-            val merged = (faPreviews + tmdbPreviews)
-                .distinctBy { it.id }
+                .map { tmdb: com.dondeloexan.data.remote.dto.TmdbMultiSearchResult ->
+                    val tmdbTitle = (tmdb.title ?: tmdb.name).orEmpty().trim().lowercase()
+                    val tmdbYear = tmdb.releaseDate?.substringBefore("-")?.toIntOrNull()
+                        ?: tmdb.firstAirDate?.substringBefore("-")?.toIntOrNull()
+                    val key = "$tmdbTitle|$tmdbYear"
+                    val faMatch = faMap[key]
+                    tmdb.toContentPreview(faRating = faMatch?.first, faId = faMatch?.second)
+                }
                 .take(20)
 
-            emit(DataResult.Success(merged))
+            emit(DataResult.Success(previews))
         } catch (e: Exception) {
             try {
                 val tmdbResult = tmdbApi.searchMulti(query)
@@ -165,6 +182,13 @@ class DiscoverRepositoryImpl(
             val credits = tmdbApi.getTvCredits(tmdbId)
             val providers = tmdbApi.getTvWatchProviders(tmdbId)
             val platforms = providers.results["ES"]?.toStreamingAvailability().orEmpty()
+
+            if (tv.numberOfEpisodes != null) {
+                val existing = tvShowDao.getByContentId("tmdb-$tmdbId")
+                if (existing != null) {
+                    tvShowDao.update(existing.copy(totalEpisodes = tv.numberOfEpisodes))
+                }
+            }
 
             tv.toDomain(null, platforms, credits)
         } catch (_: Exception) { null }

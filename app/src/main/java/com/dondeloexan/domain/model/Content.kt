@@ -11,6 +11,7 @@ data class Content(
     val type: ContentType,
     val year: Int? = null,
     val durationMinutes: Int? = null,
+    val totalEpisodes: Int? = null,
     val ratingFa: Float? = null,
     val ratingTmdb: Float? = null,
     val ratingImdb: Float? = null,
@@ -34,6 +35,7 @@ data class Content(
 data class ContentPreview(
     val id: String,
     val source: ContentSource,
+    val tmdbId: Int? = null,
     val title: String,
     val type: ContentType,
     val year: Int? = null,
@@ -42,7 +44,8 @@ data class ContentPreview(
     val ratingFa: Float? = null,
     val genres: List<String> = emptyList(),
     val streamingPlatforms: List<StreamingAvailability> = emptyList(),
-    val filmAffinityId: Int? = null
+    val filmAffinityId: Int? = null,
+    val totalEpisodes: Int? = null
 )
 
 data class StreamingAvailability(

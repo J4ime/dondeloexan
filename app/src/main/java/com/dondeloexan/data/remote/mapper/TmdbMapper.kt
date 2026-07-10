@@ -64,6 +64,7 @@ fun TmdbTvDetailDto.toDomain(
     type = ContentType.SERIES,
     year = firstAirDate?.substringBefore("-")?.toIntOrNull(),
     durationMinutes = episodeRunTime?.firstOrNull(),
+    totalEpisodes = numberOfEpisodes,
     ratingTmdb = voteAverage,
     ratingImdb = omdbRating?.imdbRating?.toFloatOrNull(),
     ratingRt = omdbRating?.ratings
@@ -85,15 +86,20 @@ fun TmdbTvDetailDto.toDomain(
     lastCachedAt = System.currentTimeMillis()
 )
 
-fun TmdbMultiSearchResult.toContentPreview(): ContentPreview = ContentPreview(
+fun TmdbMultiSearchResult.toContentPreview(
+    faRating: Float? = null,
+    faId: Int? = null
+): ContentPreview = ContentPreview(
     id = "tmdb-$id",
     source = ContentSource.TMDB,
+    tmdbId = id,
     title = title ?: name.orEmpty(),
     type = if (mediaType == "tv") ContentType.SERIES else ContentType.MOVIE,
     year = releaseDate?.substringBefore("-")?.toIntOrNull()
         ?: firstAirDate?.substringBefore("-")?.toIntOrNull(),
     coverUrl = posterPath?.let { "https://image.tmdb.org/t/p/w500$it" },
-    ratingFa = voteAverage?.let { it / 2f }
+    ratingFa = faRating,
+    filmAffinityId = faId
 )
 
 fun TmdbCountryProviders.toStreamingAvailability(): List<StreamingAvailability> {

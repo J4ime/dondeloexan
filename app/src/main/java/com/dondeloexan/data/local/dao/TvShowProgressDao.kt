@@ -5,6 +5,9 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import com.dondeloexan.data.local.entity.TvShowProgressEntity
+import kotlinx.coroutines.flow.Flow
+
+data class WatchedCount(val tvShowId: Long, val count: Int)
 
 @Dao
 interface TvShowProgressDao {
@@ -20,6 +23,9 @@ interface TvShowProgressDao {
 
     @Query("SELECT COUNT(*) FROM tv_show_progress WHERE tv_show_id = :tvShowId")
     suspend fun getEpisodeCount(tvShowId: Long): Int
+
+    @Query("SELECT tv_show_id AS tvShowId, COUNT(*) AS count FROM tv_show_progress GROUP BY tv_show_id")
+    fun getWatchedCounts(): Flow<List<WatchedCount>>
 
     @Query("SELECT * FROM tv_show_progress ORDER BY tv_show_id ASC, season ASC, episode ASC")
     suspend fun getAll(): List<TvShowProgressEntity>

@@ -129,8 +129,7 @@ fun MoviesScreen(
                         onWatchedClick = { viewModel.toggleWatched(movie) },
                         onDeleteClick = { viewModel.delete(movie) },
                         onClick = {
-                            val type = if (movie.contentId?.startsWith("fa-") == true) "fa" else "tmdb"
-                            navController.navigate("detail/${movie.contentId ?: ""}/$type")
+                            navController.navigate("detail/${movie.contentId ?: ""}/tmdb")
                         },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -165,8 +164,7 @@ fun MoviesScreen(
                             onWatchedClick = { viewModel.toggleWatched(movie) },
                             onDeleteClick = { viewModel.delete(movie) },
                             onClick = {
-                                val type = if (movie.contentId?.startsWith("fa-") == true) "fa" else "tmdb"
-                                navController.navigate("detail/${movie.contentId ?: ""}/$type")
+                                navController.navigate("detail/${movie.contentId ?: ""}/tmdb")
                             },
                             modifier = Modifier
                                 .fillMaxWidth()

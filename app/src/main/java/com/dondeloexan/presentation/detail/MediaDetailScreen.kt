@@ -145,7 +145,7 @@ private fun DetailContent(
     seasons: List<TmdbSeasonDto>,
     selectedSeason: Int,
     seasonDetail: TmdbTvSeasonDetailDto?,
-    watchedEpisodes: Set<Int>,
+    watchedEpisodes: Set<String>,
     onSeasonSelected: (Int) -> Unit,
     onToggleEpisode: (Int) -> Unit,
     modifier: Modifier = Modifier
@@ -454,7 +454,7 @@ private fun SeasonsSection(
     seasons: List<TmdbSeasonDto>,
     selectedSeason: Int,
     seasonDetail: TmdbTvSeasonDetailDto?,
-    watchedEpisodes: Set<Int>,
+    watchedEpisodes: Set<String>,
     onSeasonSelected: (Int) -> Unit,
     onToggleEpisode: (Int) -> Unit
 ) {
@@ -500,7 +500,8 @@ private fun SeasonsSection(
 
         if (seasonDetail != null) {
             seasonDetail.episodes.forEach { episode ->
-                val isWatched = watchedEpisodes.contains(episode.episodeNumber)
+                val episodeKey = "S${selectedSeason}E${episode.episodeNumber}"
+                val isWatched = watchedEpisodes.contains(episodeKey)
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
