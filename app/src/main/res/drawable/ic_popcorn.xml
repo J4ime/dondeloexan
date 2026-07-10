@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="128dp"
+    android:height="128dp"
+    android:viewportWidth="128"
+    android:viewportHeight="128">
+    <group android:translateX="-4" android:translateY="-4">
+        <!-- Popcorn bucket body -->
+        <path
+            android:fillColor="#F5C518"
+            android:fillAlpha="0.3"
+            android:pathData="M56,40 L52,100 C52,104 56,108 60,108 L76,108 C80,108 84,104 84,100 L80,40 Z" />
+        <!-- Bucket base -->
+        <path
+            android:fillColor="#F5C518"
+            android:fillAlpha="0.3"
+            android:pathData="M48,100 L88,100 L80,112 C78,116 58,116 56,112 Z" />
+        <!-- Popcorn 1 -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:fillAlpha="0.8"
+            android:pathData="M60,30 C60,24 68,24 68,30 C72,28 76,32 74,36 C78,34 82,38 80,42 L56,42 C54,38 56,34 60,36 C58,34 60,30 64,32 Z" />
+        <!-- Popcorn 2 -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:fillAlpha="0.7"
+            android:pathData="M70,24 C70,18 78,18 78,24 C82,22 86,26 84,30 C88,28 92,32 90,36 L66,36 C64,32 66,28 70,30 C68,28 70,24 74,26 Z" />
+    </group>
+</vector>

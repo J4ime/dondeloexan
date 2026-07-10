@@ -1,0 +1,63 @@
+package com.dondeloexan.data.remote.api
+
+import com.dondeloexan.data.remote.dto.TmdbMovieDto
+import com.dondeloexan.data.remote.dto.TmdbMultiSearchResponse
+import com.dondeloexan.data.remote.dto.TmdbTrendingResponse
+import com.dondeloexan.data.remote.dto.TmdbWatchProvidersResponse
+import io.ktor.client.HttpClient
+import io.ktor.client.call.body
+import io.ktor.client.request.get
+import io.ktor.client.request.parameter
+
+class TmdbApi(private val client: HttpClient) {
+
+    suspend fun searchMulti(query: String, language: String = "es-ES", page: Int = 1): TmdbMultiSearchResponse {
+        val response = client.get("search/multi") {
+            parameter("query", query)
+            parameter("language", language)
+            parameter("page", page)
+        }
+        return response.body()
+    }
+
+    suspend fun searchMovie(query: String, language: String = "es-ES", year: Int? = null): TmdbMultiSearchResponse {
+        val response = client.get("search/movie") {
+            parameter("query", query)
+            parameter("language", language)
+            year?.let { parameter("year", it) }
+        }
+        return response.body()
+    }
+
+    suspend fun searchTv(query: String, language: String = "es-ES"): TmdbMultiSearchResponse {
+        val response = client.get("search/tv") {
+            parameter("query", query)
+            parameter("language", language)
+        }
+        return response.body()
+    }
+
+    suspend fun getMovieDetail(movieId: Int, language: String = "es-ES"): TmdbMovieDto {
+        val response = client.get("movie/$movieId") {
+            parameter("language", language)
+        }
+        return response.body()
+    }
+
+    suspend fun getMovieWatchProviders(movieId: Int): TmdbWatchProvidersResponse {
+        val response = client.get("movie/$movieId/watch/providers")
+        return response.body()
+    }
+
+    suspend fun getTvWatchProviders(tvId: Int): TmdbWatchProvidersResponse {
+        val response = client.get("tv/$tvId/watch/providers")
+        return response.body()
+    }
+
+    suspend fun getTrending(language: String = "es-ES"): TmdbTrendingResponse {
+        val response = client.get("trending/all/week") {
+            parameter("language", language)
+        }
+        return response.body()
+    }
+}
