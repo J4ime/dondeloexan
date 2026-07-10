@@ -93,7 +93,17 @@ class DiscoverRepositoryImpl(
 
     private suspend fun fetchFilmAffinityDetail(id: String): Content = coroutineScope {
         val faId = id.removePrefix("fa-")
-        val faItem = filmAffinityApi.getItemDetail(faId)
+
+        val faUrl = try {
+            val searchResult = filmAffinityApi.search(faId)
+            searchResult.results.firstOrNull()?.faUrl
+        } catch (_: Exception) { null }
+
+        val faItem = if (faUrl != null) {
+            filmAffinityApi.getItemDetail(faUrl)
+        } else {
+            filmAffinityApi.getItemDetail(faId)
+        }
 
         val faToTmdb = async {
             try {
@@ -104,7 +114,7 @@ class DiscoverRepositoryImpl(
 
         val tmdbMatch = faToTmdb.await()
 
-                    var platforms = emptyList<StreamingAvailability>()
+        var platforms = emptyList<StreamingAvailability>()
         if (tmdbMatch != null) {
             try {
                 val providerResponse = if (tmdbMatch.mediaType == "tv") {
@@ -122,61 +132,46 @@ class DiscoverRepositoryImpl(
     private suspend fun fetchTmdbDetail(id: String): Content {
         val tmdbId = id.removePrefix("tmdb-").toInt()
 
-        return coroutineScope {
-            val movieDeferred = async {
+        val movieResult = try {
+            val movie = tmdbApi.getMovieDetail(tmdbId)
+            val credits = tmdbApi.getMovieCredits(tmdbId)
+            val providers = tmdbApi.getMovieWatchProviders(tmdbId)
+            val platforms = providers.results["ES"]?.toStreamingAvailability().orEmpty()
+
+            val omdbRatings = movie.imdbId?.let { imdbId ->
+                try { omdbApi.getByImdbId(imdbId) } catch (_: Exception) { null }
+            }
+
+            val content = movie.toDomain(omdbRatings, platforms, credits)
+            val enriched = if (movie.imdbId != null) {
                 try {
-                    val movie = tmdbApi.getMovieDetail(tmdbId)
-                    val credits = tmdbApi.getMovieCredits(tmdbId)
-                    val providers = tmdbApi.getMovieWatchProviders(tmdbId)
-                    val platforms = providers.results["ES"]?.toStreamingAvailability().orEmpty()
+                    val omdb = omdbApi.getByImdbId(movie.imdbId)
+                    content.copy(
+                        ratingImdb = omdb.imdbRating?.toFloatOrNull(),
+                        ratingRt = omdb.ratings?.find { it.source == "Rotten Tomatoes" }
+                            ?.value?.removeSuffix("%")?.toIntOrNull(),
+                        ratingMetacritic = omdb.metascore?.toIntOrNull()
+                    )
+                } catch (_: Exception) { content }
+            } else content
 
-                    val omdbRatings = movie.imdbId?.let { imdbId ->
-                        try { omdbApi.getByImdbId(imdbId) } catch (_: Exception) { null }
-                    }
+            enriched
+        } catch (_: Exception) { null }
 
-                    Triple(movie.toDomain(omdbRatings, platforms, credits), movie.imdbId, null)
-                } catch (_: Exception) { null }
-            }
+        if (movieResult != null) return movieResult
 
-            val tvDeferred = async {
-                try {
-                    val tv = tmdbApi.getTvDetail(tmdbId)
-                    val credits = tmdbApi.getTvCredits(tmdbId)
-                    val providers = tmdbApi.getTvWatchProviders(tmdbId)
-                    val platforms = providers.results["ES"]?.toStreamingAvailability().orEmpty()
+        val tvResult = try {
+            val tv = tmdbApi.getTvDetail(tmdbId)
+            val credits = tmdbApi.getTvCredits(tmdbId)
+            val providers = tmdbApi.getTvWatchProviders(tmdbId)
+            val platforms = providers.results["ES"]?.toStreamingAvailability().orEmpty()
 
-                    val omdbRatings = null
+            tv.toDomain(null, platforms, credits)
+        } catch (_: Exception) { null }
 
-                    Triple(tv.toDomain(omdbRatings, platforms, credits), null, tv)
-                } catch (_: Exception) { null }
-            }
+        if (tvResult != null) return tvResult
 
-            val movieResult = movieDeferred.await()
-            if (movieResult != null && movieResult.first.type == ContentType.MOVIE) {
-                val (content, imdbId, _) = movieResult
-
-                val enriched = if (imdbId != null) {
-                    try {
-                        val omdb = omdbApi.getByImdbId(imdbId)
-                        content.copy(
-                            ratingImdb = omdb.imdbRating?.toFloatOrNull(),
-                            ratingRt = omdb.ratings?.find { it.source == "Rotten Tomatoes" }
-                                ?.value?.removeSuffix("%")?.toIntOrNull(),
-                            ratingMetacritic = omdb.metascore?.toIntOrNull()
-                        )
-                    } catch (_: Exception) { content }
-                } else content
-
-                return@coroutineScope enriched
-            }
-
-            val tvResult = tvDeferred.await()
-            if (tvResult != null) {
-                return@coroutineScope tvResult.first
-            }
-
-            throw IllegalArgumentException("Content not found: $id")
-        }
+        throw IllegalArgumentException("Content not found: $id")
     }
 
     private fun prioritizePlatforms(content: Content, userPlatforms: Set<String>): Content {

@@ -41,14 +41,14 @@ class DiscoverViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
 
     val likedIds: StateFlow<Set<String>> = combine(
-        movieDao.getLiked().map { list -> list.map { it.id.toString() }.toSet() },
-        tvShowDao.getLiked().map { list -> list.map { it.id.toString() }.toSet() }
+        movieDao.getLiked().map { list -> list.mapNotNull { it.contentId }.toSet() },
+        tvShowDao.getLiked().map { list -> list.mapNotNull { it.contentId }.toSet() }
     ) { movieLiked, tvLiked -> movieLiked + tvLiked }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
 
     val watchedIds: StateFlow<Set<String>> = combine(
-        movieDao.getByStatus(WatchStatus.YA_VISTA).map { list -> list.map { it.id.toString() }.toSet() },
-        tvShowDao.getByStatus(WatchStatus.YA_VISTA).map { list -> list.map { it.id.toString() }.toSet() }
+        movieDao.getByStatus(WatchStatus.YA_VISTA).map { list -> list.mapNotNull { it.contentId }.toSet() },
+        tvShowDao.getByStatus(WatchStatus.YA_VISTA).map { list -> list.mapNotNull { it.contentId }.toSet() }
     ) { movieWatched, tvWatched -> movieWatched + tvWatched }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
 
