@@ -16,8 +16,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Share
-import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
@@ -39,11 +39,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import com.dondeloexan.presentation.theme.CinemaRed
 import com.dondeloexan.presentation.theme.DarkBackground
 import com.dondeloexan.presentation.theme.DarkSurface
 import com.dondeloexan.presentation.theme.DarkSurfaceVariant
-import com.dondeloexan.presentation.theme.PopcornYellow
+import com.dondeloexan.presentation.theme.EleganteRose
+import com.dondeloexan.presentation.theme.EleganteRoseDark
+import com.dondeloexan.presentation.theme.EleganteRoseLight
 import com.dondeloexan.presentation.theme.TextPrimary
 import com.dondeloexan.presentation.theme.TextSecondary
 import com.dondeloexan.presentation.theme.UbuntuTypography
@@ -94,7 +95,7 @@ fun LogViewerScreen(
                 onFilterChange = viewModel::setFilter
             )
 
-            Divider(color = DarkSurfaceVariant, thickness = 1.dp)
+            HorizontalDivider(color = DarkSurfaceVariant, thickness = 1.dp)
 
             if (logs.isEmpty()) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -111,7 +112,7 @@ fun LogViewerScreen(
                 }
             }
 
-            Divider(color = DarkSurfaceVariant, thickness = 1.dp)
+            HorizontalDivider(color = DarkSurfaceVariant, thickness = 1.dp)
             Surface(color = DarkBackground) {
                 Text(
                     "${logs.size} registros · Último: ${logs.firstOrNull()?.formattedTime ?: "—"}",
@@ -129,8 +130,8 @@ fun LogEntryRow(entry: LogEntry) {
     val levelColor = when (entry.level) {
         LogLevel.DEBUG -> Color(0xFF90CAF9)
         LogLevel.INFO -> Color(0xFF81C784)
-        LogLevel.WARN -> PopcornYellow
-        LogLevel.ERROR -> CinemaRed
+        LogLevel.WARN -> EleganteRoseLight
+        LogLevel.ERROR -> EleganteRoseDark
     }
 
     Column(
@@ -179,7 +180,7 @@ fun LogEntryRow(entry: LogEntry) {
             Text(
                 trace,
                 style = UbuntuTypography.bodySmall,
-                color = CinemaRed.copy(alpha = 0.7f),
+                color =                 EleganteRoseDark.copy(alpha = 0.7f),
                 fontFamily = FontFamily.Monospace,
                 maxLines = 3,
                 overflow = TextOverflow.Ellipsis,
@@ -187,7 +188,7 @@ fun LogEntryRow(entry: LogEntry) {
             )
         }
     }
-    Divider(color = DarkSurfaceVariant.copy(alpha = 0.3f), thickness = 0.5.dp)
+    HorizontalDivider(color = DarkSurfaceVariant.copy(alpha = 0.3f), thickness = 0.5.dp)
 }
 
 @Composable
@@ -209,8 +210,8 @@ fun LogFilterRow(
         )
         LogLevel.entries.forEach { level ->
             val chipColor = when (level) {
-                LogLevel.ERROR -> CinemaRed.copy(alpha = 0.15f)
-                LogLevel.WARN -> PopcornYellow.copy(alpha = 0.15f)
+                LogLevel.ERROR -> EleganteRoseDark.copy(alpha = 0.15f)
+                LogLevel.WARN -> EleganteRoseLight.copy(alpha = 0.15f)
                 LogLevel.INFO -> Color(0xFF81C784).copy(alpha = 0.15f)
                 LogLevel.DEBUG -> Color(0xFF90CAF9).copy(alpha = 0.15f)
             }

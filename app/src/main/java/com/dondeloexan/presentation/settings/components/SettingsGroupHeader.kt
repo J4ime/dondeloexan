@@ -6,7 +6,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.dondeloexan.presentation.theme.PopcornYellow
+import com.dondeloexan.presentation.theme.EleganteRose
 import com.dondeloexan.presentation.theme.UbuntuTypography
 
 @Composable
@@ -14,7 +14,7 @@ fun SettingsGroupHeader(title: String, modifier: Modifier = Modifier) {
     Text(
         text = title.uppercase(),
         style = UbuntuTypography.labelMedium,
-        color = PopcornYellow.copy(alpha = 0.7f),
+        color = EleganteRose.copy(alpha = 0.7f),
         modifier = modifier.padding(start = 24.dp, top = 20.dp, bottom = 8.dp),
         letterSpacing = 1.sp
     )

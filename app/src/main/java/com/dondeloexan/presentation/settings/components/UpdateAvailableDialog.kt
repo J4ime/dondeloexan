@@ -22,7 +22,7 @@ import androidx.compose.ui.unit.dp
 import com.dondeloexan.domain.model.GitHubRelease
 import com.dondeloexan.presentation.theme.DarkBackground
 import com.dondeloexan.presentation.theme.DarkSurface
-import com.dondeloexan.presentation.theme.PopcornYellow
+import com.dondeloexan.presentation.theme.EleganteRose
 import com.dondeloexan.presentation.theme.TextPrimary
 import com.dondeloexan.presentation.theme.TextSecondary
 import com.dondeloexan.presentation.theme.UbuntuTypography
@@ -45,7 +45,7 @@ fun UpdateAvailableDialog(
                 Icon(
                     imageVector = Icons.Outlined.SystemUpdate, contentDescription = null,
                     modifier = Modifier.size(40.dp),
-                    tint = PopcornYellow
+                    tint = EleganteRose
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(
@@ -56,7 +56,7 @@ fun UpdateAvailableDialog(
                 Text(
                     "v${release.version.displayName}",
                     style = UbuntuTypography.headlineSmall,
-                    color = PopcornYellow,
+                    color = EleganteRose,
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -85,7 +85,7 @@ fun UpdateAvailableDialog(
                 onClick = {
                     onDownload(release.apkDownloadUrl ?: release.htmlUrl)
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = PopcornYellow)
+                colors = ButtonDefaults.buttonColors(containerColor = EleganteRose)
             ) {
                 Text("Descargar APK", color = DarkBackground)
             }

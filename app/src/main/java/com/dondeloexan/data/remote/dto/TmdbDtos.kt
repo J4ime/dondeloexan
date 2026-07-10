@@ -41,7 +41,8 @@ data class TmdbMovieDto(
     val runtime: Int? = null,
     @SerialName("imdb_id") val imdbId: String? = null,
     val genres: List<TmdbGenreDto>? = null,
-    @SerialName("production_countries") val productionCountries: List<TmdbCountryDto>? = null
+    @SerialName("production_countries") val productionCountries: List<TmdbCountryDto>? = null,
+    @SerialName("production_companies") val productionCompanies: List<TmdbProductionCompanyDto>? = null
 )
 
 @Serializable
@@ -51,6 +52,13 @@ data class TmdbGenreDto(val id: Int, val name: String)
 data class TmdbCountryDto(
     @SerialName("iso_3166_1") val isoCode: String,
     val name: String
+)
+
+@Serializable
+data class TmdbProductionCompanyDto(
+    val id: Int,
+    val name: String,
+    @SerialName("logo_path") val logoPath: String? = null
 )
 
 @Serializable
@@ -82,4 +90,87 @@ data class TmdbTrendingResponse(
     val page: Int,
     @SerialName("total_results") val totalResults: Int,
     val results: List<TmdbMultiSearchResult>
+)
+
+@Serializable
+data class TmdbTvDetailDto(
+    val id: Int,
+    val name: String,
+    @SerialName("original_name") val originalName: String? = null,
+    val overview: String? = null,
+    @SerialName("poster_path") val posterPath: String? = null,
+    @SerialName("backdrop_path") val backdropPath: String? = null,
+    @SerialName("first_air_date") val firstAirDate: String? = null,
+    @SerialName("last_air_date") val lastAirDate: String? = null,
+    @SerialName("vote_average") val voteAverage: Float? = null,
+    @SerialName("vote_count") val voteCount: Int? = null,
+    @SerialName("number_of_seasons") val numberOfSeasons: Int? = null,
+    @SerialName("number_of_episodes") val numberOfEpisodes: Int? = null,
+    @SerialName("episode_run_time") val episodeRunTime: List<Int>? = null,
+    val genres: List<TmdbGenreDto>? = null,
+    val seasons: List<TmdbSeasonDto>? = null,
+    @SerialName("production_countries") val productionCountries: List<TmdbCountryDto>? = null,
+    @SerialName("production_companies") val productionCompanies: List<TmdbProductionCompanyDto>? = null,
+    @SerialName("in_production") val inProduction: Boolean? = null,
+    val status: String? = null
+)
+
+@Serializable
+data class TmdbSeasonDto(
+    @SerialName("air_date") val airDate: String? = null,
+    @SerialName("episode_count") val episodeCount: Int = 0,
+    val id: Int,
+    val name: String,
+    val overview: String? = null,
+    @SerialName("poster_path") val posterPath: String? = null,
+    @SerialName("season_number") val seasonNumber: Int
+)
+
+@Serializable
+data class TmdbTvSeasonDetailDto(
+    @SerialName("_id") val internalId: String? = null,
+    @SerialName("air_date") val airDate: String? = null,
+    val episodes: List<TmdbEpisodeDto> = emptyList(),
+    val name: String? = null,
+    val overview: String? = null,
+    val id: Int? = null,
+    @SerialName("season_number") val seasonNumber: Int = 0
+)
+
+@Serializable
+data class TmdbEpisodeDto(
+    @SerialName("air_date") val airDate: String? = null,
+    @SerialName("episode_number") val episodeNumber: Int,
+    val id: Int,
+    val name: String,
+    val overview: String? = null,
+    @SerialName("still_path") val stillPath: String? = null,
+    @SerialName("vote_average") val voteAverage: Float? = null,
+    @SerialName("season_number") val seasonNumber: Int
+)
+
+@Serializable
+data class TmdbCreditsResponse(
+    val id: Int,
+    val cast: List<TmdbCastMemberDto> = emptyList(),
+    val crew: List<TmdbCrewMemberDto> = emptyList()
+)
+
+@Serializable
+data class TmdbCastMemberDto(
+    val id: Int,
+    val name: String,
+    val character: String? = null,
+    val order: Int? = null,
+    @SerialName("profile_path") val profilePath: String? = null,
+    @SerialName("known_for_department") val knownForDepartment: String? = null
+)
+
+@Serializable
+data class TmdbCrewMemberDto(
+    val id: Int,
+    val name: String,
+    val job: String? = null,
+    val department: String? = null,
+    @SerialName("known_for_department") val knownForDepartment: String? = null
 )

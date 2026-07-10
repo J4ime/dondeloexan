@@ -22,6 +22,6 @@ sealed class Route(
     data object SettingsAbout : Route("settings/about", "Acerca de", Icons.Outlined.Settings)
 
     companion object {
-        val bottomNavItems = listOf(Series, Movies, Discover, Settings)
+        val bottomNavItems by lazy { listOf(Series, Movies, Discover, Settings) }
     }
 }

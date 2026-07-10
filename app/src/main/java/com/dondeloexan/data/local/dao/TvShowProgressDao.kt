@@ -24,6 +24,12 @@ interface TvShowProgressDao {
     @Query("SELECT * FROM tv_show_progress ORDER BY tv_show_id ASC, season ASC, episode ASC")
     suspend fun getAll(): List<TvShowProgressEntity>
 
+    @androidx.room.Delete
+    suspend fun delete(progress: TvShowProgressEntity)
+
+    @Query("DELETE FROM tv_show_progress WHERE tv_show_id = :tvShowId AND season = :season AND episode = :episode")
+    suspend fun deleteEpisode(tvShowId: Long, season: Int, episode: Int)
+
     @Query("DELETE FROM tv_show_progress WHERE tv_show_id = :tvShowId")
     suspend fun deleteByTvShowId(tvShowId: Long)
 

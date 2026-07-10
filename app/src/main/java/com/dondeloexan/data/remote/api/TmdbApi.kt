@@ -1,8 +1,11 @@
 package com.dondeloexan.data.remote.api
 
+import com.dondeloexan.data.remote.dto.TmdbCreditsResponse
 import com.dondeloexan.data.remote.dto.TmdbMovieDto
 import com.dondeloexan.data.remote.dto.TmdbMultiSearchResponse
 import com.dondeloexan.data.remote.dto.TmdbTrendingResponse
+import com.dondeloexan.data.remote.dto.TmdbTvDetailDto
+import com.dondeloexan.data.remote.dto.TmdbTvSeasonDetailDto
 import com.dondeloexan.data.remote.dto.TmdbWatchProvidersResponse
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -40,6 +43,15 @@ class TmdbApi(private val client: HttpClient) {
     suspend fun getMovieDetail(movieId: Int, language: String = "es-ES"): TmdbMovieDto {
         val response = client.get("movie/$movieId") {
             parameter("language", language)
+            parameter("append_to_response", "credits")
+        }
+        return response.body()
+    }
+
+    suspend fun getTvDetail(tvId: Int, language: String = "es-ES"): TmdbTvDetailDto {
+        val response = client.get("tv/$tvId") {
+            parameter("language", language)
+            parameter("append_to_response", "credits")
         }
         return response.body()
     }
@@ -56,6 +68,23 @@ class TmdbApi(private val client: HttpClient) {
 
     suspend fun getTrending(language: String = "es-ES"): TmdbTrendingResponse {
         val response = client.get("trending/all/week") {
+            parameter("language", language)
+        }
+        return response.body()
+    }
+
+    suspend fun getMovieCredits(movieId: Int): TmdbCreditsResponse {
+        val response = client.get("movie/$movieId/credits")
+        return response.body()
+    }
+
+    suspend fun getTvCredits(tvId: Int): TmdbCreditsResponse {
+        val response = client.get("tv/$tvId/credits")
+        return response.body()
+    }
+
+    suspend fun getTvSeason(tvId: Int, seasonNumber: Int, language: String = "es-ES"): TmdbTvSeasonDetailDto {
+        val response = client.get("tv/$tvId/season/$seasonNumber") {
             parameter("language", language)
         }
         return response.body()

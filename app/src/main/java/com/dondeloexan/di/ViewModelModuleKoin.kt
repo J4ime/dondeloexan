@@ -1,5 +1,6 @@
 package com.dondeloexan.di
 
+import com.dondeloexan.presentation.detail.MediaDetailViewModel
 import com.dondeloexan.presentation.discover.DiscoverViewModel
 import com.dondeloexan.presentation.platforms.PlatformsViewModel
 import com.dondeloexan.presentation.settings.LogViewerViewModel
@@ -12,4 +13,5 @@ val viewModelModule = module {
     viewModelOf(::SettingsViewModel)
     viewModelOf(::LogViewerViewModel)
     viewModelOf(::PlatformsViewModel)
+    viewModelOf(::MediaDetailViewModel)
 }

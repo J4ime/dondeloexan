@@ -12,7 +12,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.dondeloexan.presentation.theme.DarkSurface
-import com.dondeloexan.presentation.theme.PopcornYellow
+import com.dondeloexan.presentation.theme.EleganteRose
 import com.dondeloexan.presentation.theme.TextSecondary
 import com.dondeloexan.presentation.theme.UbuntuTypography
 
@@ -52,11 +52,11 @@ fun BottomNavigationBar(navController: NavController, modifier: Modifier = Modif
                     )
                 },
                 colors = NavigationBarItemDefaults.colors(
-                    selectedIconColor = PopcornYellow,
-                    selectedTextColor = PopcornYellow,
+                    selectedIconColor = EleganteRose,
+                    selectedTextColor = EleganteRose,
                     unselectedIconColor = TextSecondary,
                     unselectedTextColor = TextSecondary,
-                    indicatorColor = PopcornYellow.copy(alpha = 0.12f)
+                    indicatorColor = EleganteRose.copy(alpha = 0.12f)
                 )
             )
         }

@@ -34,6 +34,9 @@ interface MovieDao {
     @Query("SELECT * FROM movies WHERE id = :id")
     suspend fun getById(id: Long): MovieEntity?
 
+    @Query("SELECT * FROM movies WHERE content_id = :contentId LIMIT 1")
+    suspend fun getByContentId(contentId: String): MovieEntity?
+
     @Query("SELECT * FROM movies WHERE status = :status ORDER BY added_at DESC")
     fun getByStatus(status: WatchStatus): Flow<List<MovieEntity>>
 

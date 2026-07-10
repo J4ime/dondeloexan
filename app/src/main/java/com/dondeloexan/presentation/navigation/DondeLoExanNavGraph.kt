@@ -20,8 +20,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavController
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.navArgument
+import com.dondeloexan.presentation.detail.MediaDetailScreen
 import com.dondeloexan.presentation.discover.DiscoverScreen
 import com.dondeloexan.presentation.movies.MoviesScreen
 import com.dondeloexan.presentation.platforms.PlatformsScreen
@@ -69,39 +72,18 @@ fun DondeLoExanNavGraph(navController: NavHostController) {
             AboutScreen(navController = navController)
         }
 
-        composable("discover/{contentId}") { backStackEntry ->
-            val contentId = backStackEntry.arguments?.getString("contentId") ?: return@composable
-            DetailPlaceholder(contentId = contentId, onBack = { navController.popBackStack() })
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun DetailPlaceholder(contentId: String, onBack: () -> Unit) {
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Detalle", color = TextPrimary) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack, "Volver",
-                            tint = TextPrimary
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBackground)
+        composable(
+            route = "detail/{contentId}/{contentType}",
+            arguments = listOf(
+                navArgument("contentId") { type = NavType.StringType },
+                navArgument("contentType") { type = NavType.StringType }
             )
-        }
-    ) { padding ->
-        Box(
-            Modifier
-                .fillMaxSize()
-                .padding(padding),
-            contentAlignment = Alignment.Center
-        ) {
-            Text("Contenido: $contentId", color = TextSecondary)
+        ) { backStackEntry ->
+            val contentId = backStackEntry.arguments?.getString("contentId") ?: return@composable
+            MediaDetailScreen(
+                contentId = contentId,
+                onBack = { navController.popBackStack() }
+            )
         }
     }
 }

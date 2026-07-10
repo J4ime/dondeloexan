@@ -34,8 +34,14 @@ interface TvShowDao {
     @Query("SELECT * FROM tv_shows WHERE id = :id")
     suspend fun getById(id: Long): TvShowEntity?
 
+    @Query("SELECT * FROM tv_shows WHERE content_id = :contentId LIMIT 1")
+    suspend fun getByContentId(contentId: String): TvShowEntity?
+
     @Query("SELECT * FROM tv_shows WHERE status = :status ORDER BY added_at DESC")
     fun getByStatus(status: WatchStatus): Flow<List<TvShowEntity>>
+
+    @Query("SELECT * FROM tv_shows WHERE liked = 1 ORDER BY added_at DESC")
+    fun getLiked(): Flow<List<TvShowEntity>>
 
     @Query("DELETE FROM tv_shows")
     suspend fun deleteAll()

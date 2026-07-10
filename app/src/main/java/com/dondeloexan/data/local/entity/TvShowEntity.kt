@@ -7,6 +7,7 @@ import androidx.room.PrimaryKey
 @Entity(tableName = "tv_shows")
 data class TvShowEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    @ColumnInfo(name = "content_id") val contentId: String? = null,
     @ColumnInfo(name = "film_affinity_id") val filmAffinityId: Int? = null,
     @ColumnInfo(name = "tmdb_id") val tmdbId: Int? = null,
     val title: String,
@@ -15,6 +16,7 @@ data class TvShowEntity(
     @ColumnInfo(name = "rating_tmdb") val ratingTmdb: Float? = null,
     @ColumnInfo(name = "rating_imdb") val ratingImdb: Float? = null,
     val status: WatchStatus = WatchStatus.POR_VER,
+    val liked: Boolean = false,
     @ColumnInfo(name = "total_episodes") val totalEpisodes: Int? = null,
     @ColumnInfo(name = "added_at") val addedAt: Long = System.currentTimeMillis()
 )

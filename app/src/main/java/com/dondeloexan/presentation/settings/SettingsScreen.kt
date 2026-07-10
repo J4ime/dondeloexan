@@ -42,7 +42,7 @@ import com.dondeloexan.presentation.settings.components.SettingsItem
 import com.dondeloexan.presentation.settings.components.UpdateAvailableDialog
 import com.dondeloexan.presentation.settings.components.UpdateCheckTrailing
 import com.dondeloexan.presentation.theme.DarkBackground
-import com.dondeloexan.presentation.theme.PopcornYellow
+import com.dondeloexan.presentation.theme.EleganteRose
 import com.dondeloexan.presentation.theme.TextPrimary
 import com.dondeloexan.presentation.theme.TextSecondary
 import org.koin.androidx.compose.koinViewModel
@@ -120,7 +120,7 @@ fun SettingsScreen(
                     Text("Importando copia de seguridad...", color = TextSecondary)
                     LinearProgressIndicator(
                         modifier = Modifier.padding(top = 16.dp),
-                        color = PopcornYellow
+                        color = EleganteRose
                     )
                 }
             },

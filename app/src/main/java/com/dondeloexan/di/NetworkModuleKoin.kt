@@ -1,6 +1,7 @@
 package com.dondeloexan.di
 
 import com.dondeloexan.BuildConfig
+import com.dondeloexan.data.remote.api.FilmAffinityApi
 import com.dondeloexan.data.remote.api.GitHubApi
 import com.dondeloexan.data.remote.api.OmdbApi
 import com.dondeloexan.data.remote.api.TmdbApi
@@ -59,6 +60,24 @@ val networkModule = module {
             }
         }
         OmdbApi(client, BuildConfig.OMDB_API_KEY)
+    }
+
+    // ── FilmAffinity RapidAPI ──
+    single {
+        val client = HttpClient {
+            install(ContentNegotiation) { json(get()) }
+            install(HttpTimeout) {
+                requestTimeoutMillis = 15_000
+                connectTimeoutMillis = 10_000
+            }
+            defaultRequest {
+                url("https://filmaffinity-data-api.p.rapidapi.com/")
+                header("x-rapidapi-key", BuildConfig.RAPIDAPI_KEY)
+                header("x-rapidapi-host", "filmaffinity-data-api.p.rapidapi.com")
+                contentType(ContentType.Application.Json)
+            }
+        }
+        FilmAffinityApi(client)
     }
 
     // ── GitHub ──

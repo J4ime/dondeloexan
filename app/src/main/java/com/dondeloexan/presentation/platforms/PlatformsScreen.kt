@@ -10,8 +10,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
@@ -31,7 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.dondeloexan.presentation.theme.DarkBackground
 import com.dondeloexan.presentation.theme.DarkSurfaceVariant
-import com.dondeloexan.presentation.theme.PopcornYellow
+import com.dondeloexan.presentation.theme.EleganteRose
 import com.dondeloexan.presentation.theme.TextPrimary
 import com.dondeloexan.presentation.theme.TextSecondary
 import com.dondeloexan.presentation.theme.UbuntuTypography
@@ -76,7 +76,7 @@ fun PlatformsScreen(
                 color = TextSecondary,
                 modifier = Modifier.padding(vertical = 12.dp)
             )
-            Divider(color = DarkSurfaceVariant)
+            HorizontalDivider(color = DarkSurfaceVariant)
 
             LazyColumn {
                 items(allPlatforms) { platform ->
@@ -85,7 +85,7 @@ fun PlatformsScreen(
                         isActive = platform in activePlatforms,
                         onToggle = { viewModel.togglePlatform(platform) }
                     )
-                    Divider(color = DarkSurfaceVariant.copy(alpha = 0.3f))
+                    HorizontalDivider(color = DarkSurfaceVariant.copy(alpha = 0.3f))
                 }
             }
         }
@@ -145,8 +145,8 @@ fun PlatformToggle(name: String, isActive: Boolean, onToggle: (Boolean) -> Unit)
             checked = isActive,
             onCheckedChange = onToggle,
             colors = SwitchDefaults.colors(
-                checkedThumbColor = PopcornYellow,
-                checkedTrackColor = PopcornYellow.copy(alpha = 0.3f),
+                checkedThumbColor = EleganteRose,
+                checkedTrackColor = EleganteRose.copy(alpha = 0.3f),
                 uncheckedThumbColor = TextSecondary,
                 uncheckedTrackColor = DarkSurfaceVariant
             )

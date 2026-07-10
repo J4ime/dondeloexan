@@ -26,7 +26,7 @@ import com.dondeloexan.data.local.entity.UserPlatformEntity
         SearchHistoryEntity::class,
         UserPlatformEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -61,6 +61,7 @@ abstract class AppDatabase : RoomDatabase() {
 
         fun create(context: Context): AppDatabase {
             return Room.databaseBuilder(context, AppDatabase::class.java, DB_NAME)
+                .fallbackToDestructiveMigration()
                 .addCallback(seedCallback)
                 .build()
         }

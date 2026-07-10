@@ -1,11 +1,11 @@
 package com.dondeloexan.presentation.discover
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
@@ -13,11 +13,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -28,9 +28,6 @@ import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.SearchOff
-import androidx.compose.material3.Button
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -47,18 +44,19 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.dondeloexan.domain.model.ContentPreview
 import com.dondeloexan.presentation.discover.components.SearchItemCard
 import com.dondeloexan.presentation.navigation.BottomNavigationBar
-import com.dondeloexan.presentation.theme.CinemaRed
 import com.dondeloexan.presentation.theme.DarkBackground
 import com.dondeloexan.presentation.theme.DarkSurface
-import com.dondeloexan.presentation.theme.PopcornYellow
+import com.dondeloexan.presentation.theme.EleganteRose
+import com.dondeloexan.presentation.theme.EleganteRoseDark
 import com.dondeloexan.presentation.theme.TextPrimary
 import com.dondeloexan.presentation.theme.TextSecondary
 import com.dondeloexan.presentation.theme.UbuntuTypography
@@ -72,7 +70,8 @@ fun DiscoverScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
-    val activePlatforms by viewModel.activePlatforms.collectAsState()
+    val likedIds by viewModel.likedIds.collectAsState()
+    val watchedIds by viewModel.watchedIds.collectAsState()
 
     Scaffold(
         topBar = {
@@ -98,10 +97,17 @@ fun DiscoverScreen(
             DiscoverContent(
                 uiState = uiState,
                 searchQuery = searchQuery,
-                activePlatforms = activePlatforms,
+                likedIds = likedIds,
+                watchedIds = watchedIds,
                 onItemClick = { contentId ->
-                    navController.navigate("discover/$contentId")
+                    val type = when {
+                        contentId.startsWith("fa-") -> "fa"
+                        else -> "tmdb"
+                    }
+                    navController.navigate("detail/$contentId/$type")
                 },
+                onFavoriteClick = viewModel::onToggleFavorite,
+                onWatchedClick = viewModel::onToggleWatched,
                 onRetry = viewModel::onRetry
             )
         }
@@ -136,11 +142,11 @@ fun DiscoverSearchBar(
         singleLine = true,
         shape = RoundedCornerShape(12.dp),
         colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = PopcornYellow.copy(alpha = 0.5f),
+            focusedBorderColor = EleganteRose.copy(alpha = 0.5f),
             unfocusedBorderColor = TextSecondary.copy(alpha = 0.2f),
             focusedTextColor = TextPrimary,
             unfocusedTextColor = TextPrimary,
-            cursorColor = PopcornYellow,
+            cursorColor = EleganteRose,
             focusedContainerColor = DarkSurface,
             unfocusedContainerColor = DarkSurface
         ),
@@ -152,8 +158,11 @@ fun DiscoverSearchBar(
 fun DiscoverContent(
     uiState: DiscoverUiState,
     searchQuery: String,
-    activePlatforms: Set<String>,
+    likedIds: Set<String>,
+    watchedIds: Set<String>,
     onItemClick: (String) -> Unit,
+    onFavoriteClick: (ContentPreview) -> Unit,
+    onWatchedClick: (ContentPreview) -> Unit,
     onRetry: () -> Unit
 ) {
     when (uiState) {
@@ -173,7 +182,10 @@ fun DiscoverContent(
                     ) {
                         SearchItemCard(
                             content = content,
-                            activePlatforms = activePlatforms,
+                            isLiked = likedIds.contains(content.id),
+                            isWatched = watchedIds.contains(content.id),
+                            onFavoriteClick = { onFavoriteClick(content) },
+                            onWatchedClick = { onWatchedClick(content) },
                             onClick = { onItemClick(content.id) }
                         )
                     }
@@ -191,7 +203,7 @@ fun InitialState() {
                 painter = painterResource(com.dondeloexan.R.drawable.ic_popcorn),
                 contentDescription = null,
                 modifier = Modifier.size(120.dp),
-                tint = PopcornYellow.copy(alpha = 0.15f)
+                tint = EleganteRose.copy(alpha = 0.15f)
             )
             Spacer(Modifier.height(16.dp))
             Text(
@@ -227,66 +239,65 @@ fun ShimmerCard() {
         DarkSurface.copy(alpha = 0.2f),
         DarkSurface.copy(alpha = 0.6f)
     )
-    val transition = androidx.compose.animation.core.rememberInfiniteTransition()
+    val transition = rememberInfiniteTransition()
     val translateAnim = transition.animateFloat(
         initialValue = 0f,
         targetValue = 1000f,
-        animationSpec = androidx.compose.animation.core.infiniteRepeatable(
-            androidx.compose.animation.core.tween(1200, easing = androidx.compose.animation.core.LinearEasing)
+        animationSpec = infiniteRepeatable(
+            tween(1200, easing = LinearEasing)
         )
     )
-    val brush = androidx.compose.ui.graphics.Brush.linearGradient(
+    val brush = Brush.linearGradient(
         colors = shimmerColors,
-        start = androidx.compose.ui.geometry.Offset(translateAnim.value - 200f, 0f),
-        end = androidx.compose.ui.geometry.Offset(translateAnim.value, 0f)
+        start = Offset(translateAnim.value - 200f, 0f),
+        end = Offset(translateAnim.value, 0f)
     )
 
-    androidx.compose.material3.ElevatedCard(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = androidx.compose.material3.CardDefaults.elevatedCardColors(containerColor = DarkSurface)
+            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .height(220.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(DarkSurface)
     ) {
-        Row(
-            Modifier.padding(12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
         ) {
             Box(
-                Modifier
-                    .size(width = 100.dp, height = 150.dp)
-                    .clip(RoundedCornerShape(12.dp))
+                modifier = Modifier
+                    .width(80.dp)
+                    .height(120.dp)
+                    .clip(RoundedCornerShape(8.dp))
                     .background(brush)
+                    .align(Alignment.BottomStart)
             )
             Column(
-                Modifier.weight(1f),
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .fillMaxWidth(0.65f),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Box(
                     Modifier
-                        .fillMaxWidth(0.7f)
+                        .fillMaxWidth()
                         .height(18.dp)
                         .clip(RoundedCornerShape(4.dp))
                         .background(brush)
                 )
                 Box(
                     Modifier
-                        .fillMaxWidth(0.5f)
-                        .height(12.dp)
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(brush)
-                )
-                Box(
-                    Modifier
-                        .fillMaxWidth(0.4f)
-                        .height(12.dp)
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(brush)
-                )
-                Box(
-                    Modifier
                         .fillMaxWidth(0.6f)
-                        .height(24.dp)
+                        .height(12.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(brush)
+                )
+                Box(
+                    Modifier
+                        .fillMaxWidth(0.8f)
+                        .height(20.dp)
                         .clip(RoundedCornerShape(8.dp))
                         .background(brush)
                 )
@@ -321,7 +332,7 @@ fun ErrorState(message: String, onRetry: () -> Unit) {
             Icon(
                 Icons.Outlined.ErrorOutline, null,
                 Modifier.size(48.dp),
-                tint = CinemaRed.copy(alpha = 0.6f)
+                tint = EleganteRoseDark.copy(alpha = 0.6f)
             )
             Spacer(Modifier.height(8.dp))
             Text(
