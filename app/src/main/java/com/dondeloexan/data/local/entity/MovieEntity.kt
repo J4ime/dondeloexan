@@ -11,11 +11,13 @@ data class MovieEntity(
     @ColumnInfo(name = "film_affinity_id") val filmAffinityId: Int? = null,
     @ColumnInfo(name = "tmdb_id") val tmdbId: Int? = null,
     val title: String,
+    val year: Int? = null,
     @ColumnInfo(name = "poster_url") val posterUrl: String? = null,
     @ColumnInfo(name = "rating_fa") val ratingFa: Float? = null,
     @ColumnInfo(name = "rating_tmdb") val ratingTmdb: Float? = null,
     @ColumnInfo(name = "rating_imdb") val ratingImdb: Float? = null,
     val status: WatchStatus = WatchStatus.POR_VER,
     val liked: Boolean = false,
+    @ColumnInfo(name = "streaming_platforms") val streamingPlatforms: String? = null,
     @ColumnInfo(name = "added_at") val addedAt: Long = System.currentTimeMillis()
 )

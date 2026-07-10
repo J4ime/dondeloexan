@@ -2,7 +2,9 @@ package com.dondeloexan.di
 
 import com.dondeloexan.presentation.detail.MediaDetailViewModel
 import com.dondeloexan.presentation.discover.DiscoverViewModel
+import com.dondeloexan.presentation.movies.MoviesViewModel
 import com.dondeloexan.presentation.platforms.PlatformsViewModel
+import com.dondeloexan.presentation.series.SeriesViewModel
 import com.dondeloexan.presentation.settings.LogViewerViewModel
 import com.dondeloexan.presentation.settings.SettingsViewModel
 import org.koin.androidx.viewmodel.dsl.viewModelOf
@@ -14,4 +16,6 @@ val viewModelModule = module {
     viewModelOf(::LogViewerViewModel)
     viewModelOf(::PlatformsViewModel)
     viewModelOf(::MediaDetailViewModel)
+    viewModelOf(::MoviesViewModel)
+    viewModelOf(::SeriesViewModel)
 }

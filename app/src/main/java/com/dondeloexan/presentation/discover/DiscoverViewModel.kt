@@ -107,6 +107,7 @@ class DiscoverViewModel(
                                     contentId = preview.id,
                                     filmAffinityId = preview.filmAffinityId,
                                     title = preview.title,
+                                    year = preview.year,
                                     posterUrl = preview.coverUrl,
                                     ratingFa = preview.ratingFa,
                                     liked = true
@@ -124,6 +125,7 @@ class DiscoverViewModel(
                                     contentId = preview.id,
                                     filmAffinityId = preview.filmAffinityId,
                                     title = preview.title,
+                                    year = preview.year,
                                     posterUrl = preview.coverUrl,
                                     ratingFa = preview.ratingFa,
                                     liked = true
@@ -153,6 +155,7 @@ class DiscoverViewModel(
                                     contentId = preview.id,
                                     filmAffinityId = preview.filmAffinityId,
                                     title = preview.title,
+                                    year = preview.year,
                                     posterUrl = preview.coverUrl,
                                     ratingFa = preview.ratingFa,
                                     status = WatchStatus.YA_VISTA
@@ -171,6 +174,7 @@ class DiscoverViewModel(
                                     contentId = preview.id,
                                     filmAffinityId = preview.filmAffinityId,
                                     title = preview.title,
+                                    year = preview.year,
                                     posterUrl = preview.coverUrl,
                                     ratingFa = preview.ratingFa,
                                     status = WatchStatus.YA_VISTA

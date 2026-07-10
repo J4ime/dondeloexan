@@ -92,7 +92,7 @@ fun TmdbMultiSearchResult.toContentPreview(): ContentPreview = ContentPreview(
     type = if (mediaType == "tv") ContentType.SERIES else ContentType.MOVIE,
     year = releaseDate?.substringBefore("-")?.toIntOrNull()
         ?: firstAirDate?.substringBefore("-")?.toIntOrNull(),
-    coverUrl = posterPath?.let { "https://image.tmdb.org/t/p/w185$it" },
+    coverUrl = posterPath?.let { "https://image.tmdb.org/t/p/w500$it" },
     ratingFa = voteAverage?.let { it / 2f }
 )
 
