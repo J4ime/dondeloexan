@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -87,6 +88,7 @@ fun DiscoverScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .height(48.dp)
                 .padding(horizontal = 16.dp, vertical = 0.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -94,7 +96,7 @@ fun DiscoverScreen(
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = viewModel::onSearchQueryChanged,
-                modifier = Modifier.weight(1f).heightIn(min = 44.dp),
+                modifier = Modifier.weight(1f).fillMaxHeight(),
                 placeholder = null,
                 leadingIcon = {
                     Icon(Icons.Outlined.Search, null, tint = TextSecondary, modifier = Modifier.size(18.dp))

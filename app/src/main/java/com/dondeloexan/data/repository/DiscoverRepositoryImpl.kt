@@ -3,13 +3,17 @@ package com.dondeloexan.data.repository
 import com.dondeloexan.data.local.dao.MovieDao
 import com.dondeloexan.data.local.dao.TvShowDao
 import com.dondeloexan.data.local.dao.UserPlatformDao
+import com.dondeloexan.data.remote.api.BalloonerismmApi
 import com.dondeloexan.data.remote.api.OmdbApi
 import com.dondeloexan.data.remote.api.TmdbApi
 import com.dondeloexan.data.remote.mapper.toContentPreview
 import com.dondeloexan.data.remote.mapper.toDomain
 import com.dondeloexan.data.remote.mapper.toStreamingAvailability
+import com.dondeloexan.data.remote.mapper.toStreamingAvailability as imdbToStreaming
+import com.dondeloexan.domain.model.AvailabilityType
 import com.dondeloexan.domain.model.Content
 import com.dondeloexan.domain.model.ContentPreview
+import com.dondeloexan.domain.model.ContentSource
 import com.dondeloexan.domain.model.ContentType
 import com.dondeloexan.domain.model.DataResult
 import com.dondeloexan.domain.model.StreamingAvailability
@@ -18,9 +22,9 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
-import kotlin.math.log10
 
 class DiscoverRepositoryImpl(
+    private val imdbApi: BalloonerismmApi,
     private val tmdbApi: TmdbApi,
     private val omdbApi: OmdbApi,
     private val userPlatformDao: UserPlatformDao,
@@ -28,30 +32,43 @@ class DiscoverRepositoryImpl(
     private val tvShowDao: TvShowDao
 ) : DiscoverRepository {
 
-    override suspend fun search(query: String): Flow<DataResult<List<ContentPreview>>> = flow {
+    override suspend fun search(query: String): Flow<DataResult<List<ContentPreview>>> = search(query, 1)
+
+    override suspend fun search(query: String, page: Int): Flow<DataResult<List<ContentPreview>>> = flow {
         emit(DataResult.Loading)
 
         try {
-            val tmdbResult = tmdbApi.searchMulti(query)
-
-            val previews = tmdbResult.results
+            val imdbResult = imdbApi.searchMulti(query, page = page)
+            val previews = imdbResult.results
                 .filter { it.mediaType in listOf("movie", "tv") && !it.adult }
                 .map { it.toContentPreview() }
-                .sortedByDescending {
-                    log10((it.voteCount ?: 0).toDouble() + 1.0) * WEIGHT_POPULARITY
-                }
                 .take(20)
 
-            val withImdbRatings = enrichWithImdbRatings(previews)
-            val withPlatforms = attachPlatformsToPreviews(withImdbRatings)
-            emit(DataResult.Success(withPlatforms))
+            if (previews.isNotEmpty()) {
+                val withPlatforms = attachImdbPlatforms(previews)
+                emit(DataResult.Success(withPlatforms))
+            } else {
+                val tmdbResult = tmdbApi.searchMulti(query)
+                val tmdbPreviews = tmdbResult.results
+                    .filter { it.mediaType in listOf("movie", "tv") && !it.adult }
+                    .map { it.toContentPreview() }
+                    .take(20)
+                val withPlatforms = attachTmbdPlatforms(tmdbPreviews)
+                emit(DataResult.Success(withPlatforms))
+            }
         } catch (e: Exception) {
-            emit(DataResult.Error(e))
+            try {
+                val tmdbResult = tmdbApi.searchMulti(query)
+                val tmdbPreviews = tmdbResult.results
+                    .filter { it.mediaType in listOf("movie", "tv") && !it.adult }
+                    .map { it.toContentPreview() }
+                    .take(20)
+                val withPlatforms = attachTmbdPlatforms(tmdbPreviews)
+                emit(DataResult.Success(withPlatforms))
+            } catch (fallback: Exception) {
+                emit(DataResult.Error(e))
+            }
         }
-    }
-
-    companion object {
-        private const val WEIGHT_POPULARITY = 5.0
     }
 
     override suspend fun getDetail(contentId: String, contentType: ContentType): Flow<DataResult<Content>> = flow {
@@ -65,25 +82,47 @@ class DiscoverRepositoryImpl(
 
             val activePlatforms = userPlatformDao.getActiveNames().toSet()
             val prioritized = prioritizePlatforms(content, activePlatforms)
-
             emit(DataResult.Success(prioritized))
         } catch (e: Exception) {
             emit(DataResult.Error(e))
         }
     }
 
-    override suspend fun getTrending(): Flow<DataResult<List<ContentPreview>>> = flow {
+    override suspend fun getTrending(): Flow<DataResult<List<ContentPreview>>> = getTrending(1)
+
+    override suspend fun getTrending(page: Int): Flow<DataResult<List<ContentPreview>>> = flow {
         emit(DataResult.Loading)
         try {
-            val trending = tmdbApi.getTrending()
-            val previews = trending.results
-                .filter { it.mediaType in listOf("movie", "tv") }
+            val imdbResult = imdbApi.popularAll(page = page)
+            val previews = imdbResult.results
+                .filter { it.mediaType in listOf("movie", "tv") && !it.adult }
                 .map { it.toContentPreview() }
-            val withImdbRatings = enrichWithImdbRatings(previews)
-            val withPlatforms = attachPlatformsToPreviews(withImdbRatings)
-            emit(DataResult.Success(withPlatforms))
+                .take(20)
+
+            if (previews.isNotEmpty()) {
+                val withPlatforms = attachImdbPlatforms(previews)
+                emit(DataResult.Success(withPlatforms))
+            } else {
+                val tmdbTrending = tmdbApi.getTrending()
+                val tmdbPreviews = tmdbTrending.results
+                    .filter { it.mediaType in listOf("movie", "tv") }
+                    .map { it.toContentPreview() }
+                    .take(20)
+                val withPlatforms = attachTmbdPlatforms(tmdbPreviews)
+                emit(DataResult.Success(withPlatforms))
+            }
         } catch (e: Exception) {
-            emit(DataResult.Error(e))
+            try {
+                val tmdbTrending = tmdbApi.getTrending()
+                val tmdbPreviews = tmdbTrending.results
+                    .filter { it.mediaType in listOf("movie", "tv") }
+                    .map { it.toContentPreview() }
+                    .take(20)
+                val withPlatforms = attachTmbdPlatforms(tmdbPreviews)
+                emit(DataResult.Success(withPlatforms))
+            } catch (fallback: Exception) {
+                emit(DataResult.Error(e))
+            }
         }
     }
 
@@ -126,7 +165,7 @@ class DiscoverRepositoryImpl(
             }
 
             val content = movie.toDomain(omdbRatings, platforms, credits)
-            val enriched = if (movie.imdbId != null) {
+            if (movie.imdbId != null) {
                 try {
                     val omdb = omdbApi.getByImdbId(movie.imdbId)
                     content.copy(
@@ -137,8 +176,6 @@ class DiscoverRepositoryImpl(
                     )
                 } catch (_: Exception) { content }
             } else content
-
-            enriched
         }
     }
 
@@ -152,7 +189,28 @@ class DiscoverRepositoryImpl(
         return content.copy(streamingPlatforms = active + others)
     }
 
-    private suspend fun attachPlatformsToPreviews(previews: List<ContentPreview>): List<ContentPreview> {
+    private suspend fun attachImdbPlatforms(previews: List<ContentPreview>): List<ContentPreview> {
+        return coroutineScope {
+            previews.map { preview ->
+                async {
+                    val platforms = try {
+                        val imdbId = preview.id.removePrefix("imdb-")
+                        val providerResponse = if (preview.type == ContentType.SERIES) {
+                            imdbApi.getTvWatchProviders(imdbId)
+                        } else {
+                            imdbApi.getMovieWatchProviders(imdbId)
+                        }
+                        providerResponse.results["ES"]?.imdbToStreaming().orEmpty()
+                    } catch (_: Exception) {
+                        tryFetchTmbdPlatforms(preview)
+                    }
+                    preview.copy(streamingPlatforms = platforms)
+                }
+            }.map { it.await() }
+        }
+    }
+
+    private suspend fun attachTmbdPlatforms(previews: List<ContentPreview>): List<ContentPreview> {
         return coroutineScope {
             previews.map { preview ->
                 async {
@@ -165,24 +223,26 @@ class DiscoverRepositoryImpl(
                         }
                         providerResponse.results["ES"]?.toStreamingAvailability().orEmpty()
                     } catch (_: Exception) { emptyList<StreamingAvailability>() }
-
                     preview.copy(streamingPlatforms = platforms)
                 }
             }.map { it.await() }
         }
     }
 
-    private suspend fun enrichWithImdbRatings(previews: List<ContentPreview>): List<ContentPreview> {
-        return coroutineScope {
-            previews.map { preview ->
-                async {
-                    try {
-                        val omdb = omdbApi.getByTitle(preview.title, year = preview.year)
-                        val rating = omdb.imdbRating?.toFloatOrNull()
-                        if (rating != null) preview.copy(ratingImdb = rating) else preview
-                    } catch (_: Exception) { preview }
+    private suspend fun tryFetchTmbdPlatforms(preview: ContentPreview): List<StreamingAvailability> {
+        return try {
+            val tmdbSearch = tmdbApi.searchMulti(preview.title)
+            val match = tmdbSearch.results.firstOrNull {
+                it.mediaType == if (preview.type == ContentType.SERIES) "tv" else "movie"
+            }
+            if (match != null) {
+                val providerResponse = if (preview.type == ContentType.SERIES) {
+                    tmdbApi.getTvWatchProviders(match.id)
+                } else {
+                    tmdbApi.getMovieWatchProviders(match.id)
                 }
-            }.map { it.await() }
-        }
+                providerResponse.results["ES"]?.toStreamingAvailability().orEmpty()
+            } else emptyList()
+        } catch (_: Exception) { emptyList() }
     }
 }

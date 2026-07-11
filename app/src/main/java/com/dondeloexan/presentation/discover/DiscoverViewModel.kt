@@ -43,6 +43,10 @@ class DiscoverViewModel(
     private val _filterByPlatforms = MutableStateFlow(true)
     val filterByPlatforms: StateFlow<Boolean> = _filterByPlatforms.asStateFlow()
 
+    private var currentPage = 1
+    private var isLoadingMore = false
+    private val accumulatedResults = mutableListOf<ContentPreview>()
+
     init {
         loadTrending()
     }
@@ -84,7 +88,7 @@ class DiscoverViewModel(
             _uiState.value = DiscoverUiState.Loading
 
             try {
-                discoverRepository.search(query).collect { result ->
+                discoverRepository.search(query, currentPage).collect { result ->
                     when (result) {
                         is DataResult.Loading -> _uiState.value = DiscoverUiState.Loading
                         is DataResult.Success -> {
@@ -303,9 +307,23 @@ class DiscoverViewModel(
         }
     }
 
+    fun loadNextPage() {
+        if (isLoadingMore) return
+        isLoadingMore = true
+        val query = _searchQuery.value
+        currentPage++
+        if (query.isBlank()) {
+            loadTrendingPage(currentPage)
+        } else {
+            loadSearchPage(query, currentPage)
+        }
+    }
+
     fun onClearSearch() {
         _searchQuery.value = ""
         searchJob?.cancel()
+        currentPage = 1
+        accumulatedResults.clear()
         loadTrending()
     }
 
@@ -329,10 +347,16 @@ class DiscoverViewModel(
     }
 
     private fun loadTrending() {
+        currentPage = 1
+        accumulatedResults.clear()
+        loadTrendingPage(1)
+    }
+
+    private fun loadTrendingPage(page: Int) {
         viewModelScope.launch {
             _uiState.value = DiscoverUiState.Loading
             try {
-                discoverRepository.getTrending().collect { result ->
+                discoverRepository.getTrending(page).collect { result ->
                     when (result) {
                         is DataResult.Loading -> _uiState.value = DiscoverUiState.Loading
                         is DataResult.Success -> {
@@ -405,6 +429,32 @@ class DiscoverViewModel(
                 AppLogger.e("DiscoverVM", "Trending error", e)
                 _uiState.value = DiscoverUiState.Error(e.message ?: "Error desconocido")
             }
+        }
+    }
+
+    private fun loadSearchPage(query: String, page: Int) {
+        viewModelScope.launch {
+            isLoadingMore = true
+            try {
+                discoverRepository.search(query, page).collect { result ->
+                    when (result) {
+                        is DataResult.Loading -> {}
+                        is DataResult.Success -> {
+                            _uiState.value = if (result.data.isEmpty()) {
+                                DiscoverUiState.Empty(query)
+                            } else {
+                                DiscoverUiState.Success(result.data)
+                            }
+                        }
+                        is DataResult.Error -> {
+                            AppLogger.e("DiscoverVM", "Search page error", result.exception)
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) return@launch
+            }
+            isLoadingMore = false
         }
     }
 }

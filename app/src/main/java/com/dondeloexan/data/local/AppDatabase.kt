@@ -90,9 +90,67 @@ abstract class AppDatabase : RoomDatabase() {
             )
         }
 
+        private val MIGRATION_9_10 = Migration(9, 10) { db ->
+            db.execSQL("""
+                CREATE TABLE movies_new (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    content_id TEXT,
+                    tmdb_id INTEGER,
+                    title TEXT NOT NULL,
+                    year INTEGER,
+                    release_date TEXT,
+                    poster_url TEXT,
+                    rating_tmdb REAL,
+                    rating_imdb REAL,
+                    status TEXT NOT NULL DEFAULT 'POR_VER',
+                    liked INTEGER NOT NULL DEFAULT 0,
+                    streaming_platforms TEXT,
+                    watched_at INTEGER,
+                    added_at INTEGER NOT NULL
+                )
+            """)
+            db.execSQL("""
+                INSERT INTO movies_new (id, content_id, tmdb_id, title, year, release_date, poster_url, rating_tmdb, rating_imdb, status, liked, streaming_platforms, watched_at, added_at)
+                SELECT id, content_id, tmdb_id, title, year, release_date, poster_url, rating_tmdb, rating_imdb, status, liked, streaming_platforms, watched_at, added_at FROM movies
+            """)
+            db.execSQL("DROP TABLE movies")
+            db.execSQL("ALTER TABLE movies_new RENAME TO movies")
+
+            db.execSQL("""
+                CREATE TABLE tv_shows_new (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    content_id TEXT,
+                    tmdb_id INTEGER,
+                    title TEXT NOT NULL,
+                    year INTEGER,
+                    poster_url TEXT,
+                    rating_tmdb REAL,
+                    rating_imdb REAL,
+                    status TEXT NOT NULL DEFAULT 'POR_VER',
+                    liked INTEGER NOT NULL DEFAULT 0,
+                    total_episodes INTEGER,
+                    streaming_platforms TEXT,
+                    added_at INTEGER NOT NULL,
+                    next_episode_air_date TEXT,
+                    next_episode_number INTEGER,
+                    next_episode_season INTEGER,
+                    series_status TEXT,
+                    in_production INTEGER,
+                    num_seasons INTEGER,
+                    last_watched_at INTEGER
+                )
+            """)
+            db.execSQL("""
+                INSERT INTO tv_shows_new (id, content_id, tmdb_id, title, year, poster_url, rating_tmdb, rating_imdb, status, liked, total_episodes, streaming_platforms, added_at, next_episode_air_date, next_episode_number, next_episode_season, series_status, in_production, num_seasons, last_watched_at)
+                SELECT id, content_id, tmdb_id, title, year, poster_url, rating_tmdb, rating_imdb, status, liked, total_episodes, streaming_platforms, added_at, next_episode_air_date, next_episode_number, next_episode_season, series_status, in_production, num_seasons, last_watched_at FROM tv_shows
+            """)
+            db.execSQL("DROP TABLE tv_shows")
+            db.execSQL("ALTER TABLE tv_shows_new RENAME TO tv_shows")
+        }
+
         fun create(context: Context): AppDatabase {
             return Room.databaseBuilder(context, AppDatabase::class.java, DB_NAME)
-                .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
+                .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
                 .fallbackToDestructiveMigration()
                 .addCallback(seedCallback)
                 .build()

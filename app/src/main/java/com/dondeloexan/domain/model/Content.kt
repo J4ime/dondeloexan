@@ -57,6 +57,6 @@ data class StreamingAvailability(
     val webUrl: String? = null
 )
 
-enum class ContentSource { TMDB }
+enum class ContentSource { TMDB, IMDB }
 enum class ContentType { MOVIE, SERIES }
 enum class AvailabilityType { SUBSCRIPTION, RENT, BUY, FREE, ADS }

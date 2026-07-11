@@ -1,6 +1,7 @@
 package com.dondeloexan.di
 
 import com.dondeloexan.BuildConfig
+import com.dondeloexan.data.remote.api.BalloonerismmApi
 import com.dondeloexan.data.remote.api.GitHubApi
 import com.dondeloexan.data.remote.api.OmdbApi
 import com.dondeloexan.data.remote.api.TmdbApi
@@ -25,6 +26,23 @@ val networkModule = module {
             isLenient = true
             prettyPrint = false
         }
+    }
+
+    // ── Balloonerismm (IMDb) ──
+    single {
+        val client = HttpClient {
+            install(ContentNegotiation) { json(get()) }
+            install(HttpTimeout) {
+                requestTimeoutMillis = 20_000
+                connectTimeoutMillis = 15_000
+            }
+            install(Logging) { level = LogLevel.HEADERS }
+            defaultRequest {
+                url("https://api.balloonerismm.workers.dev/")
+                contentType(ContentType.Application.Json)
+            }
+        }
+        BalloonerismmApi(client)
     }
 
     // ── TMDB ──
