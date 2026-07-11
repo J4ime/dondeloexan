@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -93,7 +94,7 @@ fun DiscoverScreen(
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = viewModel::onSearchQueryChanged,
-                modifier = Modifier.weight(1f).height(42.dp),
+                modifier = Modifier.weight(1f).heightIn(min = 48.dp),
                 placeholder = {
                     Text("Buscar película o serie...", color = TextSecondary)
                 },

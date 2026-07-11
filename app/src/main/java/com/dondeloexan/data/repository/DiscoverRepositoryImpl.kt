@@ -69,7 +69,8 @@ class DiscoverRepositoryImpl(
                 }
                 .take(20)
 
-            val withPlatforms = attachPlatformsToPreviews(previews)
+            val withFaRatings = enrichWithFaRatings(previews)
+            val withPlatforms = attachPlatformsToPreviews(withFaRatings)
             emit(DataResult.Success(withPlatforms))
         } catch (e: Exception) {
             try {

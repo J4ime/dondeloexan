@@ -1,7 +1,10 @@
 package com.dondeloexan.presentation.platforms
 
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -25,7 +28,9 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -34,6 +39,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
+import coil.compose.rememberAsyncImagePainter
 import coil.request.CachePolicy
 import coil.request.ImageRequest
 import com.dondeloexan.data.remote.PlatformLogoUrls
@@ -134,18 +140,35 @@ fun PlatformToggle(name: String, isActive: Boolean, onToggle: (Boolean) -> Unit)
             val logoUrl = remember(name) { PlatformLogoUrls.urlFor(name) }
             if (logoUrl != null) {
                 val context = LocalContext.current
-                AsyncImage(
+                var loadError by remember { mutableStateOf(false) }
+                val painter = rememberAsyncImagePainter(
                     model = ImageRequest.Builder(context)
                         .data(logoUrl)
                         .crossfade(200)
                         .memoryCachePolicy(CachePolicy.ENABLED)
                         .build(),
-                    contentDescription = name,
-                    modifier = Modifier
-                        .size(44.dp)
-                        .padding(8.dp),
-                    contentScale = ContentScale.Fit
+                    onError = { loadError = true },
+                    onSuccess = { loadError = false }
                 )
+                Box(
+                    modifier = Modifier.size(44.dp).padding(8.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (loadError) {
+                        Text(
+                            text = name.take(2).uppercase(),
+                            style = UbuntuTypography.labelSmall,
+                            color = accentColor.copy(alpha = if (isActive) 1f else 0.5f)
+                        )
+                    } else {
+                        Image(
+                            painter = painter,
+                            contentDescription = name,
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                }
             } else {
                 Text(
                     text = name.take(2).uppercase(),

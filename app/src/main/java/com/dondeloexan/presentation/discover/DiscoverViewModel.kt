@@ -105,11 +105,30 @@ class DiscoverViewModel(
 
                             if (filtered.size < 10 && result.data.size > filtered.size) {
                                 val existingIds = filtered.map { it.id }.toSet()
-                                val padding = result.data
+                                var padding = result.data
                                     .filter { it.id !in liked && it.id !in existingIds }
+
+                                if (_filterByPlatforms.value) {
+                                    val userPlatforms = activePlatforms.value
+                                    if (userPlatforms.isNotEmpty()) {
+                                        padding = padding.filter { preview ->
+                                            preview.streamingPlatforms.any { platform ->
+                                                val normalized = platform.platformName
+                                                    .replace("+", "").replace(" ", "").lowercase()
+                                                userPlatforms.any { userP ->
+                                                    val normalizedUser = userP
+                                                        .replace("+", "").replace(" ", "").lowercase()
+                                                    normalized.contains(normalizedUser) ||
+                                                        normalizedUser.contains(normalized)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                filtered = filtered + padding
                                     .sortedByDescending { it.voteCount ?: 0 }
                                     .take(10 - filtered.size)
-                                filtered = filtered + padding
                             }
 
                             _uiState.value = if (filtered.isEmpty()) {
@@ -324,11 +343,30 @@ class DiscoverViewModel(
 
                             if (filtered.size < 10 && result.data.size > filtered.size) {
                                 val existingIds = filtered.map { it.id }.toSet()
-                                val padding = result.data
+                                var padding = result.data
                                     .filter { it.id !in liked && it.id !in existingIds }
+
+                                if (_filterByPlatforms.value) {
+                                    val userPlatforms = activePlatforms.value
+                                    if (userPlatforms.isNotEmpty()) {
+                                        padding = padding.filter { preview ->
+                                            preview.streamingPlatforms.any { platform ->
+                                                val normalized = platform.platformName
+                                                    .replace("+", "").replace(" ", "").lowercase()
+                                                userPlatforms.any { userP ->
+                                                    val normalizedUser = userP
+                                                        .replace("+", "").replace(" ", "").lowercase()
+                                                    normalized.contains(normalizedUser) ||
+                                                        normalizedUser.contains(normalized)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                filtered = filtered + padding
                                     .sortedByDescending { it.voteCount ?: 0 }
                                     .take(10 - filtered.size)
-                                filtered = filtered + padding
                             }
 
                             _uiState.value = if (filtered.isEmpty()) {

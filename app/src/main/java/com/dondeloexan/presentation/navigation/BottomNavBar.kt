@@ -1,7 +1,7 @@
 package com.dondeloexan.presentation.navigation
 
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -32,7 +32,7 @@ fun BottomNavigationBar(
                     Icon(
                         imageVector = item.icon,
                         contentDescription = item.label,
-                        modifier = Modifier.fillMaxSize()
+                        modifier = Modifier.size(48.dp)
                     )
                 },
                 colors = NavigationBarItemDefaults.colors(
