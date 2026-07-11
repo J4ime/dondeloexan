@@ -31,7 +31,7 @@ fun BottomNavigationBar(
                     Icon(
                         imageVector = item.icon,
                         contentDescription = item.label,
-                        modifier = Modifier.height(60.dp)
+                        modifier = Modifier.height(72.dp)
                     )
                 },
                 colors = NavigationBarItemDefaults.colors(

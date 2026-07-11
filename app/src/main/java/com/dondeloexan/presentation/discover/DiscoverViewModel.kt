@@ -47,7 +47,7 @@ class DiscoverViewModel(
 
     val activePlatforms: StateFlow<Set<String>> = userPlatformDao.getActiveFlow()
         .map { it.map { p -> p.platformName }.toSet() }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
 
     val likedIds: StateFlow<Set<String>> = combine(
         movieDao.getLiked().map { list -> list.mapNotNull { it.contentId }.toSet() },

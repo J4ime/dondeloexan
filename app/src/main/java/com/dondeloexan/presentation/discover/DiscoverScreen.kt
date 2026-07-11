@@ -78,24 +78,25 @@ fun DiscoverScreen(
     val likedIds by viewModel.likedIds.collectAsState()
     val watchedIds by viewModel.watchedIds.collectAsState()
     val filterByPlatforms by viewModel.filterByPlatforms.collectAsState()
+    val activePlatforms by viewModel.activePlatforms.collectAsState()
 
     Column(modifier = Modifier.fillMaxSize()) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 2.dp),
+                .padding(horizontal = 16.dp, vertical = 0.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = viewModel::onSearchQueryChanged,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).height(36.dp),
                 placeholder = {
                     Text("Buscar película o serie...", color = TextSecondary)
                 },
                 leadingIcon = {
-                    Icon(Icons.Outlined.Search, null, tint = TextSecondary)
+                    Icon(Icons.Outlined.Search, null, tint = TextSecondary, modifier = Modifier.size(18.dp))
                 },
                 trailingIcon = {
                     if (searchQuery.isNotEmpty()) {
@@ -115,7 +116,7 @@ fun DiscoverScreen(
                     focusedContainerColor = DarkSurface,
                     unfocusedContainerColor = DarkSurface
                 ),
-                textStyle = UbuntuTypography.bodySmall
+                textStyle = UbuntuTypography.labelSmall
             )
 
             FilterChip(
