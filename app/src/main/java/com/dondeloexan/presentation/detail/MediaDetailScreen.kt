@@ -171,6 +171,33 @@ fun MediaDetailScreen(
             }
         }
     }
+
+    uiState.cascadeProposal?.let { proposal ->
+        AlertDialog(
+            onDismissRequest = { viewModel.dismissCascadeWatched() },
+            title = {
+                Text("Marcar episodios anteriores", color = TextPrimary)
+            },
+            text = {
+                Text(
+                    "Hay ${proposal.count} episodios anteriores no vistos en esta temporada. ¿Marcarlos tambien como vistos?",
+                    color = TextSecondary
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { viewModel.confirmCascadeWatched() }) {
+                    Text("Si, marcar todos", color = EleganteRose)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.dismissCascadeWatched() }) {
+                    Text("Solo este", color = TextSecondary)
+                }
+            },
+            containerColor = DarkSurface,
+            tonalElevation = 0.dp
+        )
+    }
 }
 
 @Composable
@@ -739,4 +766,5 @@ private fun SeasonsSection(
             tonalElevation = 0.dp
         )
     }
+
 }

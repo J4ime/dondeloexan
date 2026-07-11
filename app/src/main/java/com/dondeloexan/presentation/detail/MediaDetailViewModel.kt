@@ -25,7 +25,14 @@ data class DetailUiState(
     val seasons: List<TmdbSeasonDto> = emptyList(),
     val selectedSeason: Int = 0,
     val seasonDetail: TmdbTvSeasonDetailDto? = null,
-    val watchedEpisodes: Set<String> = emptySet()
+    val watchedEpisodes: Set<String> = emptySet(),
+    val cascadeProposal: CascadeProposal? = null
+)
+
+data class CascadeProposal(
+    val season: Int,
+    val targetEpisode: Int,
+    val count: Int
 )
 
 class MediaDetailViewModel(
@@ -103,7 +110,7 @@ class MediaDetailViewModel(
 
     fun selectSeason(seasonNumber: Int) {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(selectedSeason = seasonNumber)
+            _uiState.value = _uiState.value.copy(selectedSeason = seasonNumber, cascadeProposal = null)
 
             val tmdbId = _uiState.value.content?.tmdbId ?: return@launch
             try {
@@ -131,19 +138,92 @@ class MediaDetailViewModel(
                 tvShowProgressDao.deleteEpisode(tvShow.id, seasonNumber, episodeNumber)
                 val lastWatched = tvShowProgressDao.getLastWatchedAt(tvShow.id)
                 tvShowDao.updateLastWatchedAt(tvShow.id, lastWatched)
+                _uiState.value = _uiState.value.copy(watchedEpisodes = currentWatched, cascadeProposal = null)
             } else {
-                currentWatched.add(episodeKey)
-                tvShowProgressDao.insert(
+                val seasonDetail = _uiState.value.seasonDetail
+                val unwatchedBefore = seasonDetail?.episodes
+                    ?.map { it.episodeNumber }
+                    ?.filter { it < episodeNumber && !currentWatched.contains("S${seasonNumber}E${it}") }
+                    ?: emptyList()
+
+                if (unwatchedBefore.isNotEmpty()) {
+                    _uiState.value = _uiState.value.copy(
+                        cascadeProposal = CascadeProposal(
+                            season = seasonNumber,
+                            targetEpisode = episodeNumber,
+                            count = unwatchedBefore.size
+                        )
+                    )
+                } else {
+                    currentWatched.add(episodeKey)
+                    tvShowProgressDao.insert(
+                        TvShowProgressEntity(
+                            tvShowId = tvShow.id,
+                            season = seasonNumber,
+                            episode = episodeNumber
+                        )
+                    )
+                    tvShowDao.updateLastWatchedAt(tvShow.id, System.currentTimeMillis())
+                    _uiState.value = _uiState.value.copy(watchedEpisodes = currentWatched)
+                }
+            }
+        }
+    }
+
+    fun confirmCascadeWatched() {
+        viewModelScope.launch {
+            val proposal = _uiState.value.cascadeProposal ?: return@launch
+            val tmdbId = _uiState.value.content?.tmdbId ?: return@launch
+            val contentId = "tmdb-$tmdbId"
+            val tvShow = tvShowDao.getByContentId(contentId) ?: return@launch
+            val currentWatched = _uiState.value.watchedEpisodes.toMutableSet()
+            val seasonDetail = _uiState.value.seasonDetail ?: return@launch
+
+            val allItems = mutableListOf<TvShowProgressEntity>()
+
+            val episodesToMark = seasonDetail.episodes
+                .map { it.episodeNumber }
+                .filter { it <= proposal.targetEpisode && !currentWatched.contains("S${proposal.season}E${it}") }
+
+            episodesToMark.forEach { epNum ->
+                val key = "S${proposal.season}E${epNum}"
+                currentWatched.add(key)
+                allItems.add(
                     TvShowProgressEntity(
                         tvShowId = tvShow.id,
-                        season = seasonNumber,
-                        episode = episodeNumber
+                        season = proposal.season,
+                        episode = epNum
                     )
                 )
-                tvShowDao.updateLastWatchedAt(tvShow.id, System.currentTimeMillis())
             }
 
-            _uiState.value = _uiState.value.copy(watchedEpisodes = currentWatched)
+            if (allItems.isNotEmpty()) {
+                tvShowProgressDao.insertAll(allItems)
+                tvShowDao.updateLastWatchedAt(tvShow.id, System.currentTimeMillis())
+            }
+            _uiState.value = _uiState.value.copy(watchedEpisodes = currentWatched, cascadeProposal = null)
+        }
+    }
+
+    fun dismissCascadeWatched() {
+        viewModelScope.launch {
+            val proposal = _uiState.value.cascadeProposal ?: return@launch
+            val tmdbId = _uiState.value.content?.tmdbId ?: return@launch
+            val contentId = "tmdb-$tmdbId"
+            val tvShow = tvShowDao.getByContentId(contentId) ?: return@launch
+            val currentWatched = _uiState.value.watchedEpisodes.toMutableSet()
+            val targetKey = "S${proposal.season}E${proposal.targetEpisode}"
+
+            currentWatched.add(targetKey)
+            tvShowProgressDao.insert(
+                TvShowProgressEntity(
+                    tvShowId = tvShow.id,
+                    season = proposal.season,
+                    episode = proposal.targetEpisode
+                )
+            )
+            tvShowDao.updateLastWatchedAt(tvShow.id, System.currentTimeMillis())
+            _uiState.value = _uiState.value.copy(watchedEpisodes = currentWatched, cascadeProposal = null)
         }
     }
 

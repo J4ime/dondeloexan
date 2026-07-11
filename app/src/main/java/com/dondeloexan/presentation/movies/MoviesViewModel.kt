@@ -27,8 +27,8 @@ class MoviesViewModel(
             val newLiked = !movie.liked
             movieDao.update(movie.copy(liked = newLiked))
             feedbackManager.emit(
-                if (newLiked) "Película añadida a favoritos"
-                else "Película quitada de favoritos"
+                if (newLiked) "Película añadida"
+                else "Película quitada"
             )
         }
     }

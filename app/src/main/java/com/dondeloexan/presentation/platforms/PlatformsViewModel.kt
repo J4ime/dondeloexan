@@ -20,7 +20,12 @@ class PlatformsViewModel(
 
     fun togglePlatform(platform: String) {
         viewModelScope.launch {
-            userPlatformDao.toggle(platform)
+            val existing = userPlatformDao.getByName(platform)
+            if (existing != null) {
+                userPlatformDao.upsert(existing.copy(isActive = !existing.isActive))
+            } else {
+                userPlatformDao.upsert(UserPlatformEntity(platformName = platform, isActive = true))
+            }
         }
     }
 }

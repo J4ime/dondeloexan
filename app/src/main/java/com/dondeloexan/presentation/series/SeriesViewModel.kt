@@ -102,8 +102,8 @@ class SeriesViewModel(
             val newLiked = !show.liked
             tvShowDao.update(show.copy(liked = newLiked))
             feedbackManager.emit(
-                if (newLiked) "Serie añadida a favoritos"
-                else "Serie quitada de favoritos"
+                if (newLiked) "Serie añadida"
+                else "Serie quitada"
             )
         }
     }

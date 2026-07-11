@@ -19,7 +19,7 @@ fun BottomNavigationBar(
     modifier: Modifier = Modifier
 ) {
     NavigationBar(
-        modifier = modifier.height(80.dp),
+        modifier = modifier.height(88.dp),
         containerColor = DarkSurface,
         tonalElevation = 0.dp
     ) {
@@ -31,7 +31,7 @@ fun BottomNavigationBar(
                     Icon(
                         imageVector = item.icon,
                         contentDescription = item.label,
-                        modifier = Modifier.height(42.dp)
+                        modifier = Modifier.height(52.dp)
                     )
                 },
                 colors = NavigationBarItemDefaults.colors(

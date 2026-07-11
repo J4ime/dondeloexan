@@ -113,8 +113,8 @@ class DiscoverViewModel(
                             val newLiked = !existing.liked
                             movieDao.update(existing.copy(liked = newLiked))
                             feedbackManager.emit(
-                                if (newLiked) "Película añadida a favoritos"
-                                else "Película quitada de favoritos"
+                                if (newLiked) "Película añadida"
+                                else "Película quitada"
                             )
                         } else {
                             movieDao.insert(
@@ -130,7 +130,7 @@ class DiscoverViewModel(
                                     liked = true
                                 )
                             )
-                            feedbackManager.emit("Película añadida a favoritos")
+                            feedbackManager.emit("Película añadida")
                         }
                     }
                     com.dondeloexan.domain.model.ContentType.SERIES -> {
@@ -139,8 +139,8 @@ class DiscoverViewModel(
                             val newLiked = !existing.liked
                             tvShowDao.update(existing.copy(liked = newLiked))
                             feedbackManager.emit(
-                                if (newLiked) "Serie añadida a favoritos"
-                                else "Serie quitada de favoritos"
+                                if (newLiked) "Serie añadida"
+                                else "Serie quitada"
                             )
                         } else {
                             tvShowDao.insert(
@@ -156,7 +156,7 @@ class DiscoverViewModel(
                                     liked = true
                                 )
                             )
-                            feedbackManager.emit("Serie añadida a favoritos")
+                            feedbackManager.emit("Serie añadida")
                         }
                     }
                 }
