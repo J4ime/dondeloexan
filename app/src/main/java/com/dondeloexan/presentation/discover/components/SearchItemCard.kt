@@ -60,6 +60,10 @@ fun SearchItemCard(
     content: ContentPreview,
     isLiked: Boolean = false,
     isWatched: Boolean = false,
+    watchedCount: Int = 0,
+    totalEpisodes: Int? = null,
+    nextEpisodeAirDate: String? = null,
+    inProduction: Boolean? = null,
     onFavoriteClick: () -> Unit = {},
     onWatchedClick: () -> Unit = {},
     onClick: () -> Unit = {}
@@ -128,6 +132,18 @@ fun SearchItemCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 TypeBadge(content.type.name)
+
+                val isFinished = content.type.name == "SERIES" &&
+                        totalEpisodes != null && totalEpisodes > 0 &&
+                        watchedCount >= totalEpisodes
+                val isFinalEpisode = content.type.name == "SERIES" &&
+                        totalEpisodes != null && totalEpisodes > 0 &&
+                        nextEpisodeAirDate != null && inProduction == false &&
+                        !isFinished
+
+                if (isFinalEpisode) FinalEpisodeChip()
+                if (isFinished) FinishedChip()
+
                 Spacer(Modifier.weight(1f))
                 if (content.ratingFa != null) {
                     RatingBadgeLarge(rating = content.ratingFa)
@@ -310,5 +326,39 @@ fun PlatformLogoRow(
                 fontSize = 11.sp
             )
         }
+    }
+}
+
+@Composable
+private fun FinalEpisodeChip() {
+    Surface(
+        shape = RoundedCornerShape(4.dp),
+        color = Color(0xFFFF8F00).copy(alpha = 0.85f)
+    ) {
+        Text(
+            text = "Capítulo Final",
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
+            style = UbuntuTypography.labelSmall,
+            color = Color.White,
+            fontSize = 9.sp,
+            fontWeight = FontWeight.Bold
+        )
+    }
+}
+
+@Composable
+private fun FinishedChip() {
+    Surface(
+        shape = RoundedCornerShape(4.dp),
+        color = RatingHigh.copy(alpha = 0.85f)
+    ) {
+        Text(
+            text = "Terminada",
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
+            style = UbuntuTypography.labelSmall,
+            color = Color.White,
+            fontSize = 9.sp,
+            fontWeight = FontWeight.Bold
+        )
     }
 }

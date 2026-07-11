@@ -74,6 +74,8 @@ fun LibraryItemCard(
     nextEpisodeNumber: Int? = null,
     nextEpisodeSeasonNumber: Int? = null,
     seriesStatus: String? = null,
+    inProduction: Boolean? = null,
+    numberOfSeasons: Int? = null,
     isLiked: Boolean,
     isWatched: Boolean,
     onLikeClick: () -> Unit,
@@ -162,6 +164,19 @@ fun LibraryItemCard(
                 )
             }
 
+            val isFinished = totalEpisodes != null && totalEpisodes > 0 && watchedCount >= totalEpisodes
+            val isFinalEpisode = totalEpisodes != null && totalEpisodes > 0 &&
+                    nextEpisodeAirDate != null && inProduction == false &&
+                    !isFinished
+
+            if (isFinalEpisode || isFinished) {
+                Spacer(Modifier.height(4.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (isFinalEpisode) FinalEpisodeBadge()
+                    if (isFinished) FinishedBadge()
+                }
+            }
+
             if (totalEpisodes != null && totalEpisodes > 0) {
                 Spacer(Modifier.height(6.dp))
                 val progress = (watchedCount.toFloat() / totalEpisodes).coerceIn(0f, 1f)
@@ -247,6 +262,40 @@ fun LibraryItemCard(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun FinalEpisodeBadge() {
+    Surface(
+        shape = RoundedCornerShape(4.dp),
+        color = Color(0xFFFF8F00).copy(alpha = 0.85f)
+    ) {
+        Text(
+            text = "Capítulo Final",
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+            style = UbuntuTypography.labelSmall,
+            color = Color.White,
+            fontSize = 9.sp,
+            fontWeight = FontWeight.Bold
+        )
+    }
+}
+
+@Composable
+private fun FinishedBadge() {
+    Surface(
+        shape = RoundedCornerShape(4.dp),
+        color = RatingHigh.copy(alpha = 0.85f)
+    ) {
+        Text(
+            text = "Terminada",
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+            style = UbuntuTypography.labelSmall,
+            color = Color.White,
+            fontSize = 9.sp,
+            fontWeight = FontWeight.Bold
+        )
     }
 }
 

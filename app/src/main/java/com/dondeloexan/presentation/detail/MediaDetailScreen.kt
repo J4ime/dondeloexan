@@ -64,6 +64,8 @@ import com.dondeloexan.data.remote.dto.TmdbSeasonDto
 import com.dondeloexan.data.remote.dto.TmdbTvSeasonDetailDto
 import com.dondeloexan.domain.model.Content
 import com.dondeloexan.domain.model.ContentType
+import com.dondeloexan.domain.model.StreamingAvailability
+import com.dondeloexan.domain.model.AvailabilityType
 import com.dondeloexan.presentation.theme.DarkBackground
 import com.dondeloexan.presentation.theme.DarkSurface
 import com.dondeloexan.presentation.theme.DarkSurfaceVariant
@@ -202,15 +204,23 @@ fun MediaDetailScreen(
 
 @Composable
 private fun FichaTab(content: Content) {
+    val displayPlatforms = remember(content) {
+        if (content.type == ContentType.MOVIE && content.releaseDate != null) {
+            appendCinemaPlatform(content.releaseDate, content.streamingPlatforms)
+        } else {
+            content.streamingPlatforms
+        }
+    }
+
     LazyColumn(
         modifier = Modifier.fillMaxSize()
     ) {
         item { HeroSection(content) }
         item { RatingRow(content) }
-        item { TechnicalInfoSection(content) }
-        if (content.streamingPlatforms.isNotEmpty()) {
-            item { StreamingSection(content) }
+        if (displayPlatforms.isNotEmpty()) {
+            item { StreamingSection(displayPlatforms) }
         }
+        item { TechnicalInfoSection(content) }
     }
 }
 
@@ -506,8 +516,38 @@ private fun FieldRow(label: String, value: String) {
     }
 }
 
+private fun appendCinemaPlatform(
+    releaseDate: String,
+    platforms: List<StreamingAvailability>
+): List<StreamingAvailability> {
+    val cinemaLabel = try {
+        val date = LocalDate.parse(releaseDate)
+        val now = LocalDate.now()
+        val daysSinceRelease = ChronoUnit.DAYS.between(date, now)
+        val daysUntilRelease = ChronoUnit.DAYS.between(now, date)
+
+        when {
+            daysSinceRelease in 0..90 -> "Cine"
+            daysUntilRelease > 0 -> "Estreno: ${date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}"
+            else -> null
+        }
+    } catch (_: Exception) { null }
+
+    return if (cinemaLabel != null) {
+        val cinemaPlatform = StreamingAvailability(
+            platformName = cinemaLabel,
+            platformId = null,
+            logoUrl = null,
+            availabilityType = com.dondeloexan.domain.model.AvailabilityType.SUBSCRIPTION
+        )
+        listOf(cinemaPlatform) + platforms
+    } else {
+        platforms
+    }
+}
+
 @Composable
-private fun StreamingSection(content: Content) {
+private fun StreamingSection(platforms: List<StreamingAvailability>) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -527,12 +567,27 @@ private fun StreamingSection(content: Content) {
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            content.streamingPlatforms.forEach { platform ->
+            platforms.forEach { platform ->
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    if (platform.logoUrl != null) {
+                    if (platform.platformName == "Cine") {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .background(
+                                    DarkSurfaceVariant,
+                                    RoundedCornerShape(8.dp)
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                "\uD83C\uDFAC",
+                                fontSize = 20.sp
+                            )
+                        }
+                    } else if (platform.logoUrl != null) {
                         val context = androidx.compose.ui.platform.LocalContext.current
                         AsyncImage(
                             model = ImageRequest.Builder(context)
@@ -565,7 +620,7 @@ private fun StreamingSection(content: Content) {
                     Text(
                         platform.platformName,
                         style = UbuntuTypography.labelSmall,
-                        color = TextSecondary,
+                        color = if (platform.platformName == "Cine") EleganteRose else TextSecondary,
                         fontSize = 9.sp,
                         maxLines = 1
                     )

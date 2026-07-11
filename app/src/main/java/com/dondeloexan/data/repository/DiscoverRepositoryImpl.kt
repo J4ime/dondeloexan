@@ -11,6 +11,7 @@ import com.dondeloexan.data.remote.mapper.toDomain
 import com.dondeloexan.data.remote.mapper.toStreamingAvailability
 import com.dondeloexan.domain.model.Content
 import com.dondeloexan.domain.model.ContentPreview
+import com.dondeloexan.domain.model.ContentSource
 import com.dondeloexan.domain.model.ContentType
 import com.dondeloexan.domain.model.DataResult
 import com.dondeloexan.domain.model.StreamingAvailability
@@ -96,9 +97,14 @@ class DiscoverRepositoryImpl(
         emit(DataResult.Loading)
 
         try {
+            val cachedTitle = when (contentType) {
+                ContentType.MOVIE -> movieDao.getByContentId(contentId)?.title
+                ContentType.SERIES -> tvShowDao.getByContentId(contentId)?.title
+            }
+
             val content = when {
                 contentId.startsWith("fa-") -> fetchFilmAffinityDetail(contentId)
-                contentId.startsWith("tmdb-") -> fetchTmdbDetail(contentId, contentType)
+                contentId.startsWith("tmdb-") -> fetchTmdbDetail(contentId, contentType, cachedTitle)
                 else -> throw IllegalArgumentException("Unknown content ID: $contentId")
             }
 
@@ -163,54 +169,108 @@ class DiscoverRepositoryImpl(
         faItem.toDomain(platforms = platforms)
     }
 
-    private suspend fun fetchTmdbDetail(id: String, contentType: ContentType = ContentType.MOVIE): Content {
+    private suspend fun fetchTmdbDetail(
+        id: String,
+        contentType: ContentType = ContentType.MOVIE,
+        cachedTitle: String? = null
+    ): Content {
         val tmdbId = id.removePrefix("tmdb-").toInt()
 
-        return if (contentType == ContentType.SERIES) {
-            val tv = tmdbApi.getTvDetail(tmdbId)
-            val credits = tmdbApi.getTvCredits(tmdbId)
-            val providers = tmdbApi.getTvWatchProviders(tmdbId)
-            val platforms = providers.results["ES"]?.toStreamingAvailability().orEmpty()
+        return try {
+            if (contentType == ContentType.SERIES) {
+                val tv = tmdbApi.getTvDetail(tmdbId)
+                val credits = tmdbApi.getTvCredits(tmdbId)
+                val providers = tmdbApi.getTvWatchProviders(tmdbId)
+                val platforms = providers.results["ES"]?.toStreamingAvailability().orEmpty()
 
-            val existing = tvShowDao.getByContentId("tmdb-$tmdbId")
-            if (existing != null) {
-                tvShowDao.update(
-                    existing.copy(
-                        totalEpisodes = tv.numberOfEpisodes ?: existing.totalEpisodes,
-                        nextEpisodeAirDate = tv.nextEpisodeToAir?.airDate,
-                        nextEpisodeNumber = tv.nextEpisodeToAir?.episodeNumber,
-                        nextEpisodeSeasonNumber = tv.nextEpisodeToAir?.seasonNumber,
-                        seriesStatus = tv.status
+                val existing = tvShowDao.getByContentId("tmdb-$tmdbId")
+                if (existing != null) {
+                    tvShowDao.update(
+                        existing.copy(
+                            totalEpisodes = tv.numberOfEpisodes ?: existing.totalEpisodes,
+                            nextEpisodeAirDate = tv.nextEpisodeToAir?.airDate,
+                            nextEpisodeNumber = tv.nextEpisodeToAir?.episodeNumber,
+                            nextEpisodeSeasonNumber = tv.nextEpisodeToAir?.seasonNumber,
+                            seriesStatus = tv.status,
+                            inProduction = tv.inProduction,
+                            numberOfSeasons = tv.numberOfSeasons
+                        )
                     )
-                )
+                }
+
+                tv.toDomain(null, platforms, credits)
+            } else {
+                val movie = tmdbApi.getMovieDetail(tmdbId)
+                val credits = tmdbApi.getMovieCredits(tmdbId)
+                val providers = tmdbApi.getMovieWatchProviders(tmdbId)
+                val platforms = providers.results["ES"]?.toStreamingAvailability().orEmpty()
+
+                val omdbRatings = movie.imdbId?.let { imdbId ->
+                    try { omdbApi.getByImdbId(imdbId) } catch (_: Exception) { null }
+                }
+
+                val content = movie.toDomain(omdbRatings, platforms, credits)
+                val enriched = if (movie.imdbId != null) {
+                    try {
+                        val omdb = omdbApi.getByImdbId(movie.imdbId)
+                        content.copy(
+                            ratingImdb = omdb.imdbRating?.toFloatOrNull(),
+                            ratingRt = omdb.ratings?.find { it.source == "Rotten Tomatoes" }
+                                ?.value?.removeSuffix("%")?.toIntOrNull(),
+                            ratingMetacritic = omdb.metascore?.toIntOrNull()
+                        )
+                    } catch (_: Exception) { content }
+                } else content
+
+                enriched
             }
-
-            tv.toDomain(null, platforms, credits)
-        } else {
-            val movie = tmdbApi.getMovieDetail(tmdbId)
-            val credits = tmdbApi.getMovieCredits(tmdbId)
-            val providers = tmdbApi.getMovieWatchProviders(tmdbId)
-            val platforms = providers.results["ES"]?.toStreamingAvailability().orEmpty()
-
-            val omdbRatings = movie.imdbId?.let { imdbId ->
-                try { omdbApi.getByImdbId(imdbId) } catch (_: Exception) { null }
-            }
-
-            val content = movie.toDomain(omdbRatings, platforms, credits)
-            val enriched = if (movie.imdbId != null) {
-                try {
-                    val omdb = omdbApi.getByImdbId(movie.imdbId)
-                    content.copy(
-                        ratingImdb = omdb.imdbRating?.toFloatOrNull(),
-                        ratingRt = omdb.ratings?.find { it.source == "Rotten Tomatoes" }
-                            ?.value?.removeSuffix("%")?.toIntOrNull(),
-                        ratingMetacritic = omdb.metascore?.toIntOrNull()
-                    )
-                } catch (_: Exception) { content }
-            } else content
-
-            enriched
+        } catch (e: Exception) {
+            fallbackTmdbDetail(id, contentType, cachedTitle) ?: throw e
         }
+    }
+
+    private suspend fun fallbackTmdbDetail(
+        id: String,
+        contentType: ContentType,
+        title: String?
+    ): Content? {
+        if (title == null) return null
+
+        return try {
+            val searchResult = filmAffinityApi.search(title)
+            val faItem = searchResult.results.firstOrNull { item ->
+                val itemType = when (item.type?.lowercase()) {
+                    "series" -> ContentType.SERIES
+                    "movie" -> ContentType.MOVIE
+                    else -> contentType
+                }
+                itemType == contentType
+            } ?: searchResult.results.firstOrNull() ?: return null
+
+            val detail = filmAffinityApi.getItemDetail(faItem.faUrl ?: faItem.id.toString())
+
+            var platforms = emptyList<StreamingAvailability>()
+            try {
+                val tmdbSearch = tmdbApi.searchMulti(title)
+                val tmdbMatch = tmdbSearch.results.firstOrNull {
+                    it.mediaType == if (contentType == ContentType.SERIES) "tv" else "movie"
+                }
+                if (tmdbMatch != null) {
+                    val providerResponse = if (contentType == ContentType.SERIES) {
+                        tmdbApi.getTvWatchProviders(tmdbMatch.id)
+                    } else {
+                        tmdbApi.getMovieWatchProviders(tmdbMatch.id)
+                    }
+                    platforms = providerResponse.results["ES"]?.toStreamingAvailability().orEmpty()
+                }
+            } catch (_: Exception) { }
+
+            detail.toDomain(platforms = platforms).copy(
+                id = id,
+                source = ContentSource.HYBRID,
+                tmdbId = id.removePrefix("tmdb-").toIntOrNull()
+            )
+        } catch (_: Exception) { null }
     }
 
     private fun prioritizePlatforms(content: Content, userPlatforms: Set<String>): Content {

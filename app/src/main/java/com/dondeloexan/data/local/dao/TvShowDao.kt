@@ -43,6 +43,9 @@ interface TvShowDao {
     @Query("SELECT * FROM tv_shows WHERE liked = 1 ORDER BY last_watched_at DESC, added_at DESC")
     fun getLiked(): Flow<List<TvShowEntity>>
 
+    @Query("SELECT * FROM tv_shows WHERE liked = 1")
+    suspend fun getAllLiked(): List<TvShowEntity>
+
     @Query("UPDATE tv_shows SET last_watched_at = :timestamp WHERE id = :id")
     suspend fun updateLastWatchedAt(id: Long, timestamp: Long?)
 
