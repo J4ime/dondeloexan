@@ -105,7 +105,7 @@ fun TmdbCountryProviders.toStreamingAvailability(): List<StreamingAvailability> 
         flatrate?.map {
             StreamingAvailability(
                 platformName = it.providerName,
-                platformId = it.providerId,
+                platformId = it.providerId?.toString(),
                 logoUrl = it.logoPath?.let { path ->
                     "https://image.tmdb.org/t/p/w92$path"
                 },
@@ -115,7 +115,7 @@ fun TmdbCountryProviders.toStreamingAvailability(): List<StreamingAvailability> 
         rent?.map {
             StreamingAvailability(
                 platformName = it.providerName,
-                platformId = it.providerId,
+                platformId = it.providerId?.toString(),
                 logoUrl = it.logoPath?.let { path ->
                     "https://image.tmdb.org/t/p/w92$path"
                 },
@@ -125,7 +125,7 @@ fun TmdbCountryProviders.toStreamingAvailability(): List<StreamingAvailability> 
         buy?.map {
             StreamingAvailability(
                 platformName = it.providerName,
-                platformId = it.providerId,
+                platformId = it.providerId?.toString(),
                 logoUrl = it.logoPath?.let { path ->
                     "https://image.tmdb.org/t/p/w92$path"
                 },
@@ -135,7 +135,7 @@ fun TmdbCountryProviders.toStreamingAvailability(): List<StreamingAvailability> 
         ads?.map {
             StreamingAvailability(
                 platformName = it.providerName,
-                platformId = it.providerId,
+                platformId = it.providerId?.toString(),
                 logoUrl = it.logoPath?.let { path ->
                     "https://image.tmdb.org/t/p/w92$path"
                 },
@@ -145,7 +145,7 @@ fun TmdbCountryProviders.toStreamingAvailability(): List<StreamingAvailability> 
         free?.map {
             StreamingAvailability(
                 platformName = it.providerName,
-                platformId = it.providerId,
+                platformId = it.providerId?.toString(),
                 logoUrl = it.logoPath?.let { path ->
                     "https://image.tmdb.org/t/p/w92$path"
                 },

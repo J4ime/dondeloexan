@@ -51,7 +51,7 @@ data class ContentPreview(
 
 data class StreamingAvailability(
     val platformName: String,
-    val platformId: Int? = null,
+    val platformId: String? = null,
     val logoUrl: String? = null,
     val availabilityType: AvailabilityType,
     val webUrl: String? = null

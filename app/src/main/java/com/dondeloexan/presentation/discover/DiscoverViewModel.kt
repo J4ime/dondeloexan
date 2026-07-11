@@ -85,66 +85,23 @@ class DiscoverViewModel(
         searchJob?.cancel()
         searchJob = viewModelScope.launch {
             delay(400)
+            currentPage = 1
+            accumulatedResults.clear()
             _uiState.value = DiscoverUiState.Loading
 
             try {
-                discoverRepository.search(query, currentPage).collect { result ->
+                discoverRepository.search(query, 1).collect { result ->
                     when (result) {
                         is DataResult.Loading -> _uiState.value = DiscoverUiState.Loading
                         is DataResult.Success -> {
-                            val liked = likedIds.value
                             val blacklisted = blacklistedIds.value
-                            var filtered = result.data.filter { it.id !in liked && it.id !in blacklisted }
-
-                            if (_filterByPlatforms.value) {
-                                val userPlatforms = activePlatforms.value
-                                if (userPlatforms.isNotEmpty()) {
-                                    filtered = filtered.filter { preview ->
-                                        preview.streamingPlatforms.any { platform ->
-                                            val normalized = platform.platformName
-                                                .replace("+", "").replace(" ", "").lowercase()
-                                            userPlatforms.any { userP ->
-                                                val normalizedUser = userP
-                                                    .replace("+", "").replace(" ", "").lowercase()
-                                                normalized.contains(normalizedUser) ||
-                                                    normalizedUser.contains(normalized)
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-
-                            if (filtered.size < 10 && result.data.size > filtered.size) {
-                                val existingIds = filtered.map { it.id }.toSet()
-                                var padding = result.data
-                                    .filter { it.id !in liked && it.id !in existingIds }
-
-                                if (_filterByPlatforms.value) {
-                                    val userPlatforms = activePlatforms.value
-                                    if (userPlatforms.isNotEmpty()) {
-                                        padding = padding.filter { preview ->
-                                            preview.streamingPlatforms.any { platform ->
-                                                val normalized = platform.platformName
-                                                    .replace("+", "").replace(" ", "").lowercase()
-                                                userPlatforms.any { userP ->
-                                                    val normalizedUser = userP
-                                                        .replace("+", "").replace(" ", "").lowercase()
-                                                    normalized.contains(normalizedUser) ||
-                                                        normalizedUser.contains(normalized)
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-
-                                filtered = filtered + padding
-                                    .sortedByDescending { it.voteCount ?: 0 }
-                                    .take(10 - filtered.size)
-                            }
+                            var filtered = result.data.filter { it.id !in blacklisted }
 
                             _uiState.value = if (filtered.isEmpty()) {
                                 DiscoverUiState.Empty(query)
                             } else {
+                                accumulatedResults.clear()
+                                accumulatedResults.addAll(filtered)
                                 DiscoverUiState.Success(filtered)
                             }
                         }
@@ -385,7 +342,7 @@ class DiscoverViewModel(
                             if (filtered.size < 10 && result.data.size > filtered.size) {
                                 val existingIds = filtered.map { it.id }.toSet()
                                 var padding = result.data
-                                    .filter { it.id !in liked && it.id !in existingIds }
+                                    .filter { it.id !in liked && it.id !in existingIds && it.id !in blacklisted }
 
                                 if (_filterByPlatforms.value) {
                                     val userPlatforms = activePlatforms.value
@@ -413,7 +370,9 @@ class DiscoverViewModel(
                             _uiState.value = if (filtered.isEmpty()) {
                                 DiscoverUiState.Empty("")
                             } else {
-                                DiscoverUiState.Success(filtered)
+                                if (page == 1) accumulatedResults.clear()
+                                accumulatedResults.addAll(filtered)
+                                DiscoverUiState.Success(accumulatedResults.toList())
                             }
                         }
                         is DataResult.Error -> {
@@ -429,6 +388,7 @@ class DiscoverViewModel(
                 AppLogger.e("DiscoverVM", "Trending error", e)
                 _uiState.value = DiscoverUiState.Error(e.message ?: "Error desconocido")
             }
+            isLoadingMore = false
         }
     }
 
@@ -440,10 +400,17 @@ class DiscoverViewModel(
                     when (result) {
                         is DataResult.Loading -> {}
                         is DataResult.Success -> {
-                            _uiState.value = if (result.data.isEmpty()) {
-                                DiscoverUiState.Empty(query)
+                            val blacklisted = blacklistedIds.value
+                            val filtered = result.data.filter { it.id !in blacklisted }
+                            if (filtered.isNotEmpty()) {
+                                accumulatedResults.addAll(filtered)
+                                _uiState.value = DiscoverUiState.Success(accumulatedResults.toList())
                             } else {
-                                DiscoverUiState.Success(result.data)
+                                _uiState.value = if (accumulatedResults.isEmpty()) {
+                                    DiscoverUiState.Empty(query)
+                                } else {
+                                    DiscoverUiState.Success(accumulatedResults.toList())
+                                }
                             }
                         }
                         is DataResult.Error -> {

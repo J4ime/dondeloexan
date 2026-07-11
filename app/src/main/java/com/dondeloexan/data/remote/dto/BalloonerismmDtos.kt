@@ -50,7 +50,7 @@ data class ImdbCountryProviders(
 
 @Serializable
 data class ImdbProvider(
-    @SerialName("provider_id") val providerId: Int? = null,
+    @SerialName("provider_id") val providerId: String? = null,
     @SerialName("provider_name") val providerName: String? = null,
     @SerialName("logo_path") val logoPath: String? = null,
     @SerialName("display_priority") val displayPriority: Int? = null

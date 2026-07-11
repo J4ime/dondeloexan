@@ -15,10 +15,26 @@ class UserPreferencesDataStore(private val context: Context) {
 
     companion object {
         private val ACTIVE_PLATFORMS = stringSetPreferencesKey("active_platforms")
+        private val PREFERRED_AVAILABILITY_TYPES = stringSetPreferencesKey("preferred_availability_types")
     }
 
     val activePlatforms: Flow<Set<String>> = context.dataStore.data.map { prefs ->
         prefs[ACTIVE_PLATFORMS] ?: emptySet()
+    }
+
+    val preferredAvailabilityTypes: Flow<Set<String>> = context.dataStore.data.map { prefs ->
+        prefs[PREFERRED_AVAILABILITY_TYPES] ?: emptySet()
+    }
+
+    suspend fun toggleAvailabilityType(type: String) {
+        context.dataStore.edit { prefs ->
+            val current = prefs[PREFERRED_AVAILABILITY_TYPES] ?: emptySet()
+            prefs[PREFERRED_AVAILABILITY_TYPES] = if (type in current) {
+                current - type
+            } else {
+                current + type
+            }
+        }
     }
 
     suspend fun getActivePlatforms(): Set<String> {

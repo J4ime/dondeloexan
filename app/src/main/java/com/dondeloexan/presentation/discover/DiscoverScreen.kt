@@ -48,6 +48,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -151,6 +152,7 @@ fun DiscoverScreen(
             onFavoriteClick = viewModel::onToggleFavorite,
             onWatchedClick = viewModel::onToggleWatched,
             onBlacklistClick = viewModel::onToggleBlacklist,
+            onLoadNextPage = viewModel::loadNextPage,
             onRetry = viewModel::onRetry
         )
     }
@@ -167,6 +169,7 @@ fun DiscoverContent(
     onFavoriteClick: (ContentPreview) -> Unit,
     onWatchedClick: (ContentPreview) -> Unit,
     onBlacklistClick: (ContentPreview) -> Unit,
+    onLoadNextPage: () -> Unit,
     onRetry: () -> Unit
 ) {
     var isRefreshing by remember { mutableStateOf(false) }
@@ -189,7 +192,20 @@ fun DiscoverContent(
             is DiscoverUiState.Empty -> EmptyState(query = searchQuery)
             is DiscoverUiState.Error -> ErrorState(message = uiState.message, onRetry = onRetry)
             is DiscoverUiState.Success -> {
+                val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+                val shouldLoadMore by remember {
+                    derivedStateOf {
+                        val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+                        val totalItems = listState.layoutInfo.totalItemsCount
+                        lastVisible >= totalItems - 3 && totalItems > 0
+                    }
+                }
+                LaunchedEffect(shouldLoadMore) {
+                    if (shouldLoadMore) onLoadNextPage()
+                }
+
                 LazyColumn(
+                    state = listState,
                     contentPadding = PaddingValues(vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
