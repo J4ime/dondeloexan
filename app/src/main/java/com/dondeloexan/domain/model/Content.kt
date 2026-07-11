@@ -44,6 +44,7 @@ data class ContentPreview(
     val coverUrl: String? = null,
     val directors: List<String> = emptyList(),
     val ratingFa: Float? = null,
+    val ratingImdb: Float? = null,
     val genres: List<String> = emptyList(),
     val streamingPlatforms: List<StreamingAvailability> = emptyList(),
     val filmAffinityId: Int? = null,

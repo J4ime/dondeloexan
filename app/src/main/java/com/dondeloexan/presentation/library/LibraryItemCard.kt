@@ -69,6 +69,7 @@ fun LibraryItemCard(
     title: String,
     year: Int?,
     ratingFa: Float?,
+    ratingImdb: Float? = null,
     streamingPlatforms: List<StreamingAvailability>,
     watchedCount: Int = 0,
     totalEpisodes: Int? = null,
@@ -155,6 +156,9 @@ fun LibraryItemCard(
                 )
                 if (ratingFa != null) {
                     RatingBadgeSmall(rating = ratingFa)
+                }
+                if (ratingImdb != null) {
+                    RatingBadgeSmall(rating = ratingImdb, isImdb = true)
                 }
             }
 
@@ -406,7 +410,7 @@ private fun FinishedBadge() {
 }
 
 @Composable
-private fun RatingBadgeSmall(rating: Float) {
+private fun RatingBadgeSmall(rating: Float, isImdb: Boolean = false) {
     val badgeColor = when {
         rating >= 7.0f -> RatingHigh
         rating >= 5.0f -> RatingMedium
@@ -422,6 +426,9 @@ private fun RatingBadgeSmall(rating: Float) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(2.dp)
         ) {
+            if (isImdb) {
+                Text("IMDb", color = TextSecondary, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+            }
             Text("★", color = badgeColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
             Text(
                 text = String.format("%.1f", rating),

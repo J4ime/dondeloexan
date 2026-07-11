@@ -70,7 +70,8 @@ class DiscoverRepositoryImpl(
                 .take(20)
 
             val withFaRatings = enrichWithFaRatings(previews)
-            val withPlatforms = attachPlatformsToPreviews(withFaRatings)
+            val withImdbRatings = enrichWithImdbRatings(withFaRatings)
+            val withPlatforms = attachPlatformsToPreviews(withImdbRatings)
             emit(DataResult.Success(withPlatforms))
         } catch (e: Exception) {
             try {
@@ -123,7 +124,8 @@ class DiscoverRepositoryImpl(
                 .filter { it.mediaType in listOf("movie", "tv") }
                 .map { it.toContentPreview() }
             val withFaRatings = enrichWithFaRatings(previews)
-            val withPlatforms = attachPlatformsToPreviews(withFaRatings)
+            val withImdbRatings = enrichWithImdbRatings(withFaRatings)
+            val withPlatforms = attachPlatformsToPreviews(withImdbRatings)
             emit(DataResult.Success(withPlatforms))
         } catch (e: Exception) {
             try {
@@ -329,6 +331,20 @@ class DiscoverRepositoryImpl(
                                 filmAffinityId = match.id
                             )
                         } else preview
+                    } catch (_: Exception) { preview }
+                }
+            }.map { it.await() }
+        }
+    }
+
+    private suspend fun enrichWithImdbRatings(previews: List<ContentPreview>): List<ContentPreview> {
+        return coroutineScope {
+            previews.map { preview ->
+                async {
+                    try {
+                        val omdb = omdbApi.getByTitle(preview.title, year = preview.year)
+                        val rating = omdb.imdbRating?.toFloatOrNull()
+                        if (rating != null) preview.copy(ratingImdb = rating) else preview
                     } catch (_: Exception) { preview }
                 }
             }.map { it.await() }

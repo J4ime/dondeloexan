@@ -7,11 +7,13 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.dondeloexan.data.local.dao.BlacklistDao
 import com.dondeloexan.data.local.dao.MovieDao
 import com.dondeloexan.data.local.dao.SearchHistoryDao
 import com.dondeloexan.data.local.dao.TvShowDao
 import com.dondeloexan.data.local.dao.TvShowProgressDao
 import com.dondeloexan.data.local.dao.UserPlatformDao
+import com.dondeloexan.data.local.entity.BlacklistedEntity
 import com.dondeloexan.data.local.entity.Converters
 import com.dondeloexan.data.local.entity.MovieEntity
 import com.dondeloexan.data.local.entity.SearchHistoryEntity
@@ -25,9 +27,10 @@ import com.dondeloexan.data.local.entity.UserPlatformEntity
         TvShowEntity::class,
         TvShowProgressEntity::class,
         SearchHistoryEntity::class,
-        UserPlatformEntity::class
+        UserPlatformEntity::class,
+        BlacklistedEntity::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -38,6 +41,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun tvShowProgressDao(): TvShowProgressDao
     abstract fun searchHistoryDao(): SearchHistoryDao
     abstract fun userPlatformDao(): UserPlatformDao
+    abstract fun blacklistDao(): BlacklistDao
 
     companion object {
         private const val DB_NAME = "dondeloexan.db"
@@ -80,9 +84,15 @@ abstract class AppDatabase : RoomDatabase() {
             )
         }
 
+        private val MIGRATION_8_9 = Migration(8, 9) { db ->
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS blacklist (content_id TEXT PRIMARY KEY NOT NULL, title TEXT NOT NULL, type TEXT NOT NULL, added_at INTEGER NOT NULL)"
+            )
+        }
+
         fun create(context: Context): AppDatabase {
             return Room.databaseBuilder(context, AppDatabase::class.java, DB_NAME)
-                .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
+                .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
                 .fallbackToDestructiveMigration()
                 .addCallback(seedCallback)
                 .build()

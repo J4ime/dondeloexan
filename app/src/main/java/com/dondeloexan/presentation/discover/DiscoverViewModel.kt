@@ -2,6 +2,7 @@ package com.dondeloexan.presentation.discover
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.dondeloexan.data.local.dao.BlacklistDao
 import com.dondeloexan.data.local.dao.MovieDao
 import com.dondeloexan.data.local.dao.TvShowDao
 import com.dondeloexan.data.local.dao.UserPlatformDao
@@ -29,6 +30,7 @@ class DiscoverViewModel(
     private val userPlatformDao: UserPlatformDao,
     private val movieDao: MovieDao,
     private val tvShowDao: TvShowDao,
+    private val blacklistDao: BlacklistDao,
     private val feedbackManager: FeedbackManager
 ) : ViewModel() {
 
@@ -47,6 +49,10 @@ class DiscoverViewModel(
 
     val activePlatforms: StateFlow<Set<String>> = userPlatformDao.getActiveFlow()
         .map { it.map { p -> p.platformName }.toSet() }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
+
+    val blacklistedIds: StateFlow<Set<String>> = blacklistDao.getAllFlow()
+        .map { list -> list.map { it.contentId }.toSet() }
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
 
     val likedIds: StateFlow<Set<String>> = combine(
@@ -83,7 +89,8 @@ class DiscoverViewModel(
                         is DataResult.Loading -> _uiState.value = DiscoverUiState.Loading
                         is DataResult.Success -> {
                             val liked = likedIds.value
-                            var filtered = result.data.filter { it.id !in liked }
+                            val blacklisted = blacklistedIds.value
+                            var filtered = result.data.filter { it.id !in liked && it.id !in blacklisted }
 
                             if (_filterByPlatforms.value) {
                                 val userPlatforms = activePlatforms.value
@@ -287,6 +294,23 @@ class DiscoverViewModel(
         }
     }
 
+    fun onToggleBlacklist(preview: ContentPreview) {
+        viewModelScope.launch {
+            try {
+                blacklistDao.insert(
+                    com.dondeloexan.data.local.entity.BlacklistedEntity(
+                        contentId = preview.id,
+                        title = preview.title,
+                        type = preview.type.name
+                    )
+                )
+                feedbackManager.emit("${preview.title} ocultado")
+            } catch (e: Exception) {
+                AppLogger.e("DiscoverVM", "Blacklist error", e)
+            }
+        }
+    }
+
     fun onClearSearch() {
         _searchQuery.value = ""
         searchJob?.cancel()
@@ -321,7 +345,8 @@ class DiscoverViewModel(
                         is DataResult.Loading -> _uiState.value = DiscoverUiState.Loading
                         is DataResult.Success -> {
                             val liked = likedIds.value
-                            var filtered = result.data.filter { it.id !in liked }
+                            val blacklisted = blacklistedIds.value
+                            var filtered = result.data.filter { it.id !in liked && it.id !in blacklisted }
 
                             if (_filterByPlatforms.value) {
                                 val userPlatforms = activePlatforms.value

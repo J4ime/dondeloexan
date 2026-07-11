@@ -3,6 +3,7 @@ package com.dondeloexan.di
 import com.dondeloexan.data.backup.BackupManager
 import com.dondeloexan.data.backup.BackupRepositoryImpl
 import com.dondeloexan.data.local.AppDatabase
+import com.dondeloexan.data.local.dao.BlacklistDao
 import com.dondeloexan.data.local.dao.MovieDao
 import com.dondeloexan.data.local.dao.SearchHistoryDao
 import com.dondeloexan.data.local.dao.TvShowDao
@@ -29,6 +30,7 @@ val dataModule = module {
     single<TvShowProgressDao> { get<AppDatabase>().tvShowProgressDao() }
     single<SearchHistoryDao> { get<AppDatabase>().searchHistoryDao() }
     single<UserPlatformDao> { get<AppDatabase>().userPlatformDao() }
+    single<BlacklistDao> { get<AppDatabase>().blacklistDao() }
 
     // Backup
     single { BackupManager(get(), androidContext().contentResolver) }

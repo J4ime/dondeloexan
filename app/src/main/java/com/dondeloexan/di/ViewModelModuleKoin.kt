@@ -1,5 +1,6 @@
 package com.dondeloexan.di
 
+import com.dondeloexan.presentation.blacklist.BlacklistViewModel
 import com.dondeloexan.presentation.detail.MediaDetailViewModel
 import com.dondeloexan.presentation.discover.DiscoverViewModel
 import com.dondeloexan.presentation.movies.MoviesViewModel
@@ -18,4 +19,5 @@ val viewModelModule = module {
     viewModelOf(::MediaDetailViewModel)
     viewModelOf(::MoviesViewModel)
     viewModelOf(::SeriesViewModel)
+    viewModelOf(::BlacklistViewModel)
 }

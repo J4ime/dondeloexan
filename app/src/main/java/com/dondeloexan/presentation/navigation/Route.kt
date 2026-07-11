@@ -17,9 +17,10 @@ sealed class Route(
     data object Discover : Route("discover", "Descubrir", Icons.Outlined.Explore)
     data object Settings : Route("settings", "Ajustes", Icons.Outlined.Settings)
 
-    data object SettingsPlatforms : Route("settings/platforms", "Mis Plataformas", Icons.Outlined.Settings)
-    data object SettingsLogs : Route("settings/logs", "Registro de errores", Icons.Outlined.Settings)
-    data object SettingsAbout : Route("settings/about", "Acerca de", Icons.Outlined.Settings)
+    data object SettingsPlatforms : Route("settings/platforms", "Mis Plataformas",      Icons.Outlined.Settings)
+    data object SettingsLogs      : Route("settings/logs",     "Registro de errores",  Icons.Outlined.Settings)
+    data object SettingsAbout     : Route("settings/about",     "Acerca de",            Icons.Outlined.Settings)
+    data object SettingsBlacklist : Route("settings/blacklist", "Contenidos ocultos",   Icons.Outlined.Settings)
 
     companion object {
         val bottomNavItems by lazy { listOf(Series, Movies, Discover, Settings) }

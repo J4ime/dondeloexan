@@ -95,9 +95,7 @@ fun DiscoverScreen(
                 value = searchQuery,
                 onValueChange = viewModel::onSearchQueryChanged,
                 modifier = Modifier.weight(1f).heightIn(min = 48.dp),
-                placeholder = {
-                    Text("Buscar película o serie...", color = TextSecondary)
-                },
+                placeholder = null,
                 leadingIcon = {
                     Icon(Icons.Outlined.Search, null, tint = TextSecondary, modifier = Modifier.size(18.dp))
                 },
@@ -150,6 +148,7 @@ fun DiscoverScreen(
             },
             onFavoriteClick = viewModel::onToggleFavorite,
             onWatchedClick = viewModel::onToggleWatched,
+            onBlacklistClick = viewModel::onToggleBlacklist,
             onRetry = viewModel::onRetry
         )
     }
@@ -165,6 +164,7 @@ fun DiscoverContent(
     onItemClick: (String, String) -> Unit,
     onFavoriteClick: (ContentPreview) -> Unit,
     onWatchedClick: (ContentPreview) -> Unit,
+    onBlacklistClick: (ContentPreview) -> Unit,
     onRetry: () -> Unit
 ) {
     var isRefreshing by remember { mutableStateOf(false) }
@@ -202,6 +202,7 @@ fun DiscoverContent(
                                 isWatched = watchedIds.contains(content.id),
                                 onFavoriteClick = { onFavoriteClick(content) },
                                 onWatchedClick = { onWatchedClick(content) },
+                                onBlacklistClick = { onBlacklistClick(content) },
                                 onClick = { onItemClick(content.id, content.type.name.lowercase()) }
                             )
                         }

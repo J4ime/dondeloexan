@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.ui.Alignment
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material.icons.outlined.FileUpload
@@ -239,6 +240,14 @@ fun SettingsScreen(
                         onClick = {
                             importLauncher.launch(arrayOf("application/json", "*/*"))
                         }
+                    )
+                }
+                item {
+                    SettingsItem(
+                        icon = Icons.Outlined.Block,
+                        title = "Contenidos ocultos",
+                        subtitle = "Gestiona tu lista negra",
+                        onClick = { navController.navigate(Route.SettingsBlacklist.route) }
                     )
                 }
 

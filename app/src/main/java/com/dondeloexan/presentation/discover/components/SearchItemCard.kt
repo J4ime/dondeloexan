@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.outlined.CheckCircleOutline
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.Movie
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -67,6 +68,7 @@ fun SearchItemCard(
     inProduction: Boolean? = null,
     onFavoriteClick: () -> Unit = {},
     onWatchedClick: () -> Unit = {},
+    onBlacklistClick: () -> Unit = {},
     onClick: () -> Unit = {}
 ) {
     Box(
@@ -149,6 +151,10 @@ fun SearchItemCard(
                 if (content.ratingFa != null) {
                     RatingBadgeLarge(rating = content.ratingFa)
                 }
+                if (content.ratingImdb != null) {
+                    Spacer(Modifier.width(4.dp))
+                    RatingBadgeLarge(rating = content.ratingImdb, isImdb = true)
+                }
             }
 
             Spacer(Modifier.height(8.dp))
@@ -215,11 +221,50 @@ fun SearchItemCard(
 
             if (content.streamingPlatforms.isNotEmpty()) {
                 Spacer(Modifier.height(6.dp))
-                PlatformLogoRow(
-                    platforms = content.streamingPlatforms,
-                    maxVisible = 4
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    PlatformLogoRow(
+                        platforms = content.streamingPlatforms,
+                        maxVisible = 4
+                    )
+                    if (content.releaseDate != null) {
+                        val isFuture = remember(content.releaseDate) {
+                            try {
+                                val date = java.time.LocalDate.parse(content.releaseDate)
+                                val now = java.time.LocalDate.now()
+                                java.time.temporal.ChronoUnit.DAYS.between(now, date) > 0
+                            } catch (_: Exception) { false }
+                        }
+                        if (isFuture) {
+                            Text(
+                                content.releaseDate.takeLast(5),
+                                style = UbuntuTypography.labelSmall,
+                                color = Color(0xFFFF8F00),
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
             }
+        }
+
+        IconButton(
+            onClick = onBlacklistClick,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(8.dp)
+                .size(36.dp)
+                .background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+        ) {
+            Icon(
+                Icons.Outlined.Block,
+                contentDescription = "Ocultar",
+                tint = TextSecondary,
+                modifier = Modifier.size(18.dp)
+            )
         }
 
         Row(
@@ -285,7 +330,7 @@ private fun TypeBadge(type: String) {
 }
 
 @Composable
-private fun RatingBadgeLarge(rating: Float, modifier: Modifier = Modifier) {
+private fun RatingBadgeLarge(rating: Float, modifier: Modifier = Modifier, isImdb: Boolean = false) {
     val badgeColor = when {
         rating >= 7.0f -> RatingHigh
         rating >= 5.0f -> RatingMedium
@@ -302,6 +347,9 @@ private fun RatingBadgeLarge(rating: Float, modifier: Modifier = Modifier) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(3.dp)
         ) {
+            if (isImdb) {
+                Text("IMDb", color = TextSecondary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            }
             Text("★", color = badgeColor, fontSize = 14.sp, fontWeight = FontWeight.Bold)
             Text(
                 text = String.format("%.1f", rating),
