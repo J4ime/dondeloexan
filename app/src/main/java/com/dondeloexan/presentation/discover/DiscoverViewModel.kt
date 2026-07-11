@@ -103,6 +103,15 @@ class DiscoverViewModel(
                                 }
                             }
 
+                            if (filtered.size < 10 && result.data.size > filtered.size) {
+                                val existingIds = filtered.map { it.id }.toSet()
+                                val padding = result.data
+                                    .filter { it.id !in liked && it.id !in existingIds }
+                                    .sortedByDescending { it.voteCount ?: 0 }
+                                    .take(10 - filtered.size)
+                                filtered = filtered + padding
+                            }
+
                             _uiState.value = if (filtered.isEmpty()) {
                                 DiscoverUiState.Empty(query)
                             } else {
@@ -311,6 +320,15 @@ class DiscoverViewModel(
                                         }
                                     }
                                 }
+                            }
+
+                            if (filtered.size < 10 && result.data.size > filtered.size) {
+                                val existingIds = filtered.map { it.id }.toSet()
+                                val padding = result.data
+                                    .filter { it.id !in liked && it.id !in existingIds }
+                                    .sortedByDescending { it.voteCount ?: 0 }
+                                    .take(10 - filtered.size)
+                                filtered = filtered + padding
                             }
 
                             _uiState.value = if (filtered.isEmpty()) {

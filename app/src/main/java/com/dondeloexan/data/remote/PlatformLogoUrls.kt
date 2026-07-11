@@ -11,7 +11,10 @@ object PlatformLogoUrls {
         "Movistar+" to "/e8nMpNq7ZFFP3Hqp6EtV7hP5FmN.jpg",
         "Paramount+" to "/h5O3m43xNdBOb1bLgRizwGnfi7U.jpg",
         "SkyShowtime" to "/jXRL3vWibhRcBXKjH2mYDdKj0zA.jpg",
-        "Filmin" to "/wEFvMF4NvsR46xGCjggNhs7hybm.jpg"
+        "Filmin" to "/wEFvMF4NvsR46xGCjggNhs7hybm.jpg",
+        "Atresplayer" to "/aPTcfHyI8n2hHBJB8dd2MSMuvgE.jpg",
+        "Mitele" to "/3J5qy5jH6ZOH9WbFg3XsOJ7HW3k.jpg",
+        "RTVE Play" to "/owJGNEtfhIXN5YbPaYhKS6sHstN.jpg"
     )
 
     private const val BASE_URL = "https://image.tmdb.org/t/p/w92"

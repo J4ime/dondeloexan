@@ -18,8 +18,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.outlined.CheckCircleOutline
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Movie
 import androidx.compose.material.icons.outlined.Notifications
@@ -251,9 +253,14 @@ fun LibraryItemCard(
                     .size(48.dp)
                     .background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
             ) {
+                val isSeries = totalEpisodes != null
                 Icon(
-                    if (isLiked) Icons.Filled.Add else Icons.Outlined.Add,
-                    contentDescription = "Favorito",
+                    if (isLiked) {
+                        if (isSeries) Icons.Filled.Close else Icons.Filled.Add
+                    } else {
+                        if (isSeries) Icons.Outlined.Close else Icons.Outlined.Add
+                    },
+                    contentDescription = if (isSeries) "Quitar" else "Favorito",
                     tint = if (isLiked) EleganteRose else TextPrimary,
                     modifier = Modifier.size(24.dp)
                 )

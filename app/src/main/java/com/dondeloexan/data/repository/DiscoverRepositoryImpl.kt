@@ -124,7 +124,8 @@ class DiscoverRepositoryImpl(
             val previews = trending.results
                 .filter { it.mediaType in listOf("movie", "tv") }
                 .map { it.toContentPreview() }
-            val withPlatforms = attachPlatformsToPreviews(previews)
+            val withFaRatings = enrichWithFaRatings(previews)
+            val withPlatforms = attachPlatformsToPreviews(withFaRatings)
             emit(DataResult.Success(withPlatforms))
         } catch (e: Exception) {
             emit(DataResult.Error(e))
@@ -298,6 +299,26 @@ class DiscoverRepositoryImpl(
                     } catch (_: Exception) { emptyList<StreamingAvailability>() }
 
                     preview.copy(streamingPlatforms = platforms)
+                }
+            }.map { it.await() }
+        }
+    }
+
+    private suspend fun enrichWithFaRatings(previews: List<ContentPreview>): List<ContentPreview> {
+        return coroutineScope {
+            previews.map { preview ->
+                async {
+                    try {
+                        val result = filmAffinityApi.search(preview.title)
+                        val match = result.results.firstOrNull { it.year == preview.year }
+                            ?: result.results.firstOrNull()
+                        if (match != null) {
+                            preview.copy(
+                                ratingFa = match.rating,
+                                filmAffinityId = match.id
+                            )
+                        } else preview
+                    } catch (_: Exception) { preview }
                 }
             }.map { it.await() }
         }

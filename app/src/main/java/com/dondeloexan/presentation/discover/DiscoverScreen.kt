@@ -36,6 +36,7 @@ import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.SearchOff
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
@@ -53,6 +54,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
@@ -91,7 +93,7 @@ fun DiscoverScreen(
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = viewModel::onSearchQueryChanged,
-                modifier = Modifier.weight(1f).height(36.dp),
+                modifier = Modifier.weight(1f).height(42.dp),
                 placeholder = {
                     Text("Buscar película o serie...", color = TextSecondary)
                 },
@@ -110,13 +112,13 @@ fun DiscoverScreen(
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = EleganteRose.copy(alpha = 0.5f),
                     unfocusedBorderColor = TextSecondary.copy(alpha = 0.2f),
-                    focusedTextColor = TextPrimary,
-                    unfocusedTextColor = TextPrimary,
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White,
                     cursorColor = EleganteRose,
                     focusedContainerColor = DarkSurface,
                     unfocusedContainerColor = DarkSurface
                 ),
-                textStyle = UbuntuTypography.labelSmall
+                textStyle = UbuntuTypography.bodySmall
             )
 
             FilterChip(
@@ -129,7 +131,11 @@ fun DiscoverScreen(
                         contentDescription = null,
                         modifier = Modifier.size(16.dp)
                     )
-                }
+                },
+                colors = FilterChipDefaults.filterChipColors(
+                    containerColor = if (filterByPlatforms) EleganteRose.copy(alpha = 0.15f) else DarkSurface,
+                    labelColor = if (filterByPlatforms) EleganteRose else TextSecondary
+                )
             )
         }
 
