@@ -178,12 +178,10 @@ class DiscoverViewModel(
                                 MovieEntity(
                                     contentId = preview.id,
                                     tmdbId = preview.tmdbId,
-                                    filmAffinityId = preview.filmAffinityId,
                                     title = preview.title,
                                     year = preview.year,
                                     releaseDate = preview.releaseDate,
                                     posterUrl = preview.coverUrl,
-                                    ratingFa = preview.ratingFa,
                                     liked = true
                                 )
                             )
@@ -204,11 +202,9 @@ class DiscoverViewModel(
                                 TvShowEntity(
                                     contentId = preview.id,
                                     tmdbId = preview.tmdbId,
-                                    filmAffinityId = preview.filmAffinityId,
                                     title = preview.title,
                                     year = preview.year,
                                     posterUrl = preview.coverUrl,
-                                    ratingFa = preview.ratingFa,
                                     totalEpisodes = preview.totalEpisodes,
                                     liked = true
                                 )
@@ -247,12 +243,10 @@ class DiscoverViewModel(
                                 MovieEntity(
                                     contentId = preview.id,
                                     tmdbId = preview.tmdbId,
-                                    filmAffinityId = preview.filmAffinityId,
                                     title = preview.title,
                                     year = preview.year,
                                     releaseDate = preview.releaseDate,
                                     posterUrl = preview.coverUrl,
-                                    ratingFa = preview.ratingFa,
                                     status = WatchStatus.YA_VISTA,
                                     watchedAt = System.currentTimeMillis()
                                 )
@@ -275,11 +269,9 @@ class DiscoverViewModel(
                                 TvShowEntity(
                                     contentId = preview.id,
                                     tmdbId = preview.tmdbId,
-                                    filmAffinityId = preview.filmAffinityId,
                                     title = preview.title,
                                     year = preview.year,
                                     posterUrl = preview.coverUrl,
-                                    ratingFa = preview.ratingFa,
                                     totalEpisodes = preview.totalEpisodes,
                                     status = WatchStatus.YA_VISTA
                                 )

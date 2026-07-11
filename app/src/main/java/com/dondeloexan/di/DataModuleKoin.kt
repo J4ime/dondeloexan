@@ -45,7 +45,6 @@ val dataModule = module {
     // Repositories
     single<DiscoverRepository> {
         DiscoverRepositoryImpl(
-            filmAffinityApi = get(),
             tmdbApi = get(),
             omdbApi = get(),
             userPlatformDao = get(),

@@ -8,12 +8,10 @@ import androidx.room.PrimaryKey
 data class TvShowEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     @ColumnInfo(name = "content_id") val contentId: String? = null,
-    @ColumnInfo(name = "film_affinity_id") val filmAffinityId: Int? = null,
     @ColumnInfo(name = "tmdb_id") val tmdbId: Int? = null,
     val title: String,
     val year: Int? = null,
     @ColumnInfo(name = "poster_url") val posterUrl: String? = null,
-    @ColumnInfo(name = "rating_fa") val ratingFa: Float? = null,
     @ColumnInfo(name = "rating_tmdb") val ratingTmdb: Float? = null,
     @ColumnInfo(name = "rating_imdb") val ratingImdb: Float? = null,
     val status: WatchStatus = WatchStatus.POR_VER,

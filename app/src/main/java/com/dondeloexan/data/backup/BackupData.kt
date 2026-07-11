@@ -15,11 +15,9 @@ data class BackupData(
 
 @Serializable
 data class BackupMovie(
-    val filmAffinityId: Int? = null,
     val tmdbId: Int? = null,
     val title: String,
     val posterUrl: String? = null,
-    val ratingFa: Float? = null,
     val ratingTmdb: Float? = null,
     val ratingImdb: Float? = null,
     val status: String = "POR_VER",
@@ -29,11 +27,9 @@ data class BackupMovie(
 
 @Serializable
 data class BackupTvShow(
-    val filmAffinityId: Int? = null,
     val tmdbId: Int? = null,
     val title: String,
     val posterUrl: String? = null,
-    val ratingFa: Float? = null,
     val ratingTmdb: Float? = null,
     val ratingImdb: Float? = null,
     val status: String = "POR_VER",

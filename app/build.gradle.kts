@@ -13,15 +13,14 @@ android {
         applicationId = "com.dondeloexan"
         minSdk = 26
         targetSdk = 34
-        versionCode = 17
-        versionName = "1.6.9"
+        versionCode = 18
+        versionName = "1.7.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
             useSupportLibrary = true
         }
 
-        buildConfigField("String", "RAPIDAPI_KEY", "\"0fbb9536bcmshf673debe67a19b7p118355jsn8a7b43468e74\"")
         buildConfigField("String", "TMDB_API_KEY", "\"a9a67f764033d54183aaa2973a7cd4ec\"")
         buildConfigField("String", "TMDB_ACCESS_TOKEN", "\"eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJhOWE2N2Y3NjQwMzNkNTQxODNhYWEyOTczYTdjZDRlYyIsIm5iZiI6MTc4MzY4NzMyNS42Miwic3ViIjoiNmE1MGU4OWRlODM0NmZhMGRkMzFlNWIxIiwic2NvcGVzIjpbImFwaV9yZWFkIl0sInZlcnNpb24iOjF9.g8OFR8uI8rY6UjWZ-b9WkDqXXJNbxguz415M5fey2UM\"")
         buildConfigField("String", "OMDB_API_KEY", "\"7ac09aef\"")

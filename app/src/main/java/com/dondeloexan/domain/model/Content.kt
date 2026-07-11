@@ -3,7 +3,6 @@ package com.dondeloexan.domain.model
 data class Content(
     val id: String,
     val source: ContentSource,
-    val filmAffinityId: Int? = null,
     val tmdbId: Int? = null,
     val imdbId: String? = null,
     val title: String,
@@ -13,7 +12,6 @@ data class Content(
     val releaseDate: String? = null,
     val durationMinutes: Int? = null,
     val totalEpisodes: Int? = null,
-    val ratingFa: Float? = null,
     val ratingTmdb: Float? = null,
     val ratingImdb: Float? = null,
     val ratingRt: Int? = null,
@@ -43,11 +41,9 @@ data class ContentPreview(
     val releaseDate: String? = null,
     val coverUrl: String? = null,
     val directors: List<String> = emptyList(),
-    val ratingFa: Float? = null,
     val ratingImdb: Float? = null,
     val genres: List<String> = emptyList(),
     val streamingPlatforms: List<StreamingAvailability> = emptyList(),
-    val filmAffinityId: Int? = null,
     val totalEpisodes: Int? = null,
     val voteCount: Int? = null,
     val isAdult: Boolean = false
@@ -61,6 +57,6 @@ data class StreamingAvailability(
     val webUrl: String? = null
 )
 
-enum class ContentSource { FILMAFFINITY, TMDB, HYBRID }
+enum class ContentSource { TMDB }
 enum class ContentType { MOVIE, SERIES }
 enum class AvailabilityType { SUBSCRIPTION, RENT, BUY, FREE, ADS }

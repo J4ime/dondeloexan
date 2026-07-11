@@ -68,7 +68,6 @@ fun LibraryItemCard(
     posterUrl: String?,
     title: String,
     year: Int?,
-    ratingFa: Float?,
     ratingImdb: Float? = null,
     streamingPlatforms: List<StreamingAvailability>,
     watchedCount: Int = 0,
@@ -154,9 +153,6 @@ fun LibraryItemCard(
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.weight(1f)
                 )
-                if (ratingFa != null) {
-                    RatingBadgeSmall(rating = ratingFa)
-                }
                 if (ratingImdb != null) {
                     RatingBadgeSmall(rating = ratingImdb, isImdb = true)
                 }

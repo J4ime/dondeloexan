@@ -78,30 +78,30 @@ class BackupManager(
         count
     }
 
-    private fun MovieEntity.toBackup() = BackupMovie(
-        filmAffinityId = filmAffinityId, tmdbId = tmdbId, title = title,
-        posterUrl = posterUrl, ratingFa = ratingFa, ratingTmdb = ratingTmdb,
+    private     fun MovieEntity.toBackup() = BackupMovie(
+        tmdbId = tmdbId, title = title,
+        posterUrl = posterUrl, ratingTmdb = ratingTmdb,
         ratingImdb = ratingImdb, status = status.name, liked = liked, addedAt = addedAt
     )
 
-    private fun TvShowEntity.toBackup() = BackupTvShow(
-        filmAffinityId = filmAffinityId, tmdbId = tmdbId, title = title,
-        posterUrl = posterUrl, ratingFa = ratingFa, ratingTmdb = ratingTmdb,
+    private     fun TvShowEntity.toBackup() = BackupTvShow(
+        tmdbId = tmdbId, title = title,
+        posterUrl = posterUrl, ratingTmdb = ratingTmdb,
         ratingImdb = ratingImdb, status = status.name,
         totalEpisodes = totalEpisodes, addedAt = addedAt
     )
 
-    private fun BackupMovie.toEntity() = MovieEntity(
-        filmAffinityId = filmAffinityId, tmdbId = tmdbId, title = title,
-        posterUrl = posterUrl, ratingFa = ratingFa, ratingTmdb = ratingTmdb,
+    private     fun BackupMovie.toEntity() = MovieEntity(
+        tmdbId = tmdbId, title = title,
+        posterUrl = posterUrl, ratingTmdb = ratingTmdb,
         ratingImdb = ratingImdb,
         status = try { WatchStatus.valueOf(status) } catch (_: Exception) { WatchStatus.POR_VER },
         liked = liked, addedAt = addedAt
     )
 
-    private fun BackupTvShow.toEntity() = TvShowEntity(
-        filmAffinityId = filmAffinityId, tmdbId = tmdbId, title = title,
-        posterUrl = posterUrl, ratingFa = ratingFa, ratingTmdb = ratingTmdb,
+    private     fun BackupTvShow.toEntity() = TvShowEntity(
+        tmdbId = tmdbId, title = title,
+        posterUrl = posterUrl, ratingTmdb = ratingTmdb,
         ratingImdb = ratingImdb,
         status = try { WatchStatus.valueOf(status) } catch (_: Exception) { WatchStatus.POR_VER },
         totalEpisodes = totalEpisodes, addedAt = addedAt

@@ -22,7 +22,6 @@ fun TmdbMovieDto.toDomain(
     source = ContentSource.TMDB,
     tmdbId = id,
     imdbId = imdbId ?: omdbRating?.imdbID,
-    filmAffinityId = null,
     title = title,
     originalTitle = originalTitle,
     type = ContentType.MOVIE,
@@ -59,7 +58,6 @@ fun TmdbTvDetailDto.toDomain(
     source = ContentSource.TMDB,
     tmdbId = id,
     imdbId = omdbRating?.imdbID,
-    filmAffinityId = null,
     title = name,
     originalTitle = originalName,
     type = ContentType.SERIES,
@@ -88,10 +86,7 @@ fun TmdbTvDetailDto.toDomain(
     lastCachedAt = System.currentTimeMillis()
 )
 
-fun TmdbMultiSearchResult.toContentPreview(
-    faRating: Float? = null,
-    faId: Int? = null
-): ContentPreview = ContentPreview(
+fun TmdbMultiSearchResult.toContentPreview(): ContentPreview = ContentPreview(
     id = "tmdb-$id",
     source = ContentSource.TMDB,
     tmdbId = id,
@@ -101,8 +96,6 @@ fun TmdbMultiSearchResult.toContentPreview(
         ?: firstAirDate?.substringBefore("-")?.toIntOrNull(),
     releaseDate = releaseDate ?: firstAirDate,
     coverUrl = posterPath?.let { "https://image.tmdb.org/t/p/w500$it" },
-    ratingFa = faRating,
-    filmAffinityId = faId,
     voteCount = voteCount,
     isAdult = adult
 )

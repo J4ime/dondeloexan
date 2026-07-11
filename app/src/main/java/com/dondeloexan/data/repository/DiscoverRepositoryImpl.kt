@@ -3,7 +3,6 @@ package com.dondeloexan.data.repository
 import com.dondeloexan.data.local.dao.MovieDao
 import com.dondeloexan.data.local.dao.TvShowDao
 import com.dondeloexan.data.local.dao.UserPlatformDao
-import com.dondeloexan.data.remote.api.FilmAffinityApi
 import com.dondeloexan.data.remote.api.OmdbApi
 import com.dondeloexan.data.remote.api.TmdbApi
 import com.dondeloexan.data.remote.mapper.toContentPreview
@@ -11,7 +10,6 @@ import com.dondeloexan.data.remote.mapper.toDomain
 import com.dondeloexan.data.remote.mapper.toStreamingAvailability
 import com.dondeloexan.domain.model.Content
 import com.dondeloexan.domain.model.ContentPreview
-import com.dondeloexan.domain.model.ContentSource
 import com.dondeloexan.domain.model.ContentType
 import com.dondeloexan.domain.model.DataResult
 import com.dondeloexan.domain.model.StreamingAvailability
@@ -23,7 +21,6 @@ import kotlinx.coroutines.flow.flow
 import kotlin.math.log10
 
 class DiscoverRepositoryImpl(
-    private val filmAffinityApi: FilmAffinityApi,
     private val tmdbApi: TmdbApi,
     private val omdbApi: OmdbApi,
     private val userPlatformDao: UserPlatformDao,
@@ -35,56 +32,21 @@ class DiscoverRepositoryImpl(
         emit(DataResult.Loading)
 
         try {
-            val (tmdbResult, faResult) = coroutineScope {
-                val tmdbDeferred = async { tmdbApi.searchMulti(query) }
-                val faDeferred = async {
-                    try { filmAffinityApi.search(query) } catch (_: Exception) { null }
-                }
-                Pair(tmdbDeferred.await(), faDeferred.await())
-            }
-
-            val faMap = faResult?.results?.mapNotNull { item: com.dondeloexan.data.remote.dto.FaRapidSearchItem ->
-                val key = buildString {
-                    append(item.title.trim().lowercase())
-                    append('|')
-                    item.year?.let { append(it) }
-                }
-                key to Pair(item.rating, item.id)
-            }?.toMap() ?: emptyMap()
+            val tmdbResult = tmdbApi.searchMulti(query)
 
             val previews = tmdbResult.results
                 .filter { it.mediaType in listOf("movie", "tv") && !it.adult }
-                .map { tmdb: com.dondeloexan.data.remote.dto.TmdbMultiSearchResult ->
-                    val tmdbTitle = (tmdb.title ?: tmdb.name).orEmpty().trim().lowercase()
-                    val tmdbYear = tmdb.releaseDate?.substringBefore("-")?.toIntOrNull()
-                        ?: tmdb.firstAirDate?.substringBefore("-")?.toIntOrNull()
-                    val key = "$tmdbTitle|$tmdbYear"
-                    val faMatch = faMap[key]
-                    tmdb.toContentPreview(faRating = faMatch?.first, faId = faMatch?.second)
-                }
+                .map { it.toContentPreview() }
                 .sortedByDescending {
-                    val ratingScore = (it.ratingFa?.toDouble() ?: 0.0) * 10.0
-                    val popularityScore = log10((it.voteCount ?: 0).toDouble() + 1.0) * WEIGHT_POPULARITY
-                    ratingScore + popularityScore
+                    log10((it.voteCount ?: 0).toDouble() + 1.0) * WEIGHT_POPULARITY
                 }
                 .take(20)
 
-            val withFaRatings = enrichWithFaRatings(previews)
-            val withImdbRatings = enrichWithImdbRatings(withFaRatings)
+            val withImdbRatings = enrichWithImdbRatings(previews)
             val withPlatforms = attachPlatformsToPreviews(withImdbRatings)
             emit(DataResult.Success(withPlatforms))
         } catch (e: Exception) {
-            try {
-                val faResult = filmAffinityApi.search(query)
-                val previews = faResult.results.mapNotNull { it.toContentPreview() }.take(20)
-                if (previews.isNotEmpty()) {
-                    emit(DataResult.Success(previews))
-                } else {
-                    emit(DataResult.Error(e))
-                }
-            } catch (fallback: Exception) {
-                emit(DataResult.Error(e))
-            }
+            emit(DataResult.Error(e))
         }
     }
 
@@ -96,14 +58,8 @@ class DiscoverRepositoryImpl(
         emit(DataResult.Loading)
 
         try {
-            val cachedTitle = when (contentType) {
-                ContentType.MOVIE -> movieDao.getByContentId(contentId)?.title
-                ContentType.SERIES -> tvShowDao.getByContentId(contentId)?.title
-            }
-
             val content = when {
-                contentId.startsWith("fa-") -> fetchFilmAffinityDetail(contentId)
-                contentId.startsWith("tmdb-") -> fetchTmdbDetail(contentId, contentType, cachedTitle)
+                contentId.startsWith("tmdb-") -> fetchTmdbDetail(contentId, contentType)
                 else -> throw IllegalArgumentException("Unknown content ID: $contentId")
             }
 
@@ -123,168 +79,67 @@ class DiscoverRepositoryImpl(
             val previews = trending.results
                 .filter { it.mediaType in listOf("movie", "tv") }
                 .map { it.toContentPreview() }
-            val withFaRatings = enrichWithFaRatings(previews)
-            val withImdbRatings = enrichWithImdbRatings(withFaRatings)
+            val withImdbRatings = enrichWithImdbRatings(previews)
             val withPlatforms = attachPlatformsToPreviews(withImdbRatings)
             emit(DataResult.Success(withPlatforms))
         } catch (e: Exception) {
-            try {
-                val year = java.time.LocalDate.now().year.toString()
-                val faResult = filmAffinityApi.search(year)
-                val previews = faResult.results.mapNotNull { it.toContentPreview() }
-                    .sortedByDescending { it.ratingFa ?: 0f }
-                    .take(20)
-                if (previews.isNotEmpty()) {
-                    emit(DataResult.Success(previews))
-                } else {
-                    emit(DataResult.Error(e))
-                }
-            } catch (fallback: Exception) {
-                emit(DataResult.Error(e))
-            }
+            emit(DataResult.Error(e))
         }
-    }
-
-    private suspend fun fetchFilmAffinityDetail(id: String): Content = coroutineScope {
-        val faId = id.removePrefix("fa-")
-
-        val faUrl = try {
-            val searchResult = filmAffinityApi.search(faId)
-            searchResult.results.firstOrNull()?.faUrl
-        } catch (_: Exception) { null }
-
-        val faItem = if (faUrl != null) {
-            filmAffinityApi.getItemDetail(faUrl)
-        } else {
-            filmAffinityApi.getItemDetail(faId)
-        }
-
-        val faToTmdb = async {
-            try {
-                val tmdbSearch = tmdbApi.searchMulti(faItem.title?.local ?: "")
-                tmdbSearch.results.firstOrNull { it.mediaType == "movie" || it.mediaType == "tv" }
-            } catch (_: Exception) { null }
-        }
-
-        val tmdbMatch = faToTmdb.await()
-
-        var platforms = emptyList<StreamingAvailability>()
-        if (tmdbMatch != null) {
-            try {
-                val providerResponse = if (tmdbMatch.mediaType == "tv") {
-                    tmdbApi.getTvWatchProviders(tmdbMatch.id)
-                } else {
-                    tmdbApi.getMovieWatchProviders(tmdbMatch.id)
-                }
-                platforms = providerResponse.results["ES"]?.toStreamingAvailability().orEmpty()
-            } catch (_: Exception) { }
-        }
-
-        faItem.toDomain(platforms = platforms)
     }
 
     private suspend fun fetchTmdbDetail(
         id: String,
-        contentType: ContentType = ContentType.MOVIE,
-        cachedTitle: String? = null
+        contentType: ContentType = ContentType.MOVIE
     ): Content {
         val tmdbId = id.removePrefix("tmdb-").toInt()
 
-        return try {
-            if (contentType == ContentType.SERIES) {
-                val tv = tmdbApi.getTvDetail(tmdbId)
-                val credits = tmdbApi.getTvCredits(tmdbId)
-                val providers = tmdbApi.getTvWatchProviders(tmdbId)
-                val platforms = providers.results["ES"]?.toStreamingAvailability().orEmpty()
+        return if (contentType == ContentType.SERIES) {
+            val tv = tmdbApi.getTvDetail(tmdbId)
+            val credits = tmdbApi.getTvCredits(tmdbId)
+            val providers = tmdbApi.getTvWatchProviders(tmdbId)
+            val platforms = providers.results["ES"]?.toStreamingAvailability().orEmpty()
 
-                val existing = tvShowDao.getByContentId("tmdb-$tmdbId")
-                if (existing != null) {
-                    tvShowDao.update(
-                        existing.copy(
-                            totalEpisodes = tv.numberOfEpisodes ?: existing.totalEpisodes,
-                            nextEpisodeAirDate = tv.nextEpisodeToAir?.airDate,
-                            nextEpisodeNumber = tv.nextEpisodeToAir?.episodeNumber,
-                            nextEpisodeSeasonNumber = tv.nextEpisodeToAir?.seasonNumber,
-                            seriesStatus = tv.status,
-                            inProduction = tv.inProduction,
-                            numberOfSeasons = tv.numberOfSeasons
-                        )
+            val existing = tvShowDao.getByContentId("tmdb-$tmdbId")
+            if (existing != null) {
+                tvShowDao.update(
+                    existing.copy(
+                        totalEpisodes = tv.numberOfEpisodes ?: existing.totalEpisodes,
+                        nextEpisodeAirDate = tv.nextEpisodeToAir?.airDate,
+                        nextEpisodeNumber = tv.nextEpisodeToAir?.episodeNumber,
+                        nextEpisodeSeasonNumber = tv.nextEpisodeToAir?.seasonNumber,
+                        seriesStatus = tv.status,
+                        inProduction = tv.inProduction,
+                        numberOfSeasons = tv.numberOfSeasons
                     )
-                }
-
-                tv.toDomain(null, platforms, credits)
-            } else {
-                val movie = tmdbApi.getMovieDetail(tmdbId)
-                val credits = tmdbApi.getMovieCredits(tmdbId)
-                val providers = tmdbApi.getMovieWatchProviders(tmdbId)
-                val platforms = providers.results["ES"]?.toStreamingAvailability().orEmpty()
-
-                val omdbRatings = movie.imdbId?.let { imdbId ->
-                    try { omdbApi.getByImdbId(imdbId) } catch (_: Exception) { null }
-                }
-
-                val content = movie.toDomain(omdbRatings, platforms, credits)
-                val enriched = if (movie.imdbId != null) {
-                    try {
-                        val omdb = omdbApi.getByImdbId(movie.imdbId)
-                        content.copy(
-                            ratingImdb = omdb.imdbRating?.toFloatOrNull(),
-                            ratingRt = omdb.ratings?.find { it.source == "Rotten Tomatoes" }
-                                ?.value?.removeSuffix("%")?.toIntOrNull(),
-                            ratingMetacritic = omdb.metascore?.toIntOrNull()
-                        )
-                    } catch (_: Exception) { content }
-                } else content
-
-                enriched
+                )
             }
-        } catch (e: Exception) {
-            fallbackTmdbDetail(id, contentType, cachedTitle) ?: throw e
+
+            tv.toDomain(null, platforms, credits)
+        } else {
+            val movie = tmdbApi.getMovieDetail(tmdbId)
+            val credits = tmdbApi.getMovieCredits(tmdbId)
+            val providers = tmdbApi.getMovieWatchProviders(tmdbId)
+            val platforms = providers.results["ES"]?.toStreamingAvailability().orEmpty()
+
+            val omdbRatings = movie.imdbId?.let { imdbId ->
+                try { omdbApi.getByImdbId(imdbId) } catch (_: Exception) { null }
+            }
+
+            val content = movie.toDomain(omdbRatings, platforms, credits)
+            val enriched = if (movie.imdbId != null) {
+                try {
+                    val omdb = omdbApi.getByImdbId(movie.imdbId)
+                    content.copy(
+                        ratingImdb = omdb.imdbRating?.toFloatOrNull(),
+                        ratingRt = omdb.ratings?.find { it.source == "Rotten Tomatoes" }
+                            ?.value?.removeSuffix("%")?.toIntOrNull(),
+                        ratingMetacritic = omdb.metascore?.toIntOrNull()
+                    )
+                } catch (_: Exception) { content }
+            } else content
+
+            enriched
         }
-    }
-
-    private suspend fun fallbackTmdbDetail(
-        id: String,
-        contentType: ContentType,
-        title: String?
-    ): Content? {
-        if (title == null) return null
-
-        return try {
-            val searchResult = filmAffinityApi.search(title)
-            val faItem = searchResult.results.firstOrNull { item ->
-                val itemType = when (item.type?.lowercase()) {
-                    "series" -> ContentType.SERIES
-                    "movie" -> ContentType.MOVIE
-                    else -> contentType
-                }
-                itemType == contentType
-            } ?: searchResult.results.firstOrNull() ?: return null
-
-            val detail = filmAffinityApi.getItemDetail(faItem.faUrl ?: faItem.id.toString())
-
-            var platforms = emptyList<StreamingAvailability>()
-            try {
-                val tmdbSearch = tmdbApi.searchMulti(title)
-                val tmdbMatch = tmdbSearch.results.firstOrNull {
-                    it.mediaType == if (contentType == ContentType.SERIES) "tv" else "movie"
-                }
-                if (tmdbMatch != null) {
-                    val providerResponse = if (contentType == ContentType.SERIES) {
-                        tmdbApi.getTvWatchProviders(tmdbMatch.id)
-                    } else {
-                        tmdbApi.getMovieWatchProviders(tmdbMatch.id)
-                    }
-                    platforms = providerResponse.results["ES"]?.toStreamingAvailability().orEmpty()
-                }
-            } catch (_: Exception) { }
-
-            detail.toDomain(platforms = platforms).copy(
-                id = id,
-                source = ContentSource.HYBRID,
-                tmdbId = id.removePrefix("tmdb-").toIntOrNull()
-            )
-        } catch (_: Exception) { null }
     }
 
     private fun prioritizePlatforms(content: Content, userPlatforms: Set<String>): Content {
@@ -312,26 +167,6 @@ class DiscoverRepositoryImpl(
                     } catch (_: Exception) { emptyList<StreamingAvailability>() }
 
                     preview.copy(streamingPlatforms = platforms)
-                }
-            }.map { it.await() }
-        }
-    }
-
-    private suspend fun enrichWithFaRatings(previews: List<ContentPreview>): List<ContentPreview> {
-        return coroutineScope {
-            previews.map { preview ->
-                async {
-                    try {
-                        val result = filmAffinityApi.search(preview.title)
-                        val match = result.results.firstOrNull { it.year == preview.year }
-                            ?: result.results.firstOrNull()
-                        if (match != null) {
-                            preview.copy(
-                                ratingFa = match.rating,
-                                filmAffinityId = match.id
-                            )
-                        } else preview
-                    } catch (_: Exception) { preview }
                 }
             }.map { it.await() }
         }

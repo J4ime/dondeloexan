@@ -94,7 +94,7 @@ fun DiscoverScreen(
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = viewModel::onSearchQueryChanged,
-                modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                modifier = Modifier.weight(1f).heightIn(min = 44.dp),
                 placeholder = null,
                 leadingIcon = {
                     Icon(Icons.Outlined.Search, null, tint = TextSecondary, modifier = Modifier.size(18.dp))
@@ -117,7 +117,7 @@ fun DiscoverScreen(
                     focusedContainerColor = DarkSurface,
                     unfocusedContainerColor = DarkSurface
                 ),
-                textStyle = UbuntuTypography.bodySmall
+                textStyle = UbuntuTypography.bodyMedium
             )
 
             FilterChip(

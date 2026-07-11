@@ -379,7 +379,6 @@ private fun HeroSection(content: Content) {
 @Composable
 private fun RatingRow(content: Content) {
     val ratings = listOfNotNull(
-        content.ratingFa?.let { "FA" to it.toString() },
         content.ratingTmdb?.let { "TMDB" to String.format("%.1f", it) },
         content.ratingImdb?.let { "IMDb" to String.format("%.1f", it) },
         content.ratingRt?.let { "RT" to "${it}%" },
