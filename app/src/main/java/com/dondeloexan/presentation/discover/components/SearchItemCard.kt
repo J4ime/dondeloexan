@@ -179,34 +179,34 @@ fun SearchItemCard(
             IconButton(
                 onClick = onFavoriteClick,
                 modifier = Modifier
-                    .size(36.dp)
+                    .size(48.dp)
                     .background(
                         Color.Black.copy(alpha = 0.5f),
-                        CircleShape
+                        RoundedCornerShape(8.dp)
                     )
             ) {
                 Icon(
                     if (isLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
                     contentDescription = "Favorito",
                     tint = if (isLiked) EleganteRose else TextPrimary,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(24.dp)
                 )
             }
 
             IconButton(
                 onClick = onWatchedClick,
                 modifier = Modifier
-                    .size(36.dp)
+                    .size(48.dp)
                     .background(
                         Color.Black.copy(alpha = 0.5f),
-                        CircleShape
+                        RoundedCornerShape(8.dp)
                     )
             ) {
                 Icon(
                     if (isWatched) Icons.Filled.Check else Icons.Outlined.CheckCircleOutline,
                     contentDescription = "Visto",
                     tint = if (isWatched) EleganteRose else TextPrimary,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(24.dp)
                 )
             }
         }

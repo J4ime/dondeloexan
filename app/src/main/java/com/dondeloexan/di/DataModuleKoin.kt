@@ -14,6 +14,7 @@ import com.dondeloexan.data.update.SilentUpdateManager
 import com.dondeloexan.domain.repository.BackupRepository
 import com.dondeloexan.domain.repository.DiscoverRepository
 import com.dondeloexan.domain.repository.SettingsRepository
+import com.dondeloexan.presentation.feedback.FeedbackManager
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
 
@@ -35,6 +36,9 @@ val dataModule = module {
 
     // Silent Update
     single { SilentUpdateManager(androidContext()) }
+
+    // Feedback
+    single { FeedbackManager() }
 
     // Repositories
     single<DiscoverRepository> {

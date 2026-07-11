@@ -26,12 +26,15 @@ import androidx.compose.material.icons.outlined.Apps
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -56,7 +59,9 @@ fun MoviesScreen(
     navController: NavController,
     viewModel: MoviesViewModel = koinViewModel()
 ) {
-    val movies by viewModel.movies.collectAsState()
+    val pendingMovies by viewModel.pendingMovies.collectAsState()
+    val watchedMovies by viewModel.watchedMovies.collectAsState()
+    var selectedTab by remember { mutableIntStateOf(0) }
     var isGridView by remember { mutableStateOf(false) }
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -75,6 +80,25 @@ fun MoviesScreen(
             windowInsets = WindowInsets(top = 0)
         )
 
+        TabRow(
+            selectedTabIndex = selectedTab,
+            containerColor = DarkBackground,
+            contentColor = EleganteRose
+        ) {
+            Tab(
+                selected = selectedTab == 0,
+                onClick = { selectedTab = 0 },
+                text = { Text("Pendientes", color = if (selectedTab == 0) EleganteRose else TextSecondary) }
+            )
+            Tab(
+                selected = selectedTab == 1,
+                onClick = { selectedTab = 1 },
+                text = { Text("Vistas", color = if (selectedTab == 1) EleganteRose else TextSecondary) }
+            )
+        }
+
+        val movies = if (selectedTab == 0) pendingMovies else watchedMovies
+
         if (movies.isEmpty()) {
             Box(
                 Modifier.fillMaxSize(),
@@ -89,7 +113,8 @@ fun MoviesScreen(
                     )
                     Spacer(Modifier.height(12.dp))
                     Text(
-                        "No tienes películas guardadas",
+                        if (selectedTab == 0) "No tienes películas pendientes"
+                        else "No has visto ninguna película",
                         style = UbuntuTypography.titleMedium,
                         color = TextSecondary
                     )
@@ -119,10 +144,9 @@ fun MoviesScreen(
                         isWatched = movie.status.name == "YA_VISTA",
                         onLikeClick = { viewModel.toggleLike(movie) },
                         onWatchedClick = { viewModel.toggleWatched(movie) },
-                        onDeleteClick = { viewModel.delete(movie) },
-                        onClick = {
-                            navController.navigate("detail/${movie.contentId ?: ""}/movie")
-                        },
+                            onClick = {
+                                navController.navigate("detail/${movie.contentId ?: ""}/movie")
+                            },
                         modifier = Modifier
                             .fillMaxWidth()
                             .aspectRatio(0.65f)
@@ -152,7 +176,6 @@ fun MoviesScreen(
                             isWatched = movie.status.name == "YA_VISTA",
                             onLikeClick = { viewModel.toggleLike(movie) },
                             onWatchedClick = { viewModel.toggleWatched(movie) },
-                            onDeleteClick = { viewModel.delete(movie) },
                             onClick = {
                                 navController.navigate("detail/${movie.contentId ?: ""}/movie")
                             },

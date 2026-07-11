@@ -39,6 +39,7 @@ data class ContentPreview(
     val title: String,
     val type: ContentType,
     val year: Int? = null,
+    val releaseDate: String? = null,
     val coverUrl: String? = null,
     val directors: List<String> = emptyList(),
     val ratingFa: Float? = null,

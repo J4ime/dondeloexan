@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -26,9 +27,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ErrorOutline
+import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.SearchOff
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
@@ -66,6 +69,7 @@ fun DiscoverScreen(
     val searchQuery by viewModel.searchQuery.collectAsState()
     val likedIds by viewModel.likedIds.collectAsState()
     val watchedIds by viewModel.watchedIds.collectAsState()
+    val filterByPlatforms by viewModel.filterByPlatforms.collectAsState()
 
     Column(modifier = Modifier.fillMaxSize()) {
         DiscoverSearchBar(
@@ -74,6 +78,25 @@ fun DiscoverScreen(
             onClear = viewModel::onClearSearch,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
         )
+
+        if (searchQuery.isBlank()) {
+            Row(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+            ) {
+                FilterChip(
+                    selected = filterByPlatforms,
+                    onClick = viewModel::togglePlatformFilter,
+                    label = { Text("Solo mis plataformas", style = UbuntuTypography.labelSmall) },
+                    leadingIcon = {
+                        Icon(
+                            Icons.Outlined.FilterList,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                )
+            }
+        }
 
         DiscoverContent(
             uiState = uiState,

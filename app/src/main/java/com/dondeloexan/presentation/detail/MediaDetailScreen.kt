@@ -1,8 +1,9 @@
 package com.dondeloexan.presentation.detail
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,7 +24,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.CheckCircleOutline
+import androidx.compose.material.icons.outlined.DoneAll
 import androidx.compose.material.icons.outlined.Star
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -32,14 +35,19 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -67,7 +75,6 @@ import com.dondeloexan.presentation.theme.RatingMedium
 import com.dondeloexan.presentation.theme.TextPrimary
 import com.dondeloexan.presentation.theme.TextSecondary
 import com.dondeloexan.presentation.theme.UbuntuTypography
-import com.dondeloexan.util.AppLogger
 import org.koin.androidx.compose.koinViewModel
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -82,6 +89,7 @@ fun MediaDetailScreen(
     viewModel: MediaDetailViewModel = koinViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    var selectedTab by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(contentId, contentType) {
         viewModel.loadContent(contentId, contentType)
@@ -112,8 +120,7 @@ fun MediaDetailScreen(
         when {
             uiState.isLoading -> {
                 Box(
-                    Modifier
-                        .fillMaxSize(),
+                    Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
                     CircularProgressIndicator(color = EleganteRose)
@@ -121,61 +128,77 @@ fun MediaDetailScreen(
             }
             uiState.error != null -> {
                 Box(
-                    Modifier
-                        .fillMaxSize(),
+                    Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(uiState.error ?: "Error", color = TextSecondary)
                 }
             }
             uiState.content != null -> {
-                DetailContent(
-                    content = uiState.content!!,
-                    seasons = uiState.seasons,
-                    selectedSeason = uiState.selectedSeason,
-                    seasonDetail = uiState.seasonDetail,
-                    watchedEpisodes = uiState.watchedEpisodes,
-                    onSeasonSelected = viewModel::selectSeason,
-                    onToggleEpisode = viewModel::toggleEpisodeWatched
-                )
+                val content = uiState.content!!
+                if (content.type == ContentType.SERIES) {
+                    TabRow(
+                        selectedTabIndex = selectedTab,
+                        containerColor = DarkBackground,
+                        contentColor = EleganteRose
+                    ) {
+                        Tab(
+                            selected = selectedTab == 0,
+                            onClick = { selectedTab = 0 },
+                            text = { Text("Ficha") }
+                        )
+                        Tab(
+                            selected = selectedTab == 1,
+                            onClick = { selectedTab = 1 },
+                            text = { Text("Episodios") }
+                        )
+                    }
+                    when (selectedTab) {
+                        0 -> FichaTab(content)
+                        1 -> EpisodiosTab(
+                            seasons = uiState.seasons,
+                            selectedSeason = uiState.selectedSeason,
+                            seasonDetail = uiState.seasonDetail,
+                            watchedEpisodes = uiState.watchedEpisodes,
+                            onSeasonSelected = viewModel::selectSeason,
+                            onToggleEpisode = viewModel::toggleEpisodeWatched,
+                            onMarkSeasonToggle = viewModel::markSeasonWatched
+                        )
+                    }
+                } else {
+                    FichaTab(content)
+                }
             }
         }
     }
 }
 
 @Composable
-private fun DetailContent(
-    content: Content,
+private fun FichaTab(content: Content) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize()
+    ) {
+        item { HeroSection(content) }
+        item { RatingRow(content) }
+        item { TechnicalInfoSection(content) }
+        if (content.streamingPlatforms.isNotEmpty()) {
+            item { StreamingSection(content) }
+        }
+    }
+}
+
+@Composable
+private fun EpisodiosTab(
     seasons: List<TmdbSeasonDto>,
     selectedSeason: Int,
     seasonDetail: TmdbTvSeasonDetailDto?,
     watchedEpisodes: Set<String>,
     onSeasonSelected: (Int) -> Unit,
     onToggleEpisode: (Int) -> Unit,
-    modifier: Modifier = Modifier
+    onMarkSeasonToggle: () -> Unit
 ) {
-    LazyColumn(
-        modifier = modifier.fillMaxSize()
-    ) {
-        item {
-            HeroSection(content)
-        }
-
-        item {
-            RatingRow(content)
-        }
-
-        item {
-            TechnicalInfoSection(content)
-        }
-
-        if (content.streamingPlatforms.isNotEmpty()) {
-            item {
-                StreamingSection(content)
-            }
-        }
-
-        if (content.type == ContentType.SERIES && seasons.isNotEmpty()) {
+    LazyColumn(modifier = Modifier.fillMaxSize()) {
+        if (seasons.isNotEmpty()) {
             item {
                 SeasonsSection(
                     seasons = seasons,
@@ -183,7 +206,8 @@ private fun DetailContent(
                     seasonDetail = seasonDetail,
                     watchedEpisodes = watchedEpisodes,
                     onSeasonSelected = onSeasonSelected,
-                    onToggleEpisode = onToggleEpisode
+                    onToggleEpisode = onToggleEpisode,
+                    onMarkSeasonToggle = onMarkSeasonToggle
                 )
             }
         }
@@ -248,7 +272,7 @@ private fun EpisodeAirDateBadge(info: AirDateInfo?) {
         Surface(
             shape = RoundedCornerShape(4.dp),
             color = bgColor,
-            border = if (days >= 7L) androidx.compose.foundation.BorderStroke(1.dp, EleganteRoseLight.copy(alpha = 0.5f)) else null
+            border = if (days >= 7L) BorderStroke(1.dp, EleganteRoseLight.copy(alpha = 0.5f)) else null
         ) {
             Text(
                 text = text,
@@ -524,7 +548,7 @@ private fun StreamingSection(content: Content) {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 private fun SeasonsSection(
     seasons: List<TmdbSeasonDto>,
@@ -532,8 +556,13 @@ private fun SeasonsSection(
     seasonDetail: TmdbTvSeasonDetailDto?,
     watchedEpisodes: Set<String>,
     onSeasonSelected: (Int) -> Unit,
-    onToggleEpisode: (Int) -> Unit
+    onToggleEpisode: (Int) -> Unit,
+    onMarkSeasonToggle: () -> Unit
 ) {
+    var showEpisodeDialog by remember { mutableStateOf(false) }
+    var dialogEpisodeNumber by remember { mutableStateOf(0) }
+    var dialogIsWatched by remember { mutableStateOf(false) }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -572,6 +601,32 @@ private fun SeasonsSection(
             }
         }
 
+        if (seasonDetail != null) {
+            Spacer(Modifier.height(4.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.End
+            ) {
+                val allWatched = seasonDetail.episodes.isNotEmpty() &&
+                    seasonDetail.episodes.all { ep ->
+                        watchedEpisodes.contains("S${selectedSeason}E${ep.episodeNumber}")
+                    }
+                TextButton(onClick = onMarkSeasonToggle) {
+                    Icon(
+                        Icons.Outlined.DoneAll,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        if (allWatched) "Desmarcar todo" else "Marcar todo visto"
+                    )
+                }
+            }
+        }
+
         Spacer(Modifier.height(8.dp))
 
         if (seasonDetail != null) {
@@ -584,9 +639,17 @@ private fun SeasonsSection(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .then(
-                            if (isAired) Modifier.clickable { onToggleEpisode(episode.episodeNumber) }
-                            else Modifier
+                        .combinedClickable(
+                            onClick = {
+                                if (isAired) onToggleEpisode(episode.episodeNumber)
+                            },
+                            onLongClick = {
+                                if (isAired) {
+                                    dialogEpisodeNumber = episode.episodeNumber
+                                    dialogIsWatched = isWatched
+                                    showEpisodeDialog = true
+                                }
+                            }
                         )
                         .padding(horizontal = 16.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -639,5 +702,41 @@ private fun SeasonsSection(
                 }
             }
         }
+    }
+
+    if (showEpisodeDialog) {
+        AlertDialog(
+            onDismissRequest = { showEpisodeDialog = false },
+            title = {
+                Text(
+                    "Episodio $dialogEpisodeNumber",
+                    color = TextPrimary
+                )
+            },
+            text = {
+                Text(
+                    if (dialogIsWatched) "¿Marcar como no visto?" else "¿Marcar como visto?",
+                    color = TextSecondary
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    onToggleEpisode(dialogEpisodeNumber)
+                    showEpisodeDialog = false
+                }) {
+                    Text(
+                        if (dialogIsWatched) "No visto" else "Visto",
+                        color = EleganteRose
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEpisodeDialog = false }) {
+                    Text("Cancelar", color = TextSecondary)
+                }
+            },
+            containerColor = DarkSurface,
+            tonalElevation = 0.dp
+        )
     }
 }

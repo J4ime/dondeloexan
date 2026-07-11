@@ -11,6 +11,7 @@ import com.dondeloexan.data.local.entity.WatchStatus
 import com.dondeloexan.domain.model.ContentPreview
 import com.dondeloexan.domain.model.DataResult
 import com.dondeloexan.domain.repository.DiscoverRepository
+import com.dondeloexan.presentation.feedback.FeedbackManager
 import com.dondeloexan.util.AppLogger
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -27,7 +28,8 @@ class DiscoverViewModel(
     private val discoverRepository: DiscoverRepository,
     private val userPlatformDao: UserPlatformDao,
     private val movieDao: MovieDao,
-    private val tvShowDao: TvShowDao
+    private val tvShowDao: TvShowDao,
+    private val feedbackManager: FeedbackManager
 ) : ViewModel() {
 
     private val _searchQuery = MutableStateFlow("")
@@ -35,6 +37,9 @@ class DiscoverViewModel(
 
     private val _uiState = MutableStateFlow<DiscoverUiState>(DiscoverUiState.Initial)
     val uiState: StateFlow<DiscoverUiState> = _uiState.asStateFlow()
+
+    private val _filterByPlatforms = MutableStateFlow(false)
+    val filterByPlatforms: StateFlow<Boolean> = _filterByPlatforms.asStateFlow()
 
     init {
         loadTrending()
@@ -92,6 +97,7 @@ class DiscoverViewModel(
                     }
                 }
             } catch (e: Exception) {
+                AppLogger.e("DiscoverVM", "Search error", e)
                 _uiState.value = DiscoverUiState.Error(e.message ?: "Error desconocido")
             }
         }
@@ -104,7 +110,12 @@ class DiscoverViewModel(
                     com.dondeloexan.domain.model.ContentType.MOVIE -> {
                         val existing = movieDao.getByContentId(preview.id)
                         if (existing != null) {
-                            movieDao.update(existing.copy(liked = !existing.liked))
+                            val newLiked = !existing.liked
+                            movieDao.update(existing.copy(liked = newLiked))
+                            feedbackManager.emit(
+                                if (newLiked) "Película añadida a favoritos"
+                                else "Película quitada de favoritos"
+                            )
                         } else {
                             movieDao.insert(
                                 MovieEntity(
@@ -113,17 +124,24 @@ class DiscoverViewModel(
                                     filmAffinityId = preview.filmAffinityId,
                                     title = preview.title,
                                     year = preview.year,
+                                    releaseDate = preview.releaseDate,
                                     posterUrl = preview.coverUrl,
                                     ratingFa = preview.ratingFa,
                                     liked = true
                                 )
                             )
+                            feedbackManager.emit("Película añadida a favoritos")
                         }
                     }
                     com.dondeloexan.domain.model.ContentType.SERIES -> {
                         val existing = tvShowDao.getByContentId(preview.id)
                         if (existing != null) {
-                            tvShowDao.update(existing.copy(liked = !existing.liked))
+                            val newLiked = !existing.liked
+                            tvShowDao.update(existing.copy(liked = newLiked))
+                            feedbackManager.emit(
+                                if (newLiked) "Serie añadida a favoritos"
+                                else "Serie quitada de favoritos"
+                            )
                         } else {
                             tvShowDao.insert(
                                 TvShowEntity(
@@ -138,6 +156,7 @@ class DiscoverViewModel(
                                     liked = true
                                 )
                             )
+                            feedbackManager.emit("Serie añadida a favoritos")
                         }
                     }
                 }
@@ -154,8 +173,18 @@ class DiscoverViewModel(
                     com.dondeloexan.domain.model.ContentType.MOVIE -> {
                         val existing = movieDao.getByContentId(preview.id)
                         if (existing != null) {
-                            val newStatus = if (existing.status == WatchStatus.YA_VISTA) WatchStatus.POR_VER else WatchStatus.YA_VISTA
-                            movieDao.update(existing.copy(status = newStatus))
+                            val wasWatched = existing.status == WatchStatus.YA_VISTA
+                            val newStatus = if (wasWatched) WatchStatus.POR_VER else WatchStatus.YA_VISTA
+                            movieDao.update(
+                                existing.copy(
+                                    status = newStatus,
+                                    watchedAt = if (wasWatched) null else System.currentTimeMillis()
+                                )
+                            )
+                            feedbackManager.emit(
+                                if (!wasWatched) "Película marcada como vista"
+                                else "Película quitada de vistos"
+                            )
                         } else {
                             movieDao.insert(
                                 MovieEntity(
@@ -164,18 +193,26 @@ class DiscoverViewModel(
                                     filmAffinityId = preview.filmAffinityId,
                                     title = preview.title,
                                     year = preview.year,
+                                    releaseDate = preview.releaseDate,
                                     posterUrl = preview.coverUrl,
                                     ratingFa = preview.ratingFa,
-                                    status = WatchStatus.YA_VISTA
+                                    status = WatchStatus.YA_VISTA,
+                                    watchedAt = System.currentTimeMillis()
                                 )
                             )
+                            feedbackManager.emit("Película marcada como vista")
                         }
                     }
                     com.dondeloexan.domain.model.ContentType.SERIES -> {
                         val existing = tvShowDao.getByContentId(preview.id)
                         if (existing != null) {
-                            val newStatus = if (existing.status == WatchStatus.YA_VISTA) WatchStatus.POR_VER else WatchStatus.YA_VISTA
+                            val wasWatched = existing.status == WatchStatus.YA_VISTA
+                            val newStatus = if (wasWatched) WatchStatus.POR_VER else WatchStatus.YA_VISTA
                             tvShowDao.update(existing.copy(status = newStatus))
+                            feedbackManager.emit(
+                                if (!wasWatched) "Serie marcada como vista"
+                                else "Serie quitada de vistos"
+                            )
                         } else {
                             tvShowDao.insert(
                                 TvShowEntity(
@@ -190,6 +227,7 @@ class DiscoverViewModel(
                                     status = WatchStatus.YA_VISTA
                                 )
                             )
+                            feedbackManager.emit("Serie marcada como vista")
                         }
                     }
                 }
@@ -214,6 +252,11 @@ class DiscoverViewModel(
         }
     }
 
+    fun togglePlatformFilter() {
+        _filterByPlatforms.value = !_filterByPlatforms.value
+        loadTrending()
+    }
+
     private fun loadTrending() {
         viewModelScope.launch {
             _uiState.value = DiscoverUiState.Loading
@@ -223,7 +266,21 @@ class DiscoverViewModel(
                         is DataResult.Loading -> _uiState.value = DiscoverUiState.Loading
                         is DataResult.Success -> {
                             val liked = likedIds.value
-                            val filtered = result.data.filter { it.id !in liked }
+                            var filtered = result.data.filter { it.id !in liked }
+
+                            if (_filterByPlatforms.value) {
+                                val userPlatforms = activePlatforms.value
+                                if (userPlatforms.isNotEmpty()) {
+                                    filtered = filtered.filter { preview ->
+                                        preview.streamingPlatforms.any { platform ->
+                                            userPlatforms.any { userP ->
+                                                platform.platformName.contains(userP, ignoreCase = true)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
                             _uiState.value = if (filtered.isEmpty()) {
                                 DiscoverUiState.Empty("")
                             } else {
@@ -239,6 +296,7 @@ class DiscoverViewModel(
                     }
                 }
             } catch (e: Exception) {
+                AppLogger.e("DiscoverVM", "Trending error", e)
                 _uiState.value = DiscoverUiState.Error(e.message ?: "Error desconocido")
             }
         }

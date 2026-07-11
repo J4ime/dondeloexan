@@ -67,6 +67,7 @@ class MediaDetailViewModel(
                     }
                 }
             } catch (e: Exception) {
+                AppLogger.e("DetailVM", "Error loading content", e)
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     error = e.message ?: "Error desconocido"
@@ -139,6 +140,51 @@ class MediaDetailViewModel(
                         episode = episodeNumber
                     )
                 )
+                tvShowDao.updateLastWatchedAt(tvShow.id, System.currentTimeMillis())
+            }
+
+            _uiState.value = _uiState.value.copy(watchedEpisodes = currentWatched)
+        }
+    }
+
+    fun markSeasonWatched() {
+        viewModelScope.launch {
+            val seasonDetail = _uiState.value.seasonDetail ?: return@launch
+            val episodeNumbers = seasonDetail.episodes.map { it.episodeNumber }
+            val seasonNumber = _uiState.value.selectedSeason
+            val tmdbId = _uiState.value.content?.tmdbId ?: return@launch
+            val contentId = "tmdb-$tmdbId"
+
+            val tvShow = tvShowDao.getByContentId(contentId) ?: return@launch
+            val currentWatched = _uiState.value.watchedEpisodes.toMutableSet()
+
+            val alreadyWatched = episodeNumbers.all { epNum ->
+                currentWatched.contains("S${seasonNumber}E${epNum}")
+            }
+
+            if (alreadyWatched) {
+                episodeNumbers.forEach { epNum ->
+                    val key = "S${seasonNumber}E${epNum}"
+                    if (currentWatched.remove(key)) {
+                        tvShowProgressDao.deleteEpisode(tvShow.id, seasonNumber, epNum)
+                    }
+                }
+                val lastWatched = tvShowProgressDao.getLastWatchedAt(tvShow.id)
+                tvShowDao.updateLastWatchedAt(tvShow.id, lastWatched)
+            } else {
+                episodeNumbers.forEach { epNum ->
+                    val key = "S${seasonNumber}E${epNum}"
+                    if (!currentWatched.contains(key)) {
+                        currentWatched.add(key)
+                        tvShowProgressDao.insert(
+                            TvShowProgressEntity(
+                                tvShowId = tvShow.id,
+                                season = seasonNumber,
+                                episode = epNum
+                            )
+                        )
+                    }
+                }
                 tvShowDao.updateLastWatchedAt(tvShow.id, System.currentTimeMillis())
             }
 

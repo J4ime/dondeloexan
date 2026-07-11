@@ -97,6 +97,7 @@ fun TmdbMultiSearchResult.toContentPreview(
     type = if (mediaType == "tv") ContentType.SERIES else ContentType.MOVIE,
     year = releaseDate?.substringBefore("-")?.toIntOrNull()
         ?: firstAirDate?.substringBefore("-")?.toIntOrNull(),
+    releaseDate = releaseDate ?: firstAirDate,
     coverUrl = posterPath?.let { "https://image.tmdb.org/t/p/w500$it" },
     ratingFa = faRating,
     filmAffinityId = faId,

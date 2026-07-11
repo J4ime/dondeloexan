@@ -18,7 +18,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.CheckCircleOutline
 import androidx.compose.material.icons.outlined.FavoriteBorder
@@ -79,7 +78,6 @@ fun LibraryItemCard(
     isWatched: Boolean,
     onLikeClick: () -> Unit,
     onWatchedClick: () -> Unit,
-    onDeleteClick: () -> Unit,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -224,42 +222,28 @@ fun LibraryItemCard(
             IconButton(
                 onClick = onLikeClick,
                 modifier = Modifier
-                    .size(32.dp)
-                    .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                    .size(48.dp)
+                    .background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
             ) {
                 Icon(
                     if (isLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
                     contentDescription = "Favorito",
                     tint = if (isLiked) EleganteRose else TextPrimary,
-                    modifier = Modifier.size(18.dp)
+                    modifier = Modifier.size(24.dp)
                 )
             }
 
             IconButton(
                 onClick = onWatchedClick,
                 modifier = Modifier
-                    .size(32.dp)
-                    .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                    .size(48.dp)
+                    .background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
             ) {
                 Icon(
                     if (isWatched) Icons.Filled.Check else Icons.Outlined.CheckCircleOutline,
                     contentDescription = "Visto",
                     tint = if (isWatched) EleganteRose else TextPrimary,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-
-            IconButton(
-                onClick = onDeleteClick,
-                modifier = Modifier
-                    .size(32.dp)
-                    .background(Color.Black.copy(alpha = 0.5f), CircleShape)
-            ) {
-                Icon(
-                    Icons.Filled.Delete,
-                    contentDescription = "Eliminar",
-                    tint = TextSecondary,
-                    modifier = Modifier.size(18.dp)
+                    modifier = Modifier.size(24.dp)
                 )
             }
         }

@@ -27,7 +27,7 @@ import com.dondeloexan.data.local.entity.UserPlatformEntity
         SearchHistoryEntity::class,
         UserPlatformEntity::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -64,9 +64,14 @@ abstract class AppDatabase : RoomDatabase() {
             db.execSQL("ALTER TABLE tv_shows ADD COLUMN last_watched_at INTEGER")
         }
 
+        private val MIGRATION_5_6 = Migration(5, 6) { db ->
+            db.execSQL("ALTER TABLE movies ADD COLUMN release_date TEXT")
+            db.execSQL("ALTER TABLE movies ADD COLUMN watched_at INTEGER")
+        }
+
         fun create(context: Context): AppDatabase {
             return Room.databaseBuilder(context, AppDatabase::class.java, DB_NAME)
-                .addMigrations(MIGRATION_4_5)
+                .addMigrations(MIGRATION_4_5, MIGRATION_5_6)
                 .fallbackToDestructiveMigration()
                 .addCallback(seedCallback)
                 .build()
