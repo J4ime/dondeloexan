@@ -76,6 +76,7 @@ fun LibraryItemCard(
     seriesStatus: String? = null,
     inProduction: Boolean? = null,
     numberOfSeasons: Int? = null,
+    releaseDate: String? = null,
     isLiked: Boolean,
     isWatched: Boolean,
     onLikeClick: () -> Unit,
@@ -228,6 +229,16 @@ fun LibraryItemCard(
             }
         }
 
+        if (releaseDate != null && totalEpisodes == null) {
+            MovieOverlayBadge(
+                releaseDate = releaseDate,
+                platforms = streamingPlatforms,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(6.dp)
+            )
+        }
+
         Row(
             modifier = Modifier
                 .align(Alignment.TopEnd)
@@ -260,6 +271,94 @@ fun LibraryItemCard(
                     tint = if (isWatched) EleganteRose else TextPrimary,
                     modifier = Modifier.size(24.dp)
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MovieOverlayBadge(
+    releaseDate: String,
+    platforms: List<StreamingAvailability>,
+    modifier: Modifier = Modifier
+) {
+    val info = remember(releaseDate) {
+        try {
+            val date = LocalDate.parse(releaseDate)
+            val now = LocalDate.now()
+            val daysSince = ChronoUnit.DAYS.between(date, now)
+            when {
+                daysSince in 0..90 -> Pair("En cines", true)
+                daysSince < 0 -> {
+                    val daysUntil = -daysSince
+                    Pair(
+                        "Estreno: ${date.format(DateTimeFormatter.ofPattern("dd/MM"))}",
+                        false
+                    )
+                }
+                else -> null
+            }
+        } catch (_: Exception) { null }
+    }
+
+    if (info != null) {
+        val (label, isActive) = info
+        Column(modifier = modifier) {
+            Surface(
+                shape = RoundedCornerShape(6.dp),
+                color = Color.Black.copy(alpha = 0.75f)
+            ) {
+                Column(
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        if (isActive) {
+                            Text("\uD83C\uDFAC", fontSize = 12.sp)
+                        }
+                        Text(
+                            label,
+                            style = UbuntuTypography.labelSmall,
+                            color = if (isActive) Color(0xFFFF8F00) else TextSecondary,
+                            fontSize = 10.sp,
+                            fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal
+                        )
+                    }
+
+                    if (platforms.isNotEmpty()) {
+                        Spacer(Modifier.height(2.dp))
+                        val firstPlatform = platforms.first()
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            if (firstPlatform.logoUrl != null) {
+                                val context = LocalContext.current
+                                AsyncImage(
+                                    model = ImageRequest.Builder(context)
+                                        .data(firstPlatform.logoUrl)
+                                        .crossfade(200)
+                                        .memoryCachePolicy(CachePolicy.ENABLED)
+                                        .build(),
+                                    contentDescription = firstPlatform.platformName,
+                                    modifier = Modifier
+                                        .size(14.dp)
+                                        .clip(CircleShape),
+                                    contentScale = ContentScale.Fit
+                                )
+                            }
+                            Text(
+                                firstPlatform.platformName,
+                                style = UbuntuTypography.labelSmall,
+                                color = TextSecondary,
+                                fontSize = 9.sp,
+                                maxLines = 1
+                            )
+                        }
+                    }
+                }
             }
         }
     }

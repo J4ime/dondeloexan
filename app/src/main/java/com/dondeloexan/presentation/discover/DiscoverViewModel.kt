@@ -38,7 +38,7 @@ class DiscoverViewModel(
     private val _uiState = MutableStateFlow<DiscoverUiState>(DiscoverUiState.Initial)
     val uiState: StateFlow<DiscoverUiState> = _uiState.asStateFlow()
 
-    private val _filterByPlatforms = MutableStateFlow(false)
+    private val _filterByPlatforms = MutableStateFlow(true)
     val filterByPlatforms: StateFlow<Boolean> = _filterByPlatforms.asStateFlow()
 
     init {
@@ -82,10 +82,31 @@ class DiscoverViewModel(
                     when (result) {
                         is DataResult.Loading -> _uiState.value = DiscoverUiState.Loading
                         is DataResult.Success -> {
-                            _uiState.value = if (result.data.isEmpty()) {
+                            val liked = likedIds.value
+                            var filtered = result.data.filter { it.id !in liked }
+
+                            if (_filterByPlatforms.value) {
+                                val userPlatforms = activePlatforms.value
+                                if (userPlatforms.isNotEmpty()) {
+                                    filtered = filtered.filter { preview ->
+                                        preview.streamingPlatforms.any { platform ->
+                                            val normalized = platform.platformName
+                                                .replace("+", "").replace(" ", "").lowercase()
+                                            userPlatforms.any { userP ->
+                                                val normalizedUser = userP
+                                                    .replace("+", "").replace(" ", "").lowercase()
+                                                normalized.contains(normalizedUser) ||
+                                                    normalizedUser.contains(normalized)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            _uiState.value = if (filtered.isEmpty()) {
                                 DiscoverUiState.Empty(query)
                             } else {
-                                DiscoverUiState.Success(result.data)
+                                DiscoverUiState.Success(filtered)
                             }
                         }
                         is DataResult.Error -> {
@@ -255,7 +276,12 @@ class DiscoverViewModel(
 
     fun togglePlatformFilter() {
         _filterByPlatforms.value = !_filterByPlatforms.value
-        loadTrending()
+        val query = _searchQuery.value
+        if (query.isBlank()) {
+            loadTrending()
+        } else {
+            onSearchQueryChanged(query)
+        }
     }
 
     private fun loadTrending() {
