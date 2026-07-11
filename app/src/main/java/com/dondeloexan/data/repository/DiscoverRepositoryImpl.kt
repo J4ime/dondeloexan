@@ -136,7 +136,7 @@ class DiscoverRepositoryImpl(
             val tv = tmdbApi.getTvDetail(tmdbId)
             val credits = tmdbApi.getTvCredits(tmdbId)
             val providers = tmdbApi.getTvWatchProviders(tmdbId)
-            val platforms = providers.results["ES"]?.toStreamingAvailability().orEmpty()
+            val platforms = providers.results?.get("ES")?.toStreamingAvailability().orEmpty()
 
             val existing = tvShowDao.getByContentId("tmdb-$tmdbId")
             if (existing != null) {
@@ -158,7 +158,7 @@ class DiscoverRepositoryImpl(
             val movie = tmdbApi.getMovieDetail(tmdbId)
             val credits = tmdbApi.getMovieCredits(tmdbId)
             val providers = tmdbApi.getMovieWatchProviders(tmdbId)
-            val platforms = providers.results["ES"]?.toStreamingAvailability().orEmpty()
+            val platforms = providers.results?.get("ES")?.toStreamingAvailability().orEmpty()
 
             val omdbRatings = movie.imdbId?.let { imdbId ->
                 try { omdbApi.getByImdbId(imdbId) } catch (_: Exception) { null }
@@ -200,7 +200,7 @@ class DiscoverRepositoryImpl(
                         } else {
                             imdbApi.getMovieWatchProviders(imdbId)
                         }
-                        providerResponse.results["ES"]?.imdbToStreaming().orEmpty()
+                        providerResponse.results?.get("ES")?.imdbToStreaming().orEmpty()
                     } catch (_: Exception) {
                         tryFetchTmbdPlatforms(preview)
                     }
@@ -221,7 +221,7 @@ class DiscoverRepositoryImpl(
                         } else {
                             tmdbApi.getMovieWatchProviders(tmdbId)
                         }
-                        providerResponse.results["ES"]?.toStreamingAvailability().orEmpty()
+                        providerResponse.results?.get("ES")?.toStreamingAvailability().orEmpty()
                     } catch (_: Exception) { emptyList<StreamingAvailability>() }
                     preview.copy(streamingPlatforms = platforms)
                 }
@@ -241,7 +241,7 @@ class DiscoverRepositoryImpl(
                 } else {
                     tmdbApi.getMovieWatchProviders(match.id)
                 }
-                providerResponse.results["ES"]?.toStreamingAvailability().orEmpty()
+                providerResponse.results?.get("ES")?.toStreamingAvailability().orEmpty()
             } else emptyList()
         } catch (_: Exception) { emptyList() }
     }

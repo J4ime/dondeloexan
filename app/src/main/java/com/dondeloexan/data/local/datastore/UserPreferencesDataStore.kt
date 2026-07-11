@@ -18,12 +18,15 @@ class UserPreferencesDataStore(private val context: Context) {
         private val PREFERRED_AVAILABILITY_TYPES = stringSetPreferencesKey("preferred_availability_types")
     }
 
+    private val defaultTypes = setOf("SUBSCRIPTION", "RENT", "BUY", "FREE", "ADS")
+
     val activePlatforms: Flow<Set<String>> = context.dataStore.data.map { prefs ->
         prefs[ACTIVE_PLATFORMS] ?: emptySet()
     }
 
     val preferredAvailabilityTypes: Flow<Set<String>> = context.dataStore.data.map { prefs ->
-        prefs[PREFERRED_AVAILABILITY_TYPES] ?: emptySet()
+        val stored = prefs[PREFERRED_AVAILABILITY_TYPES]
+        if (stored == null || stored.isEmpty()) defaultTypes else stored
     }
 
     suspend fun toggleAvailabilityType(type: String) {

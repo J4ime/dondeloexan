@@ -89,7 +89,7 @@ fun DiscoverScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(48.dp)
+                .height(44.dp)
                 .padding(horizontal = 16.dp, vertical = 0.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -135,7 +135,7 @@ fun DiscoverScreen(
                     )
                 },
                 colors = FilterChipDefaults.filterChipColors(
-                    containerColor = if (filterByPlatforms) EleganteRose.copy(alpha = 0.15f) else DarkSurface,
+                    containerColor = if (filterByPlatforms) EleganteRose.copy(alpha = 0.2f) else DarkSurface,
                     labelColor = if (filterByPlatforms) EleganteRose else TextSecondary
                 )
             )

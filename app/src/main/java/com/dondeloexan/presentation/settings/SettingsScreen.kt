@@ -3,7 +3,6 @@ package com.dondeloexan.presentation.settings
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -28,8 +27,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -232,7 +229,12 @@ fun SettingsScreen(
 
                 item { SettingsGroupHeader("Disponibilidad") }
                 item {
-                    AvailabilityTypeSelector()
+                    SettingsItem(
+                        icon = Icons.Outlined.LiveTv,
+                        title = "Disponibilidad",
+                        subtitle = "Elige como prefieres consumir contenido",
+                        onClick = { navController.navigate(Route.SettingsAvailability.route) }
+                    )
                 }
 
                 item { SettingsGroupHeader("Datos") }
@@ -302,48 +304,5 @@ fun SettingsScreen(
             hostState = snackbarHostState,
             modifier = Modifier.align(Alignment.BottomCenter)
         )
-    }
-}
-
-@Composable
-private fun AvailabilityTypeSelector() {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val dataStore = remember { com.dondeloexan.data.local.datastore.UserPreferencesDataStore(context) }
-    val scope = androidx.compose.runtime.rememberCoroutineScope()
-    val selectedTypes by dataStore.preferredAvailabilityTypes.collectAsState(initial = emptySet())
-
-    Column(modifier = Modifier.padding(vertical = 4.dp)) {
-        Text(
-            "Mostrar solo contenido:",
-            style = UbuntuTypography.labelSmall,
-            color = TextSecondary,
-            modifier = Modifier.padding(bottom = 6.dp)
-        )
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            listOf(
-                com.dondeloexan.domain.model.AvailabilityType.SUBSCRIPTION to "Suscripción",
-                com.dondeloexan.domain.model.AvailabilityType.RENT to "Alquiler",
-                com.dondeloexan.domain.model.AvailabilityType.BUY to "Compra",
-                com.dondeloexan.domain.model.AvailabilityType.FREE to "Gratis",
-                com.dondeloexan.domain.model.AvailabilityType.ADS to "Con anuncios"
-            ).forEach { (type, label) ->
-                FilterChip(
-                    selected = type.name in selectedTypes,
-                    onClick = {
-                        scope.launch {
-                            dataStore.toggleAvailabilityType(type.name)
-                        }
-                    },
-                    label = { Text(label, style = UbuntuTypography.labelSmall) },
-                    colors = FilterChipDefaults.filterChipColors(
-                        containerColor = if (type.name in selectedTypes) EleganteRose.copy(alpha = 0.15f) else DarkSurface,
-                        labelColor = if (type.name in selectedTypes) EleganteRose else TextSecondary
-                    )
-                )
-            }
-        }
     }
 }

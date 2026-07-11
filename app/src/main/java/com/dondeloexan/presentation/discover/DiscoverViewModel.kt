@@ -95,7 +95,9 @@ class DiscoverViewModel(
                         is DataResult.Loading -> _uiState.value = DiscoverUiState.Loading
                         is DataResult.Success -> {
                             val blacklisted = blacklistedIds.value
-                            var filtered = result.data.filter { it.id !in blacklisted }
+                            val liked = likedIds.value
+                            val watched = watchedIds.value
+                            var filtered = result.data.filter { it.id !in blacklisted && it.id !in liked && it.id !in watched }
 
                             _uiState.value = if (filtered.isEmpty()) {
                                 DiscoverUiState.Empty(query)

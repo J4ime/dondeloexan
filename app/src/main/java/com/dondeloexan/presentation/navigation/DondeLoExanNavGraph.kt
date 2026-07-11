@@ -130,6 +130,10 @@ fun DondeLoExanNavGraph(navController: NavHostController) {
                     com.dondeloexan.presentation.blacklist.BlacklistScreen(navController = navController)
                 }
 
+                composable(Route.SettingsAvailability.route) {
+                    com.dondeloexan.presentation.availability.AvailabilityScreen(navController = navController)
+                }
+
                 composable(
                     route = "detail/{contentId}/{contentType}",
                     arguments = listOf(

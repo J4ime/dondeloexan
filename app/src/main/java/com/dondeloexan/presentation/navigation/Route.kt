@@ -21,6 +21,7 @@ sealed class Route(
     data object SettingsLogs      : Route("settings/logs",     "Registro de errores",  Icons.Outlined.Settings)
     data object SettingsAbout     : Route("settings/about",     "Acerca de",            Icons.Outlined.Settings)
     data object SettingsBlacklist : Route("settings/blacklist", "Contenidos ocultos",   Icons.Outlined.Settings)
+    data object SettingsAvailability : Route("settings/availability", "Disponibilidad", Icons.Outlined.Settings)
 
     companion object {
         val bottomNavItems by lazy { listOf(Series, Movies, Discover, Settings) }
