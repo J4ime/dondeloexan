@@ -33,6 +33,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.navArgument
+import com.dondeloexan.domain.model.ContentType
 import com.dondeloexan.presentation.detail.MediaDetailScreen
 import com.dondeloexan.presentation.discover.DiscoverScreen
 import com.dondeloexan.presentation.movies.MoviesScreen
@@ -109,8 +110,11 @@ fun DondeLoExanNavGraph(navController: NavHostController) {
                 )
             ) { backStackEntry ->
                 val contentId = backStackEntry.arguments?.getString("contentId") ?: return@composable
+                val contentTypeArg = backStackEntry.arguments?.getString("contentType") ?: "movie"
+                val contentType = if (contentTypeArg == "series") ContentType.SERIES else ContentType.MOVIE
                 MediaDetailScreen(
                     contentId = contentId,
+                    contentType = contentType,
                     onBack = { navController.popBackStack() }
                 )
             }

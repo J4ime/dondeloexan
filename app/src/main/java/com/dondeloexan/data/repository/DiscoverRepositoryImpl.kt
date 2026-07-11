@@ -92,13 +92,13 @@ class DiscoverRepositoryImpl(
         private const val WEIGHT_POPULARITY = 5.0
     }
 
-    override suspend fun getDetail(contentId: String): Flow<DataResult<Content>> = flow {
+    override suspend fun getDetail(contentId: String, contentType: ContentType): Flow<DataResult<Content>> = flow {
         emit(DataResult.Loading)
 
         try {
             val content = when {
                 contentId.startsWith("fa-") -> fetchFilmAffinityDetail(contentId)
-                contentId.startsWith("tmdb-") -> fetchTmdbDetail(contentId)
+                contentId.startsWith("tmdb-") -> fetchTmdbDetail(contentId, contentType)
                 else -> throw IllegalArgumentException("Unknown content ID: $contentId")
             }
 
@@ -163,10 +163,30 @@ class DiscoverRepositoryImpl(
         faItem.toDomain(platforms = platforms)
     }
 
-    private suspend fun fetchTmdbDetail(id: String): Content {
+    private suspend fun fetchTmdbDetail(id: String, contentType: ContentType = ContentType.MOVIE): Content {
         val tmdbId = id.removePrefix("tmdb-").toInt()
 
-        val movieResult = try {
+        return if (contentType == ContentType.SERIES) {
+            val tv = tmdbApi.getTvDetail(tmdbId)
+            val credits = tmdbApi.getTvCredits(tmdbId)
+            val providers = tmdbApi.getTvWatchProviders(tmdbId)
+            val platforms = providers.results["ES"]?.toStreamingAvailability().orEmpty()
+
+            val existing = tvShowDao.getByContentId("tmdb-$tmdbId")
+            if (existing != null) {
+                tvShowDao.update(
+                    existing.copy(
+                        totalEpisodes = tv.numberOfEpisodes ?: existing.totalEpisodes,
+                        nextEpisodeAirDate = tv.nextEpisodeToAir?.airDate,
+                        nextEpisodeNumber = tv.nextEpisodeToAir?.episodeNumber,
+                        nextEpisodeSeasonNumber = tv.nextEpisodeToAir?.seasonNumber,
+                        seriesStatus = tv.status
+                    )
+                )
+            }
+
+            tv.toDomain(null, platforms, credits)
+        } else {
             val movie = tmdbApi.getMovieDetail(tmdbId)
             val credits = tmdbApi.getMovieCredits(tmdbId)
             val providers = tmdbApi.getMovieWatchProviders(tmdbId)
@@ -190,35 +210,7 @@ class DiscoverRepositoryImpl(
             } else content
 
             enriched
-        } catch (_: Exception) { null }
-
-        if (movieResult != null) return movieResult
-
-        val tvResult = try {
-            val tv = tmdbApi.getTvDetail(tmdbId)
-            val credits = tmdbApi.getTvCredits(tmdbId)
-            val providers = tmdbApi.getTvWatchProviders(tmdbId)
-            val platforms = providers.results["ES"]?.toStreamingAvailability().orEmpty()
-
-            val existing = tvShowDao.getByContentId("tmdb-$tmdbId")
-            if (existing != null) {
-                tvShowDao.update(
-                    existing.copy(
-                        totalEpisodes = tv.numberOfEpisodes ?: existing.totalEpisodes,
-                        nextEpisodeAirDate = tv.nextEpisodeToAir?.airDate,
-                        nextEpisodeNumber = tv.nextEpisodeToAir?.episodeNumber,
-                        nextEpisodeSeasonNumber = tv.nextEpisodeToAir?.seasonNumber,
-                        seriesStatus = tv.status
-                    )
-                )
-            }
-
-            tv.toDomain(null, platforms, credits)
-        } catch (_: Exception) { null }
-
-        if (tvResult != null) return tvResult
-
-        throw IllegalArgumentException("Content not found: $id")
+        }
     }
 
     private fun prioritizePlatforms(content: Content, userPlatforms: Set<String>): Content {

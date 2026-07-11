@@ -80,8 +80,8 @@ fun DiscoverScreen(
             searchQuery = searchQuery,
             likedIds = likedIds,
             watchedIds = watchedIds,
-            onItemClick = { contentId ->
-                navController.navigate("detail/$contentId/tmdb")
+            onItemClick = { contentId, contentType ->
+                navController.navigate("detail/$contentId/$contentType")
             },
             onFavoriteClick = viewModel::onToggleFavorite,
             onWatchedClick = viewModel::onToggleWatched,
@@ -136,7 +136,7 @@ fun DiscoverContent(
     searchQuery: String,
     likedIds: Set<String>,
     watchedIds: Set<String>,
-    onItemClick: (String) -> Unit,
+    onItemClick: (String, String) -> Unit,
     onFavoriteClick: (ContentPreview) -> Unit,
     onWatchedClick: (ContentPreview) -> Unit,
     onRetry: () -> Unit
@@ -162,7 +162,7 @@ fun DiscoverContent(
                             isWatched = watchedIds.contains(content.id),
                             onFavoriteClick = { onFavoriteClick(content) },
                             onWatchedClick = { onWatchedClick(content) },
-                            onClick = { onItemClick(content.id) }
+                            onClick = { onItemClick(content.id, content.type.name.lowercase()) }
                         )
                     }
                 }

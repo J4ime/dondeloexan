@@ -128,7 +128,7 @@ fun SeriesScreen(
                         onWatchedClick = { viewModel.toggleWatched(s) },
                         onDeleteClick = { viewModel.delete(s) },
                         onClick = {
-                            navController.navigate("detail/${s.contentId ?: ""}/tmdb")
+                            navController.navigate("detail/${s.contentId ?: ""}/series")
                         },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -168,7 +168,7 @@ fun SeriesScreen(
                             onWatchedClick = { viewModel.toggleWatched(s) },
                             onDeleteClick = { viewModel.delete(s) },
                             onClick = {
-                                navController.navigate("detail/${s.contentId ?: ""}/tmdb")
+                                navController.navigate("detail/${s.contentId ?: ""}/series")
                             },
                             modifier = Modifier
                                 .fillMaxWidth()

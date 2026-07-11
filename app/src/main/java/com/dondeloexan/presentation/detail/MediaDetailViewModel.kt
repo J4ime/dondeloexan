@@ -9,6 +9,7 @@ import com.dondeloexan.data.remote.api.TmdbApi
 import com.dondeloexan.data.remote.dto.TmdbSeasonDto
 import com.dondeloexan.data.remote.dto.TmdbTvSeasonDetailDto
 import com.dondeloexan.domain.model.Content
+import com.dondeloexan.domain.model.ContentType
 import com.dondeloexan.domain.model.DataResult
 import com.dondeloexan.domain.repository.DiscoverRepository
 import com.dondeloexan.util.AppLogger
@@ -37,12 +38,12 @@ class MediaDetailViewModel(
     private val _uiState = MutableStateFlow(DetailUiState())
     val uiState: StateFlow<DetailUiState> = _uiState.asStateFlow()
 
-    fun loadContent(contentId: String) {
+    fun loadContent(contentId: String, contentType: ContentType = ContentType.MOVIE) {
         viewModelScope.launch {
             _uiState.value = DetailUiState(isLoading = true)
 
             try {
-                discoverRepository.getDetail(contentId).collect { result ->
+                discoverRepository.getDetail(contentId, contentType).collect { result ->
                     when (result) {
                         is DataResult.Loading -> {}
                         is DataResult.Success -> {
@@ -53,7 +54,7 @@ class MediaDetailViewModel(
                                 error = null
                             )
 
-                            if (content.type == com.dondeloexan.domain.model.ContentType.SERIES) {
+                            if (content.type == ContentType.SERIES) {
                                 loadSeasons(content.tmdbId)
                             }
                         }

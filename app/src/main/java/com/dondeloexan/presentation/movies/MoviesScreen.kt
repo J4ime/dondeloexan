@@ -121,7 +121,7 @@ fun MoviesScreen(
                         onWatchedClick = { viewModel.toggleWatched(movie) },
                         onDeleteClick = { viewModel.delete(movie) },
                         onClick = {
-                            navController.navigate("detail/${movie.contentId ?: ""}/tmdb")
+                            navController.navigate("detail/${movie.contentId ?: ""}/movie")
                         },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -154,7 +154,7 @@ fun MoviesScreen(
                             onWatchedClick = { viewModel.toggleWatched(movie) },
                             onDeleteClick = { viewModel.delete(movie) },
                             onClick = {
-                                navController.navigate("detail/${movie.contentId ?: ""}/tmdb")
+                                navController.navigate("detail/${movie.contentId ?: ""}/movie")
                             },
                             modifier = Modifier
                                 .fillMaxWidth()

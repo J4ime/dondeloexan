@@ -77,13 +77,14 @@ import java.time.temporal.ChronoUnit
 @Composable
 fun MediaDetailScreen(
     contentId: String,
+    contentType: ContentType = ContentType.MOVIE,
     onBack: () -> Unit,
     viewModel: MediaDetailViewModel = koinViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
-    LaunchedEffect(contentId) {
-        viewModel.loadContent(contentId)
+    LaunchedEffect(contentId, contentType) {
+        viewModel.loadContent(contentId, contentType)
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
