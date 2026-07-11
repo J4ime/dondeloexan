@@ -73,18 +73,15 @@ class DiscoverRepositoryImpl(
             emit(DataResult.Success(withPlatforms))
         } catch (e: Exception) {
             try {
-                val tmdbResult = tmdbApi.searchMulti(query)
-                val previews = tmdbResult.results
-                    .filter { it.mediaType in listOf("movie", "tv") && !it.adult }
-                    .map { it.toContentPreview() }
-                    .sortedByDescending {
-                        val ratingScore = (it.ratingFa?.toDouble() ?: 0.0) * 10.0
-                        val popularityScore = log10((it.voteCount ?: 0).toDouble() + 1.0) * WEIGHT_POPULARITY
-                        ratingScore + popularityScore
-                    }
-                emit(DataResult.Success(previews.take(20)))
+                val faResult = filmAffinityApi.search(query)
+                val previews = faResult.results.mapNotNull { it.toContentPreview() }.take(20)
+                if (previews.isNotEmpty()) {
+                    emit(DataResult.Success(previews))
+                } else {
+                    emit(DataResult.Error(e))
+                }
             } catch (fallback: Exception) {
-                emit(DataResult.Error(fallback))
+                emit(DataResult.Error(e))
             }
         }
     }
@@ -128,7 +125,20 @@ class DiscoverRepositoryImpl(
             val withPlatforms = attachPlatformsToPreviews(withFaRatings)
             emit(DataResult.Success(withPlatforms))
         } catch (e: Exception) {
-            emit(DataResult.Error(e))
+            try {
+                val year = java.time.LocalDate.now().year.toString()
+                val faResult = filmAffinityApi.search(year)
+                val previews = faResult.results.mapNotNull { it.toContentPreview() }
+                    .sortedByDescending { it.ratingFa ?: 0f }
+                    .take(20)
+                if (previews.isNotEmpty()) {
+                    emit(DataResult.Success(previews))
+                } else {
+                    emit(DataResult.Error(e))
+                }
+            } catch (fallback: Exception) {
+                emit(DataResult.Error(e))
+            }
         }
     }
 
