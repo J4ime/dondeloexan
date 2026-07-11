@@ -23,12 +23,14 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.CheckCircleOutline
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.Movie
+import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -56,6 +58,9 @@ import com.dondeloexan.presentation.theme.UbuntuTypography
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import coil.request.CachePolicy
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 
 @Composable
 fun LibraryItemCard(
@@ -66,6 +71,10 @@ fun LibraryItemCard(
     streamingPlatforms: List<StreamingAvailability>,
     watchedCount: Int = 0,
     totalEpisodes: Int? = null,
+    nextEpisodeAirDate: String? = null,
+    nextEpisodeNumber: Int? = null,
+    nextEpisodeSeasonNumber: Int? = null,
+    seriesStatus: String? = null,
     isLiked: Boolean,
     isWatched: Boolean,
     onLikeClick: () -> Unit,
@@ -189,6 +198,15 @@ fun LibraryItemCard(
                         trackColor = Color.White.copy(alpha = 0.15f)
                     )
                 }
+            }
+
+            if (nextEpisodeAirDate != null && seriesStatus != "Ended" && seriesStatus != "Canceled") {
+                Spacer(Modifier.height(4.dp))
+                NextEpisodeLabel(
+                    airDate = nextEpisodeAirDate,
+                    season = nextEpisodeSeasonNumber,
+                    episode = nextEpisodeNumber
+                )
             }
 
             if (streamingPlatforms.isNotEmpty()) {
@@ -320,6 +338,52 @@ private fun PlatformBadgeRow(platforms: List<StreamingAvailability>, maxVisible:
                 style = UbuntuTypography.labelSmall,
                 color = TextSecondary,
                 fontSize = 10.sp
+            )
+        }
+    }
+}
+
+@Composable
+private fun NextEpisodeLabel(
+    airDate: String,
+    season: Int?,
+    episode: Int?
+) {
+    val label = remember(airDate) {
+        try {
+            val date = LocalDate.parse(airDate)
+            val now = LocalDate.now()
+            val days = ChronoUnit.DAYS.between(now, date)
+            when {
+                days < 0 -> null
+                days == 0L -> "¡Hoy nuevo episodio!"
+                days == 1L -> "Mañana nuevo episodio"
+                days <= 7 -> "Próximo en $days días"
+                else -> "Próximo: ${date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}"
+            }
+        } catch (_: Exception) { null }
+    }
+    val seasonEpisode = if (season != null && episode != null) "T${season}E$episode" else null
+
+    if (label != null) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Icon(
+                Icons.Outlined.Notifications,
+                contentDescription = null,
+                modifier = Modifier.size(12.dp),
+                tint = EleganteRose
+            )
+            Text(
+                buildString {
+                    append(label)
+                    if (seasonEpisode != null) append(" · $seasonEpisode")
+                },
+                style = UbuntuTypography.labelSmall,
+                color = EleganteRose,
+                fontSize = 9.sp
             )
         }
     }

@@ -80,6 +80,9 @@ data class TmdbMultiSearchResult(
     @SerialName("release_date") val releaseDate: String? = null,
     @SerialName("first_air_date") val firstAirDate: String? = null,
     @SerialName("vote_average") val voteAverage: Float? = null,
+    @SerialName("vote_count") val voteCount: Int? = null,
+    val popularity: Float? = null,
+    val adult: Boolean = false,
     val overview: String? = null,
     @SerialName("genre_ids") val genreIds: List<Int>? = null,
     @SerialName("known_for_department") val knownForDepartment: String? = null
@@ -112,7 +115,9 @@ data class TmdbTvDetailDto(
     @SerialName("production_countries") val productionCountries: List<TmdbCountryDto>? = null,
     @SerialName("production_companies") val productionCompanies: List<TmdbProductionCompanyDto>? = null,
     @SerialName("in_production") val inProduction: Boolean? = null,
-    val status: String? = null
+    val status: String? = null,
+    @SerialName("next_episode_to_air") val nextEpisodeToAir: TmdbEpisodeDto? = null,
+    @SerialName("last_episode_to_air") val lastEpisodeToAir: TmdbEpisodeDto? = null
 )
 
 @Serializable

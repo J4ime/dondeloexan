@@ -34,10 +34,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -52,8 +49,6 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.dondeloexan.domain.model.ContentPreview
 import com.dondeloexan.presentation.discover.components.SearchItemCard
-import com.dondeloexan.presentation.navigation.BottomNavigationBar
-import com.dondeloexan.presentation.theme.DarkBackground
 import com.dondeloexan.presentation.theme.DarkSurface
 import com.dondeloexan.presentation.theme.EleganteRose
 import com.dondeloexan.presentation.theme.EleganteRoseDark
@@ -62,7 +57,6 @@ import com.dondeloexan.presentation.theme.TextSecondary
 import com.dondeloexan.presentation.theme.UbuntuTypography
 import org.koin.androidx.compose.koinViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DiscoverScreen(
     navController: NavController,
@@ -73,40 +67,26 @@ fun DiscoverScreen(
     val likedIds by viewModel.likedIds.collectAsState()
     val watchedIds by viewModel.watchedIds.collectAsState()
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Descubrir", color = TextPrimary) },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBackground)
-            )
-        },
-        bottomBar = { BottomNavigationBar(navController) }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-        ) {
-            DiscoverSearchBar(
-                query = searchQuery,
-                onQueryChange = viewModel::onSearchQueryChanged,
-                onClear = viewModel::onClearSearch,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-            )
+    Column(modifier = Modifier.fillMaxSize()) {
+        DiscoverSearchBar(
+            query = searchQuery,
+            onQueryChange = viewModel::onSearchQueryChanged,
+            onClear = viewModel::onClearSearch,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+        )
 
-            DiscoverContent(
-                uiState = uiState,
-                searchQuery = searchQuery,
-                likedIds = likedIds,
-                watchedIds = watchedIds,
-                onItemClick = { contentId ->
-                    navController.navigate("detail/$contentId/tmdb")
-                },
-                onFavoriteClick = viewModel::onToggleFavorite,
-                onWatchedClick = viewModel::onToggleWatched,
-                onRetry = viewModel::onRetry
-            )
-        }
+        DiscoverContent(
+            uiState = uiState,
+            searchQuery = searchQuery,
+            likedIds = likedIds,
+            watchedIds = watchedIds,
+            onItemClick = { contentId ->
+                navController.navigate("detail/$contentId/tmdb")
+            },
+            onFavoriteClick = viewModel::onToggleFavorite,
+            onWatchedClick = viewModel::onToggleWatched,
+            onRetry = viewModel::onRetry
+        )
     }
 }
 
@@ -313,7 +293,7 @@ fun EmptyState(query: String) {
             )
             Spacer(Modifier.height(12.dp))
             Text(
-                "Sin resultados para \"$query\"",
+                if (query.isBlank()) "No hay resultados" else "Sin resultados para \"$query\"",
                 style = UbuntuTypography.titleSmall,
                 color = TextSecondary
             )

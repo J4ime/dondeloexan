@@ -127,6 +127,8 @@ class MediaDetailViewModel(
             if (currentWatched.contains(episodeKey)) {
                 currentWatched.remove(episodeKey)
                 tvShowProgressDao.deleteEpisode(tvShow.id, seasonNumber, episodeNumber)
+                val lastWatched = tvShowProgressDao.getLastWatchedAt(tvShow.id)
+                tvShowDao.updateLastWatchedAt(tvShow.id, lastWatched)
             } else {
                 currentWatched.add(episodeKey)
                 tvShowProgressDao.insert(
@@ -136,6 +138,7 @@ class MediaDetailViewModel(
                         episode = episodeNumber
                     )
                 )
+                tvShowDao.updateLastWatchedAt(tvShow.id, System.currentTimeMillis())
             }
 
             _uiState.value = _uiState.value.copy(watchedEpisodes = currentWatched)

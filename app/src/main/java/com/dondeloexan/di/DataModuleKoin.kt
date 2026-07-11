@@ -10,6 +10,7 @@ import com.dondeloexan.data.local.dao.TvShowProgressDao
 import com.dondeloexan.data.local.dao.UserPlatformDao
 import com.dondeloexan.data.repository.DiscoverRepositoryImpl
 import com.dondeloexan.data.repository.SettingsRepositoryImpl
+import com.dondeloexan.data.update.SilentUpdateManager
 import com.dondeloexan.domain.repository.BackupRepository
 import com.dondeloexan.domain.repository.DiscoverRepository
 import com.dondeloexan.domain.repository.SettingsRepository
@@ -31,6 +32,9 @@ val dataModule = module {
     // Backup
     single { BackupManager(get(), androidContext().contentResolver) }
     single<BackupRepository> { BackupRepositoryImpl(get()) }
+
+    // Silent Update
+    single { SilentUpdateManager(androidContext()) }
 
     // Repositories
     single<DiscoverRepository> {

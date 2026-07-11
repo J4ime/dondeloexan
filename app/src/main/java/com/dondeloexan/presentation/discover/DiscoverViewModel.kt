@@ -36,6 +36,10 @@ class DiscoverViewModel(
     private val _uiState = MutableStateFlow<DiscoverUiState>(DiscoverUiState.Initial)
     val uiState: StateFlow<DiscoverUiState> = _uiState.asStateFlow()
 
+    init {
+        loadTrending()
+    }
+
     val activePlatforms: StateFlow<Set<String>> = userPlatformDao.getActiveFlow()
         .map { it.map { p -> p.platformName }.toSet() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
@@ -58,8 +62,8 @@ class DiscoverViewModel(
         _searchQuery.value = query
 
         if (query.isBlank()) {
-            _uiState.value = DiscoverUiState.Initial
             searchJob?.cancel()
+            loadTrending()
             return
         }
 
@@ -198,11 +202,44 @@ class DiscoverViewModel(
     fun onClearSearch() {
         _searchQuery.value = ""
         searchJob?.cancel()
-        _uiState.value = DiscoverUiState.Initial
+        loadTrending()
     }
 
     fun onRetry() {
-        onSearchQueryChanged(_searchQuery.value)
+        val query = _searchQuery.value
+        if (query.isBlank()) {
+            loadTrending()
+        } else {
+            onSearchQueryChanged(query)
+        }
+    }
+
+    private fun loadTrending() {
+        viewModelScope.launch {
+            _uiState.value = DiscoverUiState.Loading
+            try {
+                discoverRepository.getTrending().collect { result ->
+                    when (result) {
+                        is DataResult.Loading -> _uiState.value = DiscoverUiState.Loading
+                        is DataResult.Success -> {
+                            _uiState.value = if (result.data.isEmpty()) {
+                                DiscoverUiState.Empty("")
+                            } else {
+                                DiscoverUiState.Success(result.data)
+                            }
+                        }
+                        is DataResult.Error -> {
+                            AppLogger.e("DiscoverVM", "Trending error", result.exception)
+                            _uiState.value = DiscoverUiState.Error(
+                                result.exception.message ?: "Error al carrar tendencias"
+                            )
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                _uiState.value = DiscoverUiState.Error(e.message ?: "Error desconocido")
+            }
+        }
     }
 }
 

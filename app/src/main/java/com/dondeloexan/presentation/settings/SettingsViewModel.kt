@@ -1,15 +1,16 @@
 package com.dondeloexan.presentation.settings
 
 import android.content.Context
-import android.content.Intent
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dondeloexan.BuildConfig
+import com.dondeloexan.data.update.SilentUpdateManager
 import com.dondeloexan.domain.model.BackupState
 import com.dondeloexan.domain.model.GitHubRelease
 import com.dondeloexan.domain.repository.BackupRepository
 import com.dondeloexan.domain.repository.SettingsRepository
+import com.dondeloexan.util.AppLogger
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -17,7 +18,8 @@ import kotlinx.coroutines.launch
 
 class SettingsViewModel(
     private val settingsRepository: SettingsRepository,
-    private val backupRepository: BackupRepository
+    private val backupRepository: BackupRepository,
+    private val silentUpdateManager: SilentUpdateManager
 ) : ViewModel() {
 
     private val _updateState = MutableStateFlow<UpdateCheckState>(UpdateCheckState.Idle)
@@ -54,12 +56,20 @@ class SettingsViewModel(
         _updateState.value = UpdateCheckState.Idle
     }
 
-    fun openDownloadUrl(context: Context, url: String) {
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    fun startSilentUpdate(downloadUrl: String) {
+        _updateState.value = UpdateCheckState.Downloading
+        viewModelScope.launch {
+            silentUpdateManager.downloadAndInstall(downloadUrl)
+                .onSuccess {
+                    _updateState.value = UpdateCheckState.InstallSuccess
+                }
+                .onFailure { error ->
+                    AppLogger.e("SettingsVM", "Silent update failed", error)
+                    _updateState.value = UpdateCheckState.Error(
+                        "Error al instalar: ${error.message}"
+                    )
+                }
         }
-        context.startActivity(intent)
-        _updateState.value = UpdateCheckState.Idle
     }
 
     fun onUpToDateMessageShown() {
@@ -98,5 +108,7 @@ sealed interface UpdateCheckState {
     data object Checking : UpdateCheckState
     data object UpToDate : UpdateCheckState
     data class UpdateAvailable(val release: GitHubRelease) : UpdateCheckState
+    data object Downloading : UpdateCheckState
+    data object InstallSuccess : UpdateCheckState
     data class Error(val message: String) : UpdateCheckState
 }

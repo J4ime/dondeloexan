@@ -1,7 +1,8 @@
 package com.dondeloexan.presentation.discover.components
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -53,6 +54,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import coil.request.CachePolicy
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun SearchItemCard(
     content: ContentPreview,
@@ -68,7 +70,10 @@ fun SearchItemCard(
             .padding(horizontal = 16.dp, vertical = 6.dp)
             .height(220.dp)
             .clip(RoundedCornerShape(16.dp))
-            .clickable(onClick = onClick)
+            .combinedClickable(
+                onClick = onClick,
+                onDoubleClick = onFavoriteClick
+            )
     ) {
         if (content.coverUrl != null) {
             val context = LocalContext.current

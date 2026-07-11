@@ -26,7 +26,7 @@ import com.dondeloexan.data.local.entity.UserPlatformEntity
         SearchHistoryEntity::class,
         UserPlatformEntity::class
     ],
-    version = 3,
+    version = 5,
     exportSchema = false
 )
 @TypeConverters(Converters::class)

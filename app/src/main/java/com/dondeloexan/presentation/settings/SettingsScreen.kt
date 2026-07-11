@@ -3,11 +3,17 @@ package com.dondeloexan.presentation.settings
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.ui.Alignment
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.FileDownload
@@ -19,7 +25,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -35,7 +40,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.dondeloexan.domain.model.BackupState
-import com.dondeloexan.presentation.navigation.BottomNavigationBar
 import com.dondeloexan.presentation.navigation.Route
 import com.dondeloexan.presentation.settings.components.SettingsGroupHeader
 import com.dondeloexan.presentation.settings.components.SettingsItem
@@ -106,7 +110,40 @@ fun SettingsScreen(
         UpdateAvailableDialog(
             release = release,
             onDismiss = { viewModel.onUpdateDialogDismissed() },
-            onDownload = { url -> viewModel.openDownloadUrl(navController.context, url) }
+            onDownload = { url -> viewModel.startSilentUpdate(url) }
+        )
+    }
+
+    if (updateState is UpdateCheckState.Downloading) {
+        AlertDialog(
+            onDismissRequest = {},
+            confirmButton = {},
+            title = { Text("Descargando actualización", color = TextPrimary) },
+            text = {
+                Column {
+                    Text("Descargando e instalando la nueva versión...", color = TextSecondary)
+                    Spacer(Modifier.height(16.dp))
+                    LinearProgressIndicator(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = EleganteRose
+                    )
+                }
+            },
+            containerColor = com.dondeloexan.presentation.theme.DarkSurface
+        )
+    }
+
+    if (updateState is UpdateCheckState.InstallSuccess) {
+        AlertDialog(
+            onDismissRequest = { viewModel.onUpdateDialogDismissed() },
+            confirmButton = {
+                TextButton(onClick = { viewModel.onUpdateDialogDismissed() }) {
+                    Text("OK", color = EleganteRose)
+                }
+            },
+            title = { Text("Actualización completada", color = TextPrimary) },
+            text = { Text("La nueva versión se ha instalado correctamente.", color = TextSecondary) },
+            containerColor = com.dondeloexan.presentation.theme.DarkSurface
         )
     }
 
@@ -128,84 +165,86 @@ fun SettingsScreen(
         )
     }
 
-    Scaffold(
-        topBar = {
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize()) {
             TopAppBar(
                 title = { Text("Ajustes", color = TextPrimary) },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBackground)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBackground),
+                windowInsets = WindowInsets(top = 0)
             )
-        },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        bottomBar = { BottomNavigationBar(navController) }
-    ) { padding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
-            contentPadding = PaddingValues(vertical = 16.dp)
-        ) {
-            item { SettingsGroupHeader("Plataformas") }
-            item {
-                SettingsItem(
-                    icon = Icons.Outlined.LiveTv,
-                    title = "Mis Plataformas",
-                    subtitle = "Gestiona tus servicios de streaming",
-                    onClick = { navController.navigate(Route.SettingsPlatforms.route) }
-                )
-            }
 
-            item { SettingsGroupHeader("Datos") }
-            item {
-                SettingsItem(
-                    icon = Icons.Outlined.FileUpload,
-                    title = "Exportar copia de seguridad",
-                    subtitle = "Guarda tus datos en un archivo",
-                    onClick = { exportLauncher.launch("dondeloexan_backup.json") }
-                )
-            }
-            item {
-                SettingsItem(
-                    icon = Icons.Outlined.FileDownload,
-                    title = "Importar copia de seguridad",
-                    subtitle = "Restaura datos desde un archivo",
-                    onClick = {
-                        importLauncher.launch(arrayOf("application/json", "*/*"))
-                    }
-                )
-            }
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(vertical = 16.dp)
+            ) {
+                item { SettingsGroupHeader("Plataformas") }
+                item {
+                    SettingsItem(
+                        icon = Icons.Outlined.LiveTv,
+                        title = "Mis Plataformas",
+                        subtitle = "Gestiona tus servicios de streaming",
+                        onClick = { navController.navigate(Route.SettingsPlatforms.route) }
+                    )
+                }
 
-            item { SettingsGroupHeader("Herramientas") }
-            item {
-                SettingsItem(
-                    icon = Icons.Outlined.BugReport,
-                    title = "Registro de errores",
-                    subtitle = "Consulta los logs del sistema",
-                    onClick = { navController.navigate(Route.SettingsLogs.route) }
-                )
-            }
+                item { SettingsGroupHeader("Datos") }
+                item {
+                    SettingsItem(
+                        icon = Icons.Outlined.FileUpload,
+                        title = "Exportar copia de seguridad",
+                        subtitle = "Guarda tus datos en un archivo",
+                        onClick = { exportLauncher.launch("dondeloexan_backup.json") }
+                    )
+                }
+                item {
+                    SettingsItem(
+                        icon = Icons.Outlined.FileDownload,
+                        title = "Importar copia de seguridad",
+                        subtitle = "Restaura datos desde un archivo",
+                        onClick = {
+                            importLauncher.launch(arrayOf("application/json", "*/*"))
+                        }
+                    )
+                }
 
-            item { SettingsGroupHeader("Actualización") }
-            item {
-                SettingsItem(
-                    icon = Icons.Outlined.SystemUpdate,
-                    title = "Buscar actualizaciones",
-                    subtitle = "Versión actual: ${viewModel.currentVersion}",
-                    trailing = {
-                        UpdateCheckTrailing(state = updateState)
-                    },
-                    onClick = { viewModel.checkForUpdates() }
-                )
-            }
+                item { SettingsGroupHeader("Herramientas") }
+                item {
+                    SettingsItem(
+                        icon = Icons.Outlined.BugReport,
+                        title = "Registro de errores",
+                        subtitle = "Consulta los logs del sistema",
+                        onClick = { navController.navigate(Route.SettingsLogs.route) }
+                    )
+                }
 
-            item { SettingsGroupHeader("Información") }
-            item {
-                SettingsItem(
-                    icon = Icons.Outlined.Info,
-                    title = "Acerca de DondeLoExan",
-                    subtitle = "v${viewModel.currentVersion} · Creado con ❤",
-                    onClick = { navController.navigate(Route.SettingsAbout.route) }
-                )
+                item { SettingsGroupHeader("Actualización") }
+                item {
+                    SettingsItem(
+                        icon = Icons.Outlined.SystemUpdate,
+                        title = "Buscar actualizaciones",
+                        subtitle = "Versión actual: ${viewModel.currentVersion}",
+                        trailing = {
+                            UpdateCheckTrailing(state = updateState)
+                        },
+                        onClick = { viewModel.checkForUpdates() }
+                    )
+                }
+
+                item { SettingsGroupHeader("Información") }
+                item {
+                    SettingsItem(
+                        icon = Icons.Outlined.Info,
+                        title = "Acerca de DondeLoExan",
+                        subtitle = "v${viewModel.currentVersion} · Creado con ❤",
+                        onClick = { navController.navigate(Route.SettingsAbout.route) }
+                    )
+                }
             }
         }
+
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier.align(Alignment.BottomCenter)
+        )
     }
 }

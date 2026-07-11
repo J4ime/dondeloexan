@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -22,7 +23,6 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -65,62 +65,59 @@ fun LogViewerScreen(
         viewModel.refreshLogs()
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Registro de errores", color = TextPrimary) },
-                navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(
-                            Icons.AutoMirrored.Outlined.ArrowBack, "Volver",
-                            tint = TextPrimary
-                        )
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { viewModel.clearLogs() }) {
-                        Icon(Icons.Outlined.Delete, "Limpiar", tint = TextPrimary)
-                    }
-                    IconButton(onClick = { viewModel.shareLogs(navController.context) }) {
-                        Icon(Icons.Outlined.Share, "Compartir", tint = TextPrimary)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBackground)
-            )
+    Column(modifier = Modifier.fillMaxSize()) {
+        TopAppBar(
+            title = { Text("Registro de errores", color = TextPrimary) },
+            navigationIcon = {
+                IconButton(onClick = { navController.popBackStack() }) {
+                    Icon(
+                        Icons.AutoMirrored.Outlined.ArrowBack, "Volver",
+                        tint = TextPrimary
+                    )
+                }
+            },
+            actions = {
+                IconButton(onClick = { viewModel.clearLogs() }) {
+                    Icon(Icons.Outlined.Delete, "Limpiar", tint = TextPrimary)
+                }
+                IconButton(onClick = { viewModel.shareLogs(navController.context) }) {
+                    Icon(Icons.Outlined.Share, "Compartir", tint = TextPrimary)
+                }
+            },
+            colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBackground),
+            windowInsets = WindowInsets(top = 0)
+        )
+
+        LogFilterRow(
+            activeFilter = activeFilter,
+            onFilterChange = viewModel::setFilter
+        )
+
+        HorizontalDivider(color = DarkSurfaceVariant, thickness = 1.dp)
+
+        if (logs.isEmpty()) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("No hay registros", color = TextSecondary)
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 4.dp)
+            ) {
+                items(logs, key = { "${it.timestamp}_${it.hashCode()}" }) { entry ->
+                    LogEntryRow(entry)
+                }
+            }
         }
-    ) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding)) {
-            LogFilterRow(
-                activeFilter = activeFilter,
-                onFilterChange = viewModel::setFilter
+
+        HorizontalDivider(color = DarkSurfaceVariant, thickness = 1.dp)
+        Surface(color = DarkBackground) {
+            Text(
+                "${logs.size} registros · Último: ${logs.firstOrNull()?.formattedTime ?: "—"}",
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                style = UbuntuTypography.labelSmall,
+                color = TextSecondary
             )
-
-            HorizontalDivider(color = DarkSurfaceVariant, thickness = 1.dp)
-
-            if (logs.isEmpty()) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("No hay registros", color = TextSecondary)
-                }
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 4.dp)
-                ) {
-                    items(logs, key = { "${it.timestamp}_${it.hashCode()}" }) { entry ->
-                        LogEntryRow(entry)
-                    }
-                }
-            }
-
-            HorizontalDivider(color = DarkSurfaceVariant, thickness = 1.dp)
-            Surface(color = DarkBackground) {
-                Text(
-                    "${logs.size} registros · Último: ${logs.firstOrNull()?.formattedTime ?: "—"}",
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                    style = UbuntuTypography.labelSmall,
-                    color = TextSecondary
-                )
-            }
         }
     }
 }

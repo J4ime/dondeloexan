@@ -25,10 +25,10 @@ interface TvShowDao {
     @Delete
     suspend fun delete(tvShow: TvShowEntity)
 
-    @Query("SELECT * FROM tv_shows ORDER BY added_at DESC")
+    @Query("SELECT * FROM tv_shows ORDER BY last_watched_at DESC, added_at DESC")
     fun getAllFlow(): Flow<List<TvShowEntity>>
 
-    @Query("SELECT * FROM tv_shows ORDER BY added_at DESC")
+    @Query("SELECT * FROM tv_shows ORDER BY last_watched_at DESC, added_at DESC")
     suspend fun getAll(): List<TvShowEntity>
 
     @Query("SELECT * FROM tv_shows WHERE id = :id")
@@ -37,11 +37,14 @@ interface TvShowDao {
     @Query("SELECT * FROM tv_shows WHERE content_id = :contentId LIMIT 1")
     suspend fun getByContentId(contentId: String): TvShowEntity?
 
-    @Query("SELECT * FROM tv_shows WHERE status = :status ORDER BY added_at DESC")
+    @Query("SELECT * FROM tv_shows WHERE status = :status ORDER BY last_watched_at DESC, added_at DESC")
     fun getByStatus(status: WatchStatus): Flow<List<TvShowEntity>>
 
-    @Query("SELECT * FROM tv_shows WHERE liked = 1 ORDER BY added_at DESC")
+    @Query("SELECT * FROM tv_shows WHERE liked = 1 ORDER BY last_watched_at DESC, added_at DESC")
     fun getLiked(): Flow<List<TvShowEntity>>
+
+    @Query("UPDATE tv_shows SET last_watched_at = :timestamp WHERE id = :id")
+    suspend fun updateLastWatchedAt(id: Long, timestamp: Long?)
 
     @Query("DELETE FROM tv_shows")
     suspend fun deleteAll()

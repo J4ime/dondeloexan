@@ -19,6 +19,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlin.math.log10
 
 class DiscoverRepositoryImpl(
     private val filmAffinityApi: FilmAffinityApi,
@@ -51,7 +52,7 @@ class DiscoverRepositoryImpl(
             }?.toMap() ?: emptyMap()
 
             val previews = tmdbResult.results
-                .filter { it.mediaType in listOf("movie", "tv") }
+                .filter { it.mediaType in listOf("movie", "tv") && !it.adult }
                 .map { tmdb: com.dondeloexan.data.remote.dto.TmdbMultiSearchResult ->
                     val tmdbTitle = (tmdb.title ?: tmdb.name).orEmpty().trim().lowercase()
                     val tmdbYear = tmdb.releaseDate?.substringBefore("-")?.toIntOrNull()
@@ -60,6 +61,11 @@ class DiscoverRepositoryImpl(
                     val faMatch = faMap[key]
                     tmdb.toContentPreview(faRating = faMatch?.first, faId = faMatch?.second)
                 }
+                .sortedByDescending {
+                    val ratingScore = (it.ratingFa?.toDouble() ?: 0.0) * 10.0
+                    val popularityScore = log10((it.voteCount ?: 0).toDouble() + 1.0) * WEIGHT_POPULARITY
+                    ratingScore + popularityScore
+                }
                 .take(20)
 
             emit(DataResult.Success(previews))
@@ -67,13 +73,22 @@ class DiscoverRepositoryImpl(
             try {
                 val tmdbResult = tmdbApi.searchMulti(query)
                 val previews = tmdbResult.results
-                    .filter { it.mediaType in listOf("movie", "tv") }
+                    .filter { it.mediaType in listOf("movie", "tv") && !it.adult }
                     .map { it.toContentPreview() }
+                    .sortedByDescending {
+                        val ratingScore = (it.ratingFa?.toDouble() ?: 0.0) * 10.0
+                        val popularityScore = log10((it.voteCount ?: 0).toDouble() + 1.0) * WEIGHT_POPULARITY
+                        ratingScore + popularityScore
+                    }
                 emit(DataResult.Success(previews.take(20)))
             } catch (fallback: Exception) {
                 emit(DataResult.Error(fallback))
             }
         }
+    }
+
+    companion object {
+        private const val WEIGHT_POPULARITY = 5.0
     }
 
     override suspend fun getDetail(contentId: String): Flow<DataResult<Content>> = flow {
@@ -183,11 +198,17 @@ class DiscoverRepositoryImpl(
             val providers = tmdbApi.getTvWatchProviders(tmdbId)
             val platforms = providers.results["ES"]?.toStreamingAvailability().orEmpty()
 
-            if (tv.numberOfEpisodes != null) {
-                val existing = tvShowDao.getByContentId("tmdb-$tmdbId")
-                if (existing != null) {
-                    tvShowDao.update(existing.copy(totalEpisodes = tv.numberOfEpisodes))
-                }
+            val existing = tvShowDao.getByContentId("tmdb-$tmdbId")
+            if (existing != null) {
+                tvShowDao.update(
+                    existing.copy(
+                        totalEpisodes = tv.numberOfEpisodes ?: existing.totalEpisodes,
+                        nextEpisodeAirDate = tv.nextEpisodeToAir?.airDate,
+                        nextEpisodeNumber = tv.nextEpisodeToAir?.episodeNumber,
+                        nextEpisodeSeasonNumber = tv.nextEpisodeToAir?.seasonNumber,
+                        seriesStatus = tv.status
+                    )
+                )
             }
 
             tv.toDomain(null, platforms, credits)

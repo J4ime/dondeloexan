@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -25,7 +26,6 @@ import androidx.compose.material.icons.outlined.Apps
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -42,7 +42,6 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.dondeloexan.data.local.entity.toStreamingPlatforms
 import com.dondeloexan.presentation.library.LibraryItemCard
-import com.dondeloexan.presentation.navigation.BottomNavigationBar
 import com.dondeloexan.presentation.theme.DarkBackground
 import com.dondeloexan.presentation.theme.EleganteRose
 import com.dondeloexan.presentation.theme.EleganteRoseDark
@@ -60,29 +59,25 @@ fun SeriesScreen(
     val series by viewModel.seriesWithProgress.collectAsState()
     var isGridView by remember { mutableStateOf(false) }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Mis Series", color = TextPrimary) },
-                actions = {
-                    IconButton(onClick = { isGridView = !isGridView }) {
-                        Icon(
-                            if (isGridView) Icons.AutoMirrored.Outlined.ViewList else Icons.Outlined.Apps,
-                            contentDescription = if (isGridView) "Vista lista" else "Vista cuadrícula",
-                            tint = if (isGridView) EleganteRose else TextSecondary
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBackground)
-            )
-        },
-        bottomBar = { BottomNavigationBar(navController) }
-    ) { padding ->
+    Column(modifier = Modifier.fillMaxSize()) {
+        TopAppBar(
+            title = { Text("Mis Series", color = TextPrimary) },
+            actions = {
+                IconButton(onClick = { isGridView = !isGridView }) {
+                    Icon(
+                        if (isGridView) Icons.AutoMirrored.Outlined.ViewList else Icons.Outlined.Apps,
+                        contentDescription = if (isGridView) "Vista lista" else "Vista cuadrícula",
+                        tint = if (isGridView) EleganteRose else TextSecondary
+                    )
+                }
+            },
+            colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBackground),
+            windowInsets = WindowInsets(top = 0)
+        )
+
         if (series.isEmpty()) {
             Box(
-                Modifier
-                    .fillMaxSize()
-                    .padding(padding),
+                Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -111,9 +106,7 @@ fun SeriesScreen(
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
+                modifier = Modifier.fillMaxSize()
             ) {
                 items(series, key = { it.show.id }) { item ->
                     val s = item.show
@@ -125,6 +118,10 @@ fun SeriesScreen(
                         streamingPlatforms = s.streamingPlatforms.toStreamingPlatforms(),
                         watchedCount = item.watchedCount,
                         totalEpisodes = item.totalEpisodes,
+                        nextEpisodeAirDate = s.nextEpisodeAirDate,
+                        nextEpisodeNumber = s.nextEpisodeNumber,
+                        nextEpisodeSeasonNumber = s.nextEpisodeSeasonNumber,
+                        seriesStatus = s.seriesStatus,
                         isLiked = s.liked,
                         isWatched = s.status.name == "YA_VISTA",
                         onLikeClick = { viewModel.toggleLike(s) },
@@ -145,9 +142,7 @@ fun SeriesScreen(
                     start = 12.dp, end = 12.dp, top = 8.dp, bottom = 8.dp
                 ),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
+                modifier = Modifier.fillMaxSize()
             ) {
                 items(series, key = { it.show.id }) { item ->
                     val s = item.show
@@ -163,6 +158,10 @@ fun SeriesScreen(
                             streamingPlatforms = s.streamingPlatforms.toStreamingPlatforms(),
                             watchedCount = item.watchedCount,
                             totalEpisodes = item.totalEpisodes,
+                            nextEpisodeAirDate = s.nextEpisodeAirDate,
+                            nextEpisodeNumber = s.nextEpisodeNumber,
+                            nextEpisodeSeasonNumber = s.nextEpisodeSeasonNumber,
+                            seriesStatus = s.seriesStatus,
                             isLiked = s.liked,
                             isWatched = s.status.name == "YA_VISTA",
                             onLikeClick = { viewModel.toggleLike(s) },

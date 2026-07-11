@@ -20,5 +20,10 @@ data class TvShowEntity(
     val liked: Boolean = false,
     @ColumnInfo(name = "total_episodes") val totalEpisodes: Int? = null,
     @ColumnInfo(name = "streaming_platforms") val streamingPlatforms: String? = null,
-    @ColumnInfo(name = "added_at") val addedAt: Long = System.currentTimeMillis()
+    @ColumnInfo(name = "added_at") val addedAt: Long = System.currentTimeMillis(),
+    @ColumnInfo(name = "next_episode_air_date") val nextEpisodeAirDate: String? = null,
+    @ColumnInfo(name = "next_episode_number") val nextEpisodeNumber: Int? = null,
+    @ColumnInfo(name = "next_episode_season") val nextEpisodeSeasonNumber: Int? = null,
+    @ColumnInfo(name = "series_status") val seriesStatus: String? = null,
+    @ColumnInfo(name = "last_watched_at") val lastWatchedAt: Long? = null
 )

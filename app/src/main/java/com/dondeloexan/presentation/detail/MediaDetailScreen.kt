@@ -1,5 +1,6 @@
 package com.dondeloexan.presentation.detail
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -27,8 +29,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -37,6 +39,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -57,6 +60,7 @@ import com.dondeloexan.presentation.theme.DarkBackground
 import com.dondeloexan.presentation.theme.DarkSurface
 import com.dondeloexan.presentation.theme.DarkSurfaceVariant
 import com.dondeloexan.presentation.theme.EleganteRose
+import com.dondeloexan.presentation.theme.EleganteRoseLight
 import com.dondeloexan.presentation.theme.RatingHigh
 import com.dondeloexan.presentation.theme.RatingLow
 import com.dondeloexan.presentation.theme.RatingMedium
@@ -65,6 +69,9 @@ import com.dondeloexan.presentation.theme.TextSecondary
 import com.dondeloexan.presentation.theme.UbuntuTypography
 import com.dondeloexan.util.AppLogger
 import org.koin.androidx.compose.koinViewModel
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -79,35 +86,33 @@ fun MediaDetailScreen(
         viewModel.loadContent(contentId)
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        uiState.content?.title ?: "Detalle",
-                        color = TextPrimary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+    Column(modifier = Modifier.fillMaxSize()) {
+        TopAppBar(
+            title = {
+                Text(
+                    uiState.content?.title ?: "Detalle",
+                    color = TextPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            },
+            navigationIcon = {
+                IconButton(onClick = onBack) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowBack, "Volver",
+                        tint = TextPrimary
                     )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack, "Volver",
-                            tint = TextPrimary
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBackground)
-            )
-        }
-    ) { padding ->
+                }
+            },
+            colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBackground),
+            windowInsets = WindowInsets(top = 0)
+        )
+
         when {
             uiState.isLoading -> {
                 Box(
                     Modifier
-                        .fillMaxSize()
-                        .padding(padding),
+                        .fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
                     CircularProgressIndicator(color = EleganteRose)
@@ -116,8 +121,7 @@ fun MediaDetailScreen(
             uiState.error != null -> {
                 Box(
                     Modifier
-                        .fillMaxSize()
-                        .padding(padding),
+                        .fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(uiState.error ?: "Error", color = TextSecondary)
@@ -131,8 +135,7 @@ fun MediaDetailScreen(
                     seasonDetail = uiState.seasonDetail,
                     watchedEpisodes = uiState.watchedEpisodes,
                     onSeasonSelected = viewModel::selectSeason,
-                    onToggleEpisode = viewModel::toggleEpisodeWatched,
-                    modifier = Modifier.padding(padding)
+                    onToggleEpisode = viewModel::toggleEpisodeWatched
                 )
             }
         }
@@ -182,6 +185,78 @@ private fun DetailContent(
                     onToggleEpisode = onToggleEpisode
                 )
             }
+        }
+    }
+}
+
+private data class AirDateInfo(
+    val daysUntil: Long,
+    val formattedDate: String
+)
+
+private fun parseAirDate(airDate: String?): AirDateInfo? {
+    if (airDate == null) return null
+    return try {
+        val date = LocalDate.parse(airDate)
+        val now = LocalDate.now()
+        val days = ChronoUnit.DAYS.between(now, date)
+        AirDateInfo(
+            daysUntil = days,
+            formattedDate = date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+        )
+    } catch (_: Exception) { null }
+}
+
+@Composable
+private fun EpisodeAirDateBadge(info: AirDateInfo?) {
+    if (info == null) return
+
+    val days = info.daysUntil
+
+    if (days <= 0) {
+        Text(
+            "Estrenado el ${info.formattedDate}",
+            style = UbuntuTypography.labelSmall,
+            color = TextSecondary.copy(alpha = 0.5f),
+            fontSize = 10.sp
+        )
+    } else {
+        val (text, bgColor, textColor) = when {
+            days == 0L -> Triple(
+                "¡Se estrena HOY!",
+                EleganteRose,
+                Color.White
+            )
+            days == 1L -> Triple(
+                "Se estrena mañana",
+                EleganteRose,
+                Color.White
+            )
+            days < 7L -> Triple(
+                "Quedan $days días",
+                EleganteRoseLight,
+                Color.White
+            )
+            else -> Triple(
+                "En $days días",
+                Color.Transparent,
+                EleganteRoseLight
+            )
+        }
+
+        Surface(
+            shape = RoundedCornerShape(4.dp),
+            color = bgColor,
+            border = if (days >= 7L) androidx.compose.foundation.BorderStroke(1.dp, EleganteRoseLight.copy(alpha = 0.5f)) else null
+        ) {
+            Text(
+                text = text,
+                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                style = UbuntuTypography.labelSmall,
+                color = textColor,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Bold
+            )
         }
     }
 }
@@ -502,10 +577,16 @@ private fun SeasonsSection(
             seasonDetail.episodes.forEach { episode ->
                 val episodeKey = "S${selectedSeason}E${episode.episodeNumber}"
                 val isWatched = watchedEpisodes.contains(episodeKey)
+                val airDateInfo = remember(episode.airDate) { parseAirDate(episode.airDate) }
+                val isAired = airDateInfo == null || airDateInfo.daysUntil <= 0
+
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { onToggleEpisode(episode.episodeNumber) }
+                        .then(
+                            if (isAired) Modifier.clickable { onToggleEpisode(episode.episodeNumber) }
+                            else Modifier
+                        )
                         .padding(horizontal = 16.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -513,18 +594,25 @@ private fun SeasonsSection(
                     Icon(
                         if (isWatched) Icons.Filled.Check else Icons.Outlined.CheckCircleOutline,
                         contentDescription = if (isWatched) "Visto" else "Marcar visto",
-                        tint = if (isWatched) EleganteRose else TextSecondary.copy(alpha = 0.4f),
+                        tint = if (isWatched) EleganteRose else if (isAired) TextSecondary.copy(alpha = 0.4f) else TextSecondary.copy(alpha = 0.15f),
                         modifier = Modifier.size(24.dp)
                     )
 
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            "${episode.episodeNumber}. ${episode.name}",
-                            style = UbuntuTypography.bodyMedium,
-                            color = TextPrimary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                "${episode.episodeNumber}. ${episode.name}",
+                                style = UbuntuTypography.bodyMedium,
+                                color = if (isAired) TextPrimary else TextSecondary.copy(alpha = 0.6f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false)
+                            )
+                            EpisodeAirDateBadge(airDateInfo)
+                        }
                         if (!episode.overview.isNullOrBlank()) {
                             Text(
                                 episode.overview,

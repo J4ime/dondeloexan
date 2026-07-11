@@ -27,6 +27,9 @@ interface TvShowProgressDao {
     @Query("SELECT tv_show_id AS tvShowId, COUNT(*) AS count FROM tv_show_progress GROUP BY tv_show_id")
     fun getWatchedCounts(): Flow<List<WatchedCount>>
 
+    @Query("SELECT MAX(watched_at) FROM tv_show_progress WHERE tv_show_id = :tvShowId")
+    suspend fun getLastWatchedAt(tvShowId: Long): Long?
+
     @Query("SELECT * FROM tv_show_progress ORDER BY tv_show_id ASC, season ASC, episode ASC")
     suspend fun getAll(): List<TvShowProgressEntity>
 

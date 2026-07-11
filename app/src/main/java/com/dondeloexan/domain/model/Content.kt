@@ -45,7 +45,9 @@ data class ContentPreview(
     val genres: List<String> = emptyList(),
     val streamingPlatforms: List<StreamingAvailability> = emptyList(),
     val filmAffinityId: Int? = null,
-    val totalEpisodes: Int? = null
+    val totalEpisodes: Int? = null,
+    val voteCount: Int? = null,
+    val isAdult: Boolean = false
 )
 
 data class StreamingAvailability(

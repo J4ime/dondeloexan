@@ -99,7 +99,9 @@ fun TmdbMultiSearchResult.toContentPreview(
         ?: firstAirDate?.substringBefore("-")?.toIntOrNull(),
     coverUrl = posterPath?.let { "https://image.tmdb.org/t/p/w500$it" },
     ratingFa = faRating,
-    filmAffinityId = faId
+    filmAffinityId = faId,
+    voteCount = voteCount,
+    isAdult = adult
 )
 
 fun TmdbCountryProviders.toStreamingAvailability(): List<StreamingAvailability> {

@@ -71,5 +71,21 @@ fun UpdateCheckTrailing(state: UpdateCheckState, modifier: Modifier = Modifier) 
                 )
             }
         }
+
+        is UpdateCheckState.Downloading -> {
+            CircularProgressIndicator(
+                modifier = modifier.size(20.dp),
+                strokeWidth = 2.dp,
+                color = EleganteRose
+            )
+        }
+
+        is UpdateCheckState.InstallSuccess -> {
+            Icon(
+                Icons.Outlined.CheckCircle, contentDescription = null,
+                tint = Color(0xFF4CAF50),
+                modifier = modifier.size(20.dp)
+            )
+        }
     }
 }

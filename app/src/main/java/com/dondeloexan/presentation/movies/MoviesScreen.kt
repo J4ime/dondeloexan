@@ -14,19 +14,18 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ViewList
 import androidx.compose.material.icons.outlined.Apps
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -43,7 +42,6 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.dondeloexan.data.local.entity.toStreamingPlatforms
 import com.dondeloexan.presentation.library.LibraryItemCard
-import com.dondeloexan.presentation.navigation.BottomNavigationBar
 import com.dondeloexan.presentation.theme.DarkBackground
 import com.dondeloexan.presentation.theme.EleganteRose
 import com.dondeloexan.presentation.theme.EleganteRoseDark
@@ -61,29 +59,25 @@ fun MoviesScreen(
     val movies by viewModel.movies.collectAsState()
     var isGridView by remember { mutableStateOf(false) }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Mis Pelis", color = TextPrimary) },
-                actions = {
-                    IconButton(onClick = { isGridView = !isGridView }) {
-                        Icon(
-                            if (isGridView) Icons.AutoMirrored.Outlined.ViewList else Icons.Outlined.Apps,
-                            contentDescription = if (isGridView) "Vista lista" else "Vista cuadrícula",
-                            tint = if (isGridView) EleganteRose else TextSecondary
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBackground)
-            )
-        },
-        bottomBar = { BottomNavigationBar(navController) }
-    ) { padding ->
+    Column(modifier = Modifier.fillMaxSize()) {
+        TopAppBar(
+            title = { Text("Mis Pelis", color = TextPrimary) },
+            actions = {
+                IconButton(onClick = { isGridView = !isGridView }) {
+                    Icon(
+                        if (isGridView) Icons.AutoMirrored.Outlined.ViewList else Icons.Outlined.Apps,
+                        contentDescription = if (isGridView) "Vista lista" else "Vista cuadrícula",
+                        tint = if (isGridView) EleganteRose else TextSecondary
+                    )
+                }
+            },
+            colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBackground),
+            windowInsets = WindowInsets(top = 0)
+        )
+
         if (movies.isEmpty()) {
             Box(
-                Modifier
-                    .fillMaxSize()
-                    .padding(padding),
+                Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -112,9 +106,7 @@ fun MoviesScreen(
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
+                modifier = Modifier.fillMaxSize()
             ) {
                 items(movies, key = { it.id }) { movie ->
                     LibraryItemCard(
@@ -143,9 +135,7 @@ fun MoviesScreen(
                     start = 12.dp, end = 12.dp, top = 8.dp, bottom = 8.dp
                 ),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
+                modifier = Modifier.fillMaxSize()
             ) {
                 items(movies, key = { it.id }) { movie ->
                     AnimatedVisibility(
