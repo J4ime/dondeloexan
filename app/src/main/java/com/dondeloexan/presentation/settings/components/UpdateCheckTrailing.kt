@@ -80,10 +80,18 @@ fun UpdateCheckTrailing(state: UpdateCheckState, modifier: Modifier = Modifier) 
             )
         }
 
-        is UpdateCheckState.InstallSuccess -> {
+        is UpdateCheckState.InstallLaunched -> {
             Icon(
                 Icons.Outlined.CheckCircle, contentDescription = null,
                 tint = Color(0xFF4CAF50),
+                modifier = modifier.size(20.dp)
+            )
+        }
+
+        is UpdateCheckState.NeedsInstallPermission -> {
+            Icon(
+                Icons.Outlined.ErrorOutline, contentDescription = null,
+                tint = EleganteRoseDark,
                 modifier = modifier.size(20.dp)
             )
         }

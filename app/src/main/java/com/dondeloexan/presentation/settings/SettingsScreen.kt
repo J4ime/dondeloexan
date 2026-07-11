@@ -46,6 +46,7 @@ import com.dondeloexan.presentation.settings.components.SettingsItem
 import com.dondeloexan.presentation.settings.components.UpdateAvailableDialog
 import com.dondeloexan.presentation.settings.components.UpdateCheckTrailing
 import com.dondeloexan.presentation.theme.DarkBackground
+import com.dondeloexan.presentation.theme.DarkSurface
 import com.dondeloexan.presentation.theme.EleganteRose
 import com.dondeloexan.presentation.theme.TextPrimary
 import com.dondeloexan.presentation.theme.TextSecondary
@@ -83,6 +84,10 @@ fun SettingsScreen(
                 snackbarHostState.showSnackbar(state.message)
                 viewModel.onErrorMessageShown()
             }
+            is UpdateCheckState.InstallLaunched -> {
+                snackbarHostState.showSnackbar("Descarga completada. Finaliza la instalación desde la pantalla del sistema.")
+                viewModel.onInstallLaunchedMessageShown()
+            }
             else -> {}
         }
     }
@@ -114,6 +119,50 @@ fun SettingsScreen(
         )
     }
 
+    if (updateState is UpdateCheckState.NeedsInstallPermission) {
+        val stateUrl = (updateState as UpdateCheckState.NeedsInstallPermission).downloadUrl
+        val permissionGranted = viewModel.hasInstallPermission()
+        AlertDialog(
+            onDismissRequest = { viewModel.onUpdateDialogDismissed() },
+            confirmButton = {
+                TextButton(onClick = {
+                    if (permissionGranted) {
+                        viewModel.startSilentUpdate(stateUrl)
+                    } else {
+                        viewModel.requestInstallPermission()
+                    }
+                }) {
+                    Text(
+                        if (permissionGranted) "Reintentar" else "Abrir ajustes",
+                        color = EleganteRose
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.onUpdateDialogDismissed() }) {
+                    Text("Cancelar", color = TextSecondary)
+                }
+            },
+            title = {
+                Text(
+                    if (permissionGranted) "Instalación lista" else "Permiso necesario",
+                    color = TextPrimary
+                )
+            },
+            text = {
+                Text(
+                    if (permissionGranted)
+                        "El permiso ya está concedido. Pulsa 'Reintentar' para continuar con la instalación."
+                    else
+                        "Para instalar la actualización, Android requiere que habilites " +
+                                "'Instalar apps desconocidas' para DondeLoExan. ¿Abrir ajustes?",
+                    color = TextSecondary
+                )
+            },
+            containerColor = DarkSurface
+        )
+    }
+
     if (updateState is UpdateCheckState.Downloading) {
         AlertDialog(
             onDismissRequest = {},
@@ -129,21 +178,7 @@ fun SettingsScreen(
                     )
                 }
             },
-            containerColor = com.dondeloexan.presentation.theme.DarkSurface
-        )
-    }
-
-    if (updateState is UpdateCheckState.InstallSuccess) {
-        AlertDialog(
-            onDismissRequest = { viewModel.onUpdateDialogDismissed() },
-            confirmButton = {
-                TextButton(onClick = { viewModel.onUpdateDialogDismissed() }) {
-                    Text("OK", color = EleganteRose)
-                }
-            },
-            title = { Text("Actualización completada", color = TextPrimary) },
-            text = { Text("La nueva versión se ha instalado correctamente.", color = TextSecondary) },
-            containerColor = com.dondeloexan.presentation.theme.DarkSurface
+            containerColor = DarkSurface
         )
     }
 
@@ -161,7 +196,7 @@ fun SettingsScreen(
                     )
                 }
             },
-            containerColor = com.dondeloexan.presentation.theme.DarkSurface
+            containerColor = DarkSurface
         )
     }
 

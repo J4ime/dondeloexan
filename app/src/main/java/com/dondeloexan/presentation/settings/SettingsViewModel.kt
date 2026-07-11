@@ -57,26 +57,41 @@ class SettingsViewModel(
     }
 
     fun startSilentUpdate(downloadUrl: String) {
+        if (!silentUpdateManager.canInstallApks()) {
+            _updateState.value = UpdateCheckState.NeedsInstallPermission(downloadUrl)
+            return
+        }
+
         _updateState.value = UpdateCheckState.Downloading
         viewModelScope.launch {
             silentUpdateManager.downloadAndInstall(downloadUrl)
                 .onSuccess {
-                    _updateState.value = UpdateCheckState.InstallSuccess
+                    _updateState.value = UpdateCheckState.InstallLaunched
                 }
                 .onFailure { error ->
-                    AppLogger.e("SettingsVM", "Silent update failed", error)
+                    AppLogger.e("SettingsVM", "Update failed", error)
                     _updateState.value = UpdateCheckState.Error(
-                        "Error al instalar: ${error.message}"
+                        "Error al descargar: ${error.message}"
                     )
                 }
         }
     }
+
+    fun requestInstallPermission() {
+        silentUpdateManager.openInstallPermissionSettings()
+    }
+
+    fun hasInstallPermission(): Boolean = silentUpdateManager.canInstallApks()
 
     fun onUpToDateMessageShown() {
         _updateState.value = UpdateCheckState.Idle
     }
 
     fun onErrorMessageShown() {
+        _updateState.value = UpdateCheckState.Idle
+    }
+
+    fun onInstallLaunchedMessageShown() {
         _updateState.value = UpdateCheckState.Idle
     }
 
@@ -109,6 +124,7 @@ sealed interface UpdateCheckState {
     data object UpToDate : UpdateCheckState
     data class UpdateAvailable(val release: GitHubRelease) : UpdateCheckState
     data object Downloading : UpdateCheckState
-    data object InstallSuccess : UpdateCheckState
+    data class NeedsInstallPermission(val downloadUrl: String) : UpdateCheckState
+    data object InstallLaunched : UpdateCheckState
     data class Error(val message: String) : UpdateCheckState
 }
