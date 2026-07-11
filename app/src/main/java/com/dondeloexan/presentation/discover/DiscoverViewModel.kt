@@ -222,10 +222,12 @@ class DiscoverViewModel(
                     when (result) {
                         is DataResult.Loading -> _uiState.value = DiscoverUiState.Loading
                         is DataResult.Success -> {
-                            _uiState.value = if (result.data.isEmpty()) {
+                            val liked = likedIds.value
+                            val filtered = result.data.filter { it.id !in liked }
+                            _uiState.value = if (filtered.isEmpty()) {
                                 DiscoverUiState.Empty("")
                             } else {
-                                DiscoverUiState.Success(result.data)
+                                DiscoverUiState.Success(filtered)
                             }
                         }
                         is DataResult.Error -> {

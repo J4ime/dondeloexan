@@ -5,6 +5,7 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.dondeloexan.data.local.dao.MovieDao
 import com.dondeloexan.data.local.dao.SearchHistoryDao
@@ -59,8 +60,13 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_4_5 = Migration(4, 5) { db ->
+            db.execSQL("ALTER TABLE tv_shows ADD COLUMN last_watched_at INTEGER")
+        }
+
         fun create(context: Context): AppDatabase {
             return Room.databaseBuilder(context, AppDatabase::class.java, DB_NAME)
+                .addMigrations(MIGRATION_4_5)
                 .fallbackToDestructiveMigration()
                 .addCallback(seedCallback)
                 .build()

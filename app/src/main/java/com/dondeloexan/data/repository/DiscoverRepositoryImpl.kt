@@ -68,7 +68,8 @@ class DiscoverRepositoryImpl(
                 }
                 .take(20)
 
-            emit(DataResult.Success(previews))
+            val withPlatforms = attachPlatformsToPreviews(previews)
+            emit(DataResult.Success(withPlatforms))
         } catch (e: Exception) {
             try {
                 val tmdbResult = tmdbApi.searchMulti(query)
@@ -117,7 +118,8 @@ class DiscoverRepositoryImpl(
             val previews = trending.results
                 .filter { it.mediaType in listOf("movie", "tv") }
                 .map { it.toContentPreview() }
-            emit(DataResult.Success(previews))
+            val withPlatforms = attachPlatformsToPreviews(previews)
+            emit(DataResult.Success(withPlatforms))
         } catch (e: Exception) {
             emit(DataResult.Error(e))
         }
@@ -227,5 +229,25 @@ class DiscoverRepositoryImpl(
             }
         }
         return content.copy(streamingPlatforms = active + others)
+    }
+
+    private suspend fun attachPlatformsToPreviews(previews: List<ContentPreview>): List<ContentPreview> {
+        return coroutineScope {
+            previews.map { preview ->
+                async {
+                    val platforms = try {
+                        val tmdbId = preview.tmdbId ?: return@async preview
+                        val providerResponse = if (preview.type == ContentType.SERIES) {
+                            tmdbApi.getTvWatchProviders(tmdbId)
+                        } else {
+                            tmdbApi.getMovieWatchProviders(tmdbId)
+                        }
+                        providerResponse.results["ES"]?.toStreamingAvailability().orEmpty()
+                    } catch (_: Exception) { emptyList<StreamingAvailability>() }
+
+                    preview.copy(streamingPlatforms = platforms)
+                }
+            }.map { it.await() }
+        }
     }
 }

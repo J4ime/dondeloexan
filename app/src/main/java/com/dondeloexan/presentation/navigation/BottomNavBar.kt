@@ -1,5 +1,6 @@
 package com.dondeloexan.presentation.navigation
 
+import androidx.compose.foundation.layout.height
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -18,7 +19,7 @@ fun BottomNavigationBar(
     modifier: Modifier = Modifier
 ) {
     NavigationBar(
-        modifier = modifier,
+        modifier = modifier.height(64.dp),
         containerColor = DarkSurface,
         tonalElevation = 0.dp
     ) {
@@ -27,7 +28,11 @@ fun BottomNavigationBar(
                 selected = currentPage == index,
                 onClick = { onPageChange(index) },
                 icon = {
-                    Icon(imageVector = item.icon, contentDescription = item.label)
+                    Icon(
+                        imageVector = item.icon,
+                        contentDescription = item.label,
+                        modifier = Modifier.height(28.dp)
+                    )
                 },
                 colors = NavigationBarItemDefaults.colors(
                     selectedIconColor = EleganteRose,
