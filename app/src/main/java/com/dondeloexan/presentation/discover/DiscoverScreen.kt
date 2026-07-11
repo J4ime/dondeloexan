@@ -72,21 +72,49 @@ fun DiscoverScreen(
     val filterByPlatforms by viewModel.filterByPlatforms.collectAsState()
 
     Column(modifier = Modifier.fillMaxSize()) {
-        DiscoverSearchBar(
-            query = searchQuery,
-            onQueryChange = viewModel::onSearchQueryChanged,
-            onClear = viewModel::onClearSearch,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = viewModel::onSearchQueryChanged,
+                modifier = Modifier.weight(1f),
+                placeholder = {
+                    Text("Buscar película o serie...", color = TextSecondary)
+                },
+                leadingIcon = {
+                    Icon(Icons.Outlined.Search, null, tint = TextSecondary)
+                },
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(onClick = viewModel::onClearSearch) {
+                            Icon(Icons.Outlined.Close, "Limpiar", tint = TextSecondary)
+                        }
+                    }
+                },
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = EleganteRose.copy(alpha = 0.5f),
+                    unfocusedBorderColor = TextSecondary.copy(alpha = 0.2f),
+                    focusedTextColor = TextPrimary,
+                    unfocusedTextColor = TextPrimary,
+                    cursorColor = EleganteRose,
+                    focusedContainerColor = DarkSurface,
+                    unfocusedContainerColor = DarkSurface
+                ),
+                textStyle = UbuntuTypography.bodyMedium
+            )
 
-        if (searchQuery.isBlank()) {
-            Row(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-            ) {
+            if (searchQuery.isBlank()) {
                 FilterChip(
                     selected = filterByPlatforms,
                     onClick = viewModel::togglePlatformFilter,
-                    label = { Text("Solo mis plataformas", style = UbuntuTypography.labelSmall) },
+                    label = { Text("Mis apps", style = UbuntuTypography.labelSmall) },
                     leadingIcon = {
                         Icon(
                             Icons.Outlined.FilterList,
@@ -111,46 +139,6 @@ fun DiscoverScreen(
             onRetry = viewModel::onRetry
         )
     }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun DiscoverSearchBar(
-    query: String,
-    onQueryChange: (String) -> Unit,
-    onClear: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    OutlinedTextField(
-        value = query,
-        onValueChange = onQueryChange,
-        modifier = modifier.fillMaxWidth(),
-        placeholder = {
-            Text("Buscar película o serie...", color = TextSecondary)
-        },
-        leadingIcon = {
-            Icon(Icons.Outlined.Search, null, tint = TextSecondary)
-        },
-        trailingIcon = {
-            if (query.isNotEmpty()) {
-                IconButton(onClick = onClear) {
-                    Icon(Icons.Outlined.Close, "Limpiar", tint = TextSecondary)
-                }
-            }
-        },
-        singleLine = true,
-        shape = RoundedCornerShape(12.dp),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = EleganteRose.copy(alpha = 0.5f),
-            unfocusedBorderColor = TextSecondary.copy(alpha = 0.2f),
-            focusedTextColor = TextPrimary,
-            unfocusedTextColor = TextPrimary,
-            cursorColor = EleganteRose,
-            focusedContainerColor = DarkSurface,
-            unfocusedContainerColor = DarkSurface
-        ),
-        textStyle = UbuntuTypography.bodyLarge
-    )
 }
 
 @Composable

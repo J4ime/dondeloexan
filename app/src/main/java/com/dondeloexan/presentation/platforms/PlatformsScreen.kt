@@ -40,7 +40,7 @@ import org.koin.androidx.compose.koinViewModel
 private val allPlatforms = listOf(
     "Netflix", "Prime Video", "Disney+", "HBO Max",
     "Movistar+", "Apple TV+", "Paramount+", "SkyShowtime",
-    "Filmin", "Atresplayer", "Mitele", "RTVE Play"
+    "Filmin", "Atresplayer", "Mitele", "RTVE Play", "Cine"
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -104,7 +104,8 @@ fun PlatformToggle(name: String, isActive: Boolean, onToggle: (Boolean) -> Unit)
         "Filmin" to "#E30613",
         "Atresplayer" to "#1E8C45",
         "Mitele" to "#00BFFF",
-        "RTVE Play" to "#E1251B"
+        "RTVE Play" to "#E1251B",
+        "Cine" to "#FF8F00"
     )
 
     val accentColor = platformColors[name]?.let {

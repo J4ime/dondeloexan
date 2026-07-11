@@ -27,7 +27,7 @@ import com.dondeloexan.data.local.entity.UserPlatformEntity
         SearchHistoryEntity::class,
         UserPlatformEntity::class
     ],
-    version = 7,
+    version = 8,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -45,7 +45,7 @@ abstract class AppDatabase : RoomDatabase() {
         private val PLATFORMS = listOf(
             "Netflix", "Prime Video", "Disney+", "HBO Max",
             "Movistar+", "Apple TV+", "Paramount+", "SkyShowtime",
-            "Filmin", "Atresplayer", "Mitele", "RTVE Play"
+            "Filmin", "Atresplayer", "Mitele", "RTVE Play", "Cine"
         )
 
         private val seedCallback = object : Callback() {
@@ -74,9 +74,15 @@ abstract class AppDatabase : RoomDatabase() {
             db.execSQL("ALTER TABLE tv_shows ADD COLUMN num_seasons INTEGER")
         }
 
+        private val MIGRATION_7_8 = Migration(7, 8) { db ->
+            db.execSQL(
+                "INSERT OR REPLACE INTO user_platforms (platform_name, is_active) VALUES ('Cine', 1)"
+            )
+        }
+
         fun create(context: Context): AppDatabase {
             return Room.databaseBuilder(context, AppDatabase::class.java, DB_NAME)
-                .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+                .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
                 .fallbackToDestructiveMigration()
                 .addCallback(seedCallback)
                 .build()

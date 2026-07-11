@@ -27,6 +27,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -175,6 +176,41 @@ fun SearchItemCard(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+            }
+
+            if (content.type.name == "MOVIE" && content.releaseDate != null) {
+                val cinemaInfo = remember(content.releaseDate) {
+                    try {
+                        val date = java.time.LocalDate.parse(content.releaseDate)
+                        val now = java.time.LocalDate.now()
+                        val daysSince = java.time.temporal.ChronoUnit.DAYS.between(date, now)
+                        val daysUntil = java.time.temporal.ChronoUnit.DAYS.between(now, date)
+                        when {
+                            daysSince in 0..90 -> Pair("En cines", true)
+                            daysUntil > 0 -> Pair("Estreno: ${date.format(
+                                java.time.format.DateTimeFormatter.ofPattern("dd/MM")
+                            )}", false)
+                            else -> null
+                        }
+                    } catch (_: Exception) { null }
+                }
+                if (cinemaInfo != null) {
+                    Spacer(Modifier.height(4.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        val (label, isActive) = cinemaInfo
+                        Text(
+                            "\uD83C\uDFAC",
+                            fontSize = 11.sp
+                        )
+                        Text(
+                            label,
+                            style = UbuntuTypography.labelSmall,
+                            color = if (isActive) Color(0xFFFF8F00) else TextSecondary,
+                            fontSize = 10.sp,
+                            fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal
+                        )
+                    }
+                }
             }
 
             if (content.streamingPlatforms.isNotEmpty()) {

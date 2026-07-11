@@ -97,6 +97,7 @@ class DiscoverViewModel(
                     }
                 }
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) return@launch
                 AppLogger.e("DiscoverVM", "Search error", e)
                 _uiState.value = DiscoverUiState.Error(e.message ?: "Error desconocido")
             }
@@ -273,8 +274,13 @@ class DiscoverViewModel(
                                 if (userPlatforms.isNotEmpty()) {
                                     filtered = filtered.filter { preview ->
                                         preview.streamingPlatforms.any { platform ->
+                                            val normalized = platform.platformName
+                                                .replace("+", "").replace(" ", "").lowercase()
                                             userPlatforms.any { userP ->
-                                                platform.platformName.contains(userP, ignoreCase = true)
+                                                val normalizedUser = userP
+                                                    .replace("+", "").replace(" ", "").lowercase()
+                                                normalized.contains(normalizedUser) ||
+                                                    normalizedUser.contains(normalized)
                                             }
                                         }
                                     }
@@ -296,6 +302,7 @@ class DiscoverViewModel(
                     }
                 }
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) return@launch
                 AppLogger.e("DiscoverVM", "Trending error", e)
                 _uiState.value = DiscoverUiState.Error(e.message ?: "Error desconocido")
             }
