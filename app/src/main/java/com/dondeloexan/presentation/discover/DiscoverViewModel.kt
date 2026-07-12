@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -43,14 +44,6 @@ class DiscoverViewModel(
     private val _filterByPlatforms = MutableStateFlow(true)
     val filterByPlatforms: StateFlow<Boolean> = _filterByPlatforms.asStateFlow()
 
-    private var currentPage = 1
-    private var isLoadingMore = false
-    private val accumulatedResults = mutableListOf<ContentPreview>()
-
-    init {
-        loadTrending()
-    }
-
     val activePlatforms: StateFlow<Set<String>> = userPlatformDao.getActiveFlow()
         .map { it.map { p -> p.platformName }.toSet() }
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
@@ -71,7 +64,22 @@ class DiscoverViewModel(
     ) { movieWatched, tvWatched -> movieWatched + tvWatched }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
 
+    private var apiPage = 1
+    private var hasMoreApiPages = true
+    private var isFilling = false
+    private val accumulatedResults = mutableListOf<ContentPreview>()
     private var searchJob: Job? = null
+    private var trendingJob: Job? = null
+
+    init {
+        viewModelScope.launch {
+            activePlatforms.drop(1).collect {
+                if (_searchQuery.value.isBlank()) {
+                    loadTrending()
+                }
+            }
+        }
+    }
 
     fun onSearchQueryChanged(query: String) {
         _searchQuery.value = query
@@ -85,40 +93,19 @@ class DiscoverViewModel(
         searchJob?.cancel()
         searchJob = viewModelScope.launch {
             delay(400)
-            currentPage = 1
+            trendingJob?.cancel()
+            apiPage = 1
+            hasMoreApiPages = true
             accumulatedResults.clear()
             _uiState.value = DiscoverUiState.Loading
 
-            try {
-                discoverRepository.search(query, 1).collect { result ->
-                    when (result) {
-                        is DataResult.Loading -> _uiState.value = DiscoverUiState.Loading
-                        is DataResult.Success -> {
-                            val blacklisted = blacklistedIds.value
-                            val liked = likedIds.value
-                            val watched = watchedIds.value
-                            var filtered = result.data.filter { it.id !in blacklisted && it.id !in liked && it.id !in watched }
+            fillUntil(targetCount = 20, query = query)
+            isFilling = false
 
-                            _uiState.value = if (filtered.isEmpty()) {
-                                DiscoverUiState.Empty(query)
-                            } else {
-                                accumulatedResults.clear()
-                                accumulatedResults.addAll(filtered)
-                                DiscoverUiState.Success(filtered)
-                            }
-                        }
-                        is DataResult.Error -> {
-                            AppLogger.e("DiscoverVM", "Search error", result.exception)
-                            _uiState.value = DiscoverUiState.Error(
-                                result.exception.message ?: "Error al buscar"
-                            )
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                if (e is kotlinx.coroutines.CancellationException) return@launch
-                AppLogger.e("DiscoverVM", "Search error", e)
-                _uiState.value = DiscoverUiState.Error(e.message ?: "Error desconocido")
+            _uiState.value = if (accumulatedResults.isEmpty()) {
+                DiscoverUiState.Empty(query)
+            } else {
+                DiscoverUiState.Success(accumulatedResults.toList())
             }
         }
     }
@@ -267,21 +254,27 @@ class DiscoverViewModel(
     }
 
     fun loadNextPage() {
-        if (isLoadingMore) return
-        isLoadingMore = true
+        if (isFilling) return
         val query = _searchQuery.value
-        currentPage++
-        if (query.isBlank()) {
-            loadTrendingPage(currentPage)
-        } else {
-            loadSearchPage(query, currentPage)
+        viewModelScope.launch {
+            isFilling = true
+
+            fillUntil(targetCount = accumulatedResults.size + 20, query = query)
+            isFilling = false
+
+            _uiState.value = if (accumulatedResults.isEmpty()) {
+                DiscoverUiState.Empty(query)
+            } else {
+                DiscoverUiState.Success(accumulatedResults.toList())
+            }
         }
     }
 
     fun onClearSearch() {
         _searchQuery.value = ""
         searchJob?.cancel()
-        currentPage = 1
+        apiPage = 1
+        hasMoreApiPages = true
         accumulatedResults.clear()
         loadTrending()
     }
@@ -306,134 +299,78 @@ class DiscoverViewModel(
     }
 
     private fun loadTrending() {
-        currentPage = 1
-        accumulatedResults.clear()
-        loadTrendingPage(1)
-    }
-
-    private fun loadTrendingPage(page: Int) {
-        viewModelScope.launch {
+        trendingJob?.cancel()
+        trendingJob = viewModelScope.launch {
+            apiPage = 1
+            hasMoreApiPages = true
+            accumulatedResults.clear()
             _uiState.value = DiscoverUiState.Loading
-            try {
-                discoverRepository.getTrending(page).collect { result ->
-                    when (result) {
-                        is DataResult.Loading -> _uiState.value = DiscoverUiState.Loading
-                        is DataResult.Success -> {
-                            val liked = likedIds.value
-                            val blacklisted = blacklistedIds.value
-                            var filtered = result.data.filter { it.id !in liked && it.id !in blacklisted }
 
-                            if (_filterByPlatforms.value) {
-                                val userPlatforms = activePlatforms.value
-                                if (userPlatforms.isNotEmpty()) {
-                                    filtered = filtered.filter { preview ->
-                                        preview.streamingPlatforms.any { platform ->
-                                            val normalized = platform.platformName
-                                                .replace("+", "").replace(" ", "").lowercase()
-                                            userPlatforms.any { userP ->
-                                                val normalizedUser = userP
-                                                    .replace("+", "").replace(" ", "").lowercase()
-                                                normalized.contains(normalizedUser) ||
-                                                    normalizedUser.contains(normalized)
-                                            }
-                                        }
-                                    }
-                                }
-                            }
+            fillUntil(targetCount = 20)
+            isFilling = false
 
-                            if (filtered.size < 10 && result.data.size > filtered.size) {
-                                val existingIds = filtered.map { it.id }.toSet()
-                                var padding = result.data
-                                    .filter { it.id !in liked && it.id !in existingIds && it.id !in blacklisted }
-
-                                if (_filterByPlatforms.value) {
-                                    val userPlatforms = activePlatforms.value
-                                    if (userPlatforms.isNotEmpty()) {
-                                        padding = padding.filter { preview ->
-                                            preview.streamingPlatforms.any { platform ->
-                                                val normalized = platform.platformName
-                                                    .replace("+", "").replace(" ", "").lowercase()
-                                                userPlatforms.any { userP ->
-                                                    val normalizedUser = userP
-                                                        .replace("+", "").replace(" ", "").lowercase()
-                                                    normalized.contains(normalizedUser) ||
-                                                        normalizedUser.contains(normalized)
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-
-                                filtered = filtered + padding
-                                    .sortedByDescending { it.voteCount ?: 0 }
-                                    .take(10 - filtered.size)
-                            }
-
-                            _uiState.value = if (filtered.isEmpty()) {
-                                DiscoverUiState.Empty("")
-                            } else {
-                                if (page == 1) accumulatedResults.clear()
-                                accumulatedResults.addAll(filtered)
-                                accumulatedResults.distinctBy { it.id }.let { dedup ->
-                                    accumulatedResults.clear()
-                                    accumulatedResults.addAll(dedup)
-                                }
-                                DiscoverUiState.Success(accumulatedResults.toList())
-                            }
-                        }
-                        is DataResult.Error -> {
-                            AppLogger.e("DiscoverVM", "Trending error", result.exception)
-                            _uiState.value = DiscoverUiState.Error(
-                                result.exception.message ?: "Error al carrar tendencias"
-                            )
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                if (e is kotlinx.coroutines.CancellationException) return@launch
-                AppLogger.e("DiscoverVM", "Trending error", e)
-                _uiState.value = DiscoverUiState.Error(e.message ?: "Error desconocido")
+            _uiState.value = if (accumulatedResults.isEmpty()) {
+                DiscoverUiState.Empty("")
+            } else {
+                DiscoverUiState.Success(accumulatedResults.toList())
             }
-            isLoadingMore = false
         }
     }
 
-    private fun loadSearchPage(query: String, page: Int) {
-        viewModelScope.launch {
-            isLoadingMore = true
-            try {
-                discoverRepository.search(query, page).collect { result ->
-                    when (result) {
-                        is DataResult.Loading -> {}
-                        is DataResult.Success -> {
-                            val blacklisted = blacklistedIds.value
-                            val liked = likedIds.value
-                            val watched = watchedIds.value
-                            val filtered = result.data.filter { it.id !in blacklisted && it.id !in liked && it.id !in watched }
-                            if (filtered.isNotEmpty()) {
-                                accumulatedResults.addAll(filtered)
-                                accumulatedResults.distinctBy { it.id }.let { dedup ->
-                                    accumulatedResults.clear()
-                                    accumulatedResults.addAll(dedup)
-                                }
-                                _uiState.value = DiscoverUiState.Success(accumulatedResults.toList())
-                            } else {
-                                _uiState.value = if (accumulatedResults.isEmpty()) {
-                                    DiscoverUiState.Empty(query)
-                                } else {
-                                    DiscoverUiState.Success(accumulatedResults.toList())
-                                }
+    private suspend fun fillUntil(targetCount: Int, query: String = "") {
+        while (accumulatedResults.size < targetCount && hasMoreApiPages) {
+            val pageResults = if (query.isBlank()) {
+                try {
+                    discoverRepository.fetchTrendingPage(apiPage)
+                } catch (e: Exception) {
+                    AppLogger.e("DiscoverVM", "fetchTrendingPage error", e)
+                    emptyList()
+                }
+            } else {
+                try {
+                    discoverRepository.fetchSearchPage(query, apiPage)
+                } catch (e: Exception) {
+                    AppLogger.e("DiscoverVM", "fetchSearchPage error", e)
+                    emptyList()
+                }
+            }
+
+            if (pageResults.isEmpty()) {
+                hasMoreApiPages = false
+                break
+            }
+
+            apiPage++
+
+            val liked = likedIds.value
+            val blacklisted = blacklistedIds.value
+            val watched = watchedIds.value
+
+            val filtered = if (query.isBlank()) {
+                pageResults.filter { it.id !in liked && it.id !in blacklisted }
+            } else {
+                pageResults.filter { it.id !in blacklisted && it.id !in liked && it.id !in watched }
+            }
+
+            val platformFiltered = if (_filterByPlatforms.value) {
+                val userPlatforms = activePlatforms.value
+                if (userPlatforms.isNotEmpty()) {
+                    filtered.filter { preview ->
+                        preview.streamingPlatforms.any { platform ->
+                            userPlatforms.any { userP ->
+                                platform.platformName.trim().equals(userP.trim(), ignoreCase = true)
                             }
                         }
-                        is DataResult.Error -> {
-                            AppLogger.e("DiscoverVM", "Search page error", result.exception)
-                        }
                     }
-                }
-            } catch (e: Exception) {
-                if (e is kotlinx.coroutines.CancellationException) return@launch
-            }
-            isLoadingMore = false
+                } else filtered
+            } else filtered
+
+            accumulatedResults.addAll(platformFiltered)
+        }
+
+        accumulatedResults.distinctBy { it.id }.let { dedup ->
+            accumulatedResults.clear()
+            accumulatedResults.addAll(dedup)
         }
     }
 }

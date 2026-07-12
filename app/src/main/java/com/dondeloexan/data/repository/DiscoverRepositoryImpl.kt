@@ -245,4 +245,30 @@ class DiscoverRepositoryImpl(
             } else emptyList()
         } catch (_: Exception) { emptyList() }
     }
+
+    override suspend fun fetchTrendingPage(page: Int): List<ContentPreview> {
+        val imdbResult = imdbApi.popularAll(page = page)
+        val previews = imdbResult.results
+            .filter { it.mediaType in listOf("movie", "tv") && !it.adult }
+            .map { it.toContentPreview() }
+            .take(20)
+        return if (previews.isNotEmpty()) {
+            attachImdbPlatforms(previews)
+        } else {
+            emptyList()
+        }
+    }
+
+    override suspend fun fetchSearchPage(query: String, page: Int): List<ContentPreview> {
+        val imdbResult = imdbApi.searchMulti(query, page = page)
+        val previews = imdbResult.results
+            .filter { it.mediaType in listOf("movie", "tv") && !it.adult }
+            .map { it.toContentPreview() }
+            .take(20)
+        return if (previews.isNotEmpty()) {
+            attachImdbPlatforms(previews)
+        } else {
+            emptyList()
+        }
+    }
 }
