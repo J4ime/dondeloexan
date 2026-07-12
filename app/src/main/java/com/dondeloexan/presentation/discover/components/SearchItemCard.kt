@@ -181,7 +181,7 @@ fun SearchItemCard(
                 )
             }
 
-            if (content.type.name == "MOVIE" && content.releaseDate != null) {
+            if (content.type.name == "MOVIE" && content.releaseDate != null && content.streamingPlatforms.isEmpty()) {
                 val cinemaInfo = remember(content.releaseDate) {
                     try {
                         val date = java.time.LocalDate.parse(content.releaseDate)

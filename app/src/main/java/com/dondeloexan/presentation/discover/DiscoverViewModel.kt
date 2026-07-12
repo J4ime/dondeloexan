@@ -56,13 +56,13 @@ class DiscoverViewModel(
         movieDao.getLiked().map { list -> list.mapNotNull { it.contentId }.toSet() },
         tvShowDao.getLiked().map { list -> list.mapNotNull { it.contentId }.toSet() }
     ) { movieLiked, tvLiked -> movieLiked + tvLiked }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
 
     val watchedIds: StateFlow<Set<String>> = combine(
         movieDao.getByStatus(WatchStatus.YA_VISTA).map { list -> list.mapNotNull { it.contentId }.toSet() },
         tvShowDao.getByStatus(WatchStatus.YA_VISTA).map { list -> list.mapNotNull { it.contentId }.toSet() }
     ) { movieWatched, tvWatched -> movieWatched + tvWatched }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
 
     private var apiPage = 1
     private var hasMoreApiPages = true
@@ -110,6 +110,13 @@ class DiscoverViewModel(
         }
     }
 
+    private fun removeAndEmit(contentId: String) {
+        accumulatedResults.removeAll { it.id == contentId }
+        if (_uiState.value is DiscoverUiState.Success) {
+            _uiState.value = DiscoverUiState.Success(accumulatedResults.toList())
+        }
+    }
+
     fun onToggleFavorite(preview: ContentPreview) {
         viewModelScope.launch {
             try {
@@ -123,6 +130,7 @@ class DiscoverViewModel(
                                 if (newLiked) "Película añadida"
                                 else "Película quitada"
                             )
+                            if (newLiked) removeAndEmit(preview.id)
                         } else {
                             movieDao.insert(
                                 MovieEntity(
@@ -136,6 +144,7 @@ class DiscoverViewModel(
                                 )
                             )
                             feedbackManager.emit("Película añadida")
+                            removeAndEmit(preview.id)
                         }
                     }
                     com.dondeloexan.domain.model.ContentType.SERIES -> {
@@ -147,6 +156,7 @@ class DiscoverViewModel(
                                 if (newLiked) "Serie añadida"
                                 else "Serie quitada"
                             )
+                            if (newLiked) removeAndEmit(preview.id)
                         } else {
                             tvShowDao.insert(
                                 TvShowEntity(
@@ -160,6 +170,7 @@ class DiscoverViewModel(
                                 )
                             )
                             feedbackManager.emit("Serie añadida")
+                            removeAndEmit(preview.id)
                         }
                     }
                 }
@@ -188,6 +199,7 @@ class DiscoverViewModel(
                                 if (!wasWatched) "Película marcada como vista"
                                 else "Película quitada de vistos"
                             )
+                            if (!wasWatched) removeAndEmit(preview.id)
                         } else {
                             movieDao.insert(
                                 MovieEntity(
@@ -202,6 +214,7 @@ class DiscoverViewModel(
                                 )
                             )
                             feedbackManager.emit("Película marcada como vista")
+                            removeAndEmit(preview.id)
                         }
                     }
                     com.dondeloexan.domain.model.ContentType.SERIES -> {
@@ -214,6 +227,7 @@ class DiscoverViewModel(
                                 if (!wasWatched) "Serie marcada como vista"
                                 else "Serie quitada de vistos"
                             )
+                            if (!wasWatched) removeAndEmit(preview.id)
                         } else {
                             tvShowDao.insert(
                                 TvShowEntity(
@@ -227,6 +241,7 @@ class DiscoverViewModel(
                                 )
                             )
                             feedbackManager.emit("Serie marcada como vista")
+                            removeAndEmit(preview.id)
                         }
                     }
                 }
@@ -347,7 +362,7 @@ class DiscoverViewModel(
             val watched = watchedIds.value
 
             val filtered = if (query.isBlank()) {
-                pageResults.filter { it.id !in liked && it.id !in blacklisted }
+                pageResults.filter { it.id !in liked && it.id !in blacklisted && it.id !in watched }
             } else {
                 pageResults.filter { it.id !in blacklisted && it.id !in liked && it.id !in watched }
             }
