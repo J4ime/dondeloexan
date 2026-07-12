@@ -3,6 +3,7 @@ package com.dondeloexan.presentation.navigation
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.core.tween
+import com.dondeloexan.BuildConfig
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -183,7 +184,7 @@ private fun AboutScreen(navController: NavController) {
             Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
-            Text("DondeLoExan v1.0.0", color = TextSecondary, style = UbuntuTypography.bodyLarge)
+            Text("DondeLoExan v${BuildConfig.VERSION_NAME}", color = TextSecondary, style = UbuntuTypography.bodyLarge)
         }
     }
 }
