@@ -72,7 +72,7 @@ data class TmdbMultiSearchResponse(
 @Serializable
 data class TmdbMultiSearchResult(
     val id: Int,
-    @SerialName("media_type") val mediaType: String,
+    @SerialName("media_type") val mediaType: String? = null,
     val title: String? = null,
     val name: String? = null,
     @SerialName("poster_path") val posterPath: String? = null,

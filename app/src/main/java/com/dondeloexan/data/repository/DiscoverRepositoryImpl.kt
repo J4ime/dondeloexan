@@ -269,7 +269,7 @@ class DiscoverRepositoryImpl(
 
             val tvShows = tvResults.results
                 .filter { !it.adult }
-                .map { it.toContentPreview() }
+                .map { it.copy(mediaType = "tv").toContentPreview() }
 
             val combined = mutableListOf<ContentPreview>()
             val movieIter = movies.take(10).iterator()
