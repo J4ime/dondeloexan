@@ -263,17 +263,23 @@ class DiscoverRepositoryImpl(
             val movieResults = movieDeferred.await()
             val tvResults = tvDeferred.await()
 
-            val movies = movieResults.results
-                .filter { !it.adult }
-                .map { it.toContentPreview() }
+            val moviePreviews = attachTmbdPlatforms(
+                movieResults.results
+                    .filter { !it.adult }
+                    .map { it.toContentPreview() }
+                    .take(10)
+            )
 
-            val tvShows = tvResults.results
-                .filter { !it.adult }
-                .map { it.copy(mediaType = "tv").toContentPreview() }
+            val tvPreviews = attachTmbdPlatforms(
+                tvResults.results
+                    .filter { !it.adult }
+                    .map { it.copy(mediaType = "tv").toContentPreview() }
+                    .take(10)
+            )
 
             val combined = mutableListOf<ContentPreview>()
-            val movieIter = movies.take(10).iterator()
-            val tvIter = tvShows.take(10).iterator()
+            val movieIter = moviePreviews.iterator()
+            val tvIter = tvPreviews.iterator()
             while (movieIter.hasNext() || tvIter.hasNext()) {
                 if (movieIter.hasNext()) combined.add(movieIter.next())
                 if (tvIter.hasNext()) combined.add(tvIter.next())

@@ -97,6 +97,7 @@ fun TmdbMultiSearchResult.toContentPreview(): ContentPreview = ContentPreview(
     releaseDate = releaseDate ?: firstAirDate,
     coverUrl = posterPath?.let { "https://image.tmdb.org/t/p/w500$it" },
     voteCount = voteCount,
+    ratingImdb = voteAverage,
     isAdult = adult
 )
 
