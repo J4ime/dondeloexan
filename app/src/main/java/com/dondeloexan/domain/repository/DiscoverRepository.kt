@@ -14,4 +14,5 @@ interface DiscoverRepository {
     suspend fun getTrending(page: Int): Flow<DataResult<List<ContentPreview>>>
     suspend fun fetchTrendingPage(page: Int, filterByPlatforms: Boolean = true): List<ContentPreview>
     suspend fun fetchSearchPage(query: String, page: Int): List<ContentPreview>
+    suspend fun resolveTmdbId(imdbId: String, type: ContentType): Int?
 }

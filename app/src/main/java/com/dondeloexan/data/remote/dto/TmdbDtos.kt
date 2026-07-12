@@ -179,3 +179,9 @@ data class TmdbCrewMemberDto(
     val department: String? = null,
     @SerialName("known_for_department") val knownForDepartment: String? = null
 )
+
+@Serializable
+data class TmdbExternalIdsDto(
+    val id: Int,
+    @SerialName("imdb_id") val imdbId: String? = null
+)

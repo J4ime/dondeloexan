@@ -55,3 +55,17 @@ data class ImdbProvider(
     @SerialName("logo_path") val logoPath: String? = null,
     @SerialName("display_priority") val displayPriority: Int? = null
 )
+
+@Serializable
+data class ImdbExternalIds(
+    val id: String,
+    @SerialName("imdb_id") val imdbId: String? = null,
+    @SerialName("tmdb_id") val tmdbId: Int? = null,
+    @SerialName("wikidata_id") val wikidataId: String? = null,
+    @SerialName("wikipedia_url") val wikipediaUrl: String? = null,
+    @SerialName("facebook_id") val facebookId: String? = null,
+    @SerialName("instagram_id") val instagramId: String? = null,
+    @SerialName("twitter_id") val twitterId: String? = null,
+    @SerialName("youtube_id") val youtubeId: String? = null,
+    val homepage: String? = null
+)

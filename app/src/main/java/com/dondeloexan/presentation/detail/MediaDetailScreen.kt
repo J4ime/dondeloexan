@@ -23,8 +23,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.outlined.AlternateEmail
+import androidx.compose.material.icons.outlined.CameraAlt
 import androidx.compose.material.icons.outlined.CheckCircleOutline
 import androidx.compose.material.icons.outlined.DoneAll
+import androidx.compose.material.icons.outlined.Language
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
+import androidx.compose.material.icons.outlined.People
+import androidx.compose.material.icons.outlined.PlayCircle
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -58,12 +64,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.content.Intent
+import android.net.Uri
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.dondeloexan.data.remote.dto.TmdbSeasonDto
 import com.dondeloexan.data.remote.dto.TmdbTvSeasonDetailDto
 import com.dondeloexan.domain.model.Content
 import com.dondeloexan.domain.model.ContentType
+import com.dondeloexan.domain.model.ExternalLinks
 import com.dondeloexan.domain.model.StreamingAvailability
 import com.dondeloexan.domain.model.AvailabilityType
 import com.dondeloexan.presentation.theme.DarkBackground
@@ -221,6 +230,9 @@ private fun FichaTab(content: Content) {
             item { StreamingSection(displayPlatforms) }
         }
         item { TechnicalInfoSection(content) }
+        if (content.externalLinks != null) {
+            item { ExternalLinksSection(content.externalLinks) }
+        }
     }
 }
 
@@ -512,6 +524,72 @@ private fun FieldRow(label: String, value: String) {
             color = TextPrimary,
             modifier = Modifier.weight(1f)
         )
+    }
+}
+
+@Composable
+private fun ExternalLinksSection(links: ExternalLinks) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val items = listOfNotNull(
+        links.imdbId?.let { Triple(it, Icons.Outlined.Star, "IMDb") },
+        links.wikipediaUrl?.let { Triple(it, Icons.AutoMirrored.Outlined.MenuBook, "Wikipedia") },
+        links.facebookId?.let { Triple(it, Icons.Outlined.People, "Facebook") },
+        links.instagramId?.let { Triple(it, Icons.Outlined.CameraAlt, "Instagram") },
+        links.twitterId?.let { Triple(it, Icons.Outlined.AlternateEmail, "Twitter") },
+        links.youtubeId?.let { Triple(it, Icons.Outlined.PlayCircle, "YouTube") },
+        links.homepage?.let { Triple(it, Icons.Outlined.Language, "Web") }
+    )
+
+    if (items.isEmpty()) return
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+    ) {
+        HorizontalDivider(color = DarkSurfaceVariant.copy(alpha = 0.5f))
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "Enlaces",
+            style = UbuntuTypography.titleSmall,
+            color = TextPrimary,
+            fontWeight = FontWeight.Bold
+        )
+        Spacer(Modifier.height(8.dp))
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            items.forEach { (value, icon, label) ->
+                val url = when (label) {
+                    "IMDb" -> "https://www.imdb.com/title/$value/"
+                    "Wikipedia" -> value
+                    "Facebook" -> "https://facebook.com/$value/"
+                    "Instagram" -> "https://instagram.com/$value/"
+                    "Twitter" -> "https://x.com/$value/"
+                    "YouTube" -> "https://www.youtube.com/watch?v=$value"
+                    "Web" -> value
+                    else -> value
+                }
+                Surface(
+                    onClick = {
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                        context.startActivity(intent)
+                    },
+                    shape = RoundedCornerShape(8.dp),
+                    color = DarkSurfaceVariant.copy(alpha = 0.5f)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        Icon(icon, contentDescription = label, tint = EleganteRose, modifier = Modifier.size(20.dp))
+                        Text(label, style = UbuntuTypography.labelSmall, color = TextSecondary, fontSize = 9.sp)
+                    }
+                }
+            }
+        }
     }
 }
 

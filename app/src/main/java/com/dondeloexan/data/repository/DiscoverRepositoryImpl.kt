@@ -17,6 +17,7 @@ import com.dondeloexan.domain.model.ContentPreview
 import com.dondeloexan.domain.model.ContentSource
 import com.dondeloexan.domain.model.ContentType
 import com.dondeloexan.domain.model.DataResult
+import com.dondeloexan.domain.model.ExternalLinks
 import com.dondeloexan.domain.model.StreamingAvailability
 import com.dondeloexan.domain.repository.DiscoverRepository
 import kotlinx.coroutines.async
@@ -72,12 +73,23 @@ class DiscoverRepositoryImpl(
         }
     }
 
+    override suspend fun resolveTmdbId(imdbId: String, type: ContentType): Int? {
+        return try {
+            val externalIds = when (type) {
+                ContentType.MOVIE -> imdbApi.getMovieExternalIds(imdbId)
+                ContentType.SERIES -> imdbApi.getTvExternalIds(imdbId)
+            }
+            externalIds.tmdbId
+        } catch (_: Exception) { null }
+    }
+
     override suspend fun getDetail(contentId: String, contentType: ContentType): Flow<DataResult<Content>> = flow {
         emit(DataResult.Loading)
 
         try {
             val content = when {
                 contentId.startsWith("tmdb-") -> fetchTmdbDetail(contentId, contentType)
+                contentId.startsWith("imdb-") -> fetchImdbDetail(contentId, contentType)
                 else -> throw IllegalArgumentException("Unknown content ID: $contentId")
             }
 
@@ -87,6 +99,17 @@ class DiscoverRepositoryImpl(
         } catch (e: Exception) {
             emit(DataResult.Error(e))
         }
+    }
+
+    private suspend fun fetchImdbDetail(id: String, contentType: ContentType): Content {
+        val imdbId = id.removePrefix("imdb-")
+        val externalIds = when (contentType) {
+            ContentType.MOVIE -> imdbApi.getMovieExternalIds(imdbId)
+            ContentType.SERIES -> imdbApi.getTvExternalIds(imdbId)
+        }
+        val tmdbId = externalIds.tmdbId
+            ?: throw IllegalArgumentException("No TMDB ID found for IMDb ID: $imdbId")
+        return fetchTmdbDetail("tmdb-$tmdbId", contentType)
     }
 
     override suspend fun getTrending(): Flow<DataResult<List<ContentPreview>>> = getTrending(1)
@@ -154,7 +177,23 @@ class DiscoverRepositoryImpl(
                 )
             }
 
-            tv.toDomain(null, platforms, credits)
+            val externalLinks = try {
+                val tvImdbId = tmdbApi.getTvExternalIds(tmdbId).imdbId
+                tvImdbId?.let { imdb ->
+                    val social = imdbApi.getTvExternalIds(imdb)
+                    ExternalLinks(
+                        imdbId = social.imdbId,
+                        wikipediaUrl = social.wikipediaUrl,
+                        facebookId = social.facebookId,
+                        instagramId = social.instagramId,
+                        twitterId = social.twitterId,
+                        youtubeId = social.youtubeId,
+                        homepage = social.homepage
+                    )
+                }
+            } catch (_: Exception) { null }
+
+            tv.toDomain(null, platforms, credits, externalLinks)
         } else {
             val movie = tmdbApi.getMovieDetail(tmdbId)
             val credits = tmdbApi.getMovieCredits(tmdbId)
@@ -165,7 +204,22 @@ class DiscoverRepositoryImpl(
                 try { omdbApi.getByImdbId(imdbId) } catch (_: Exception) { null }
             }
 
-            val content = movie.toDomain(omdbRatings, platforms, credits)
+            val externalLinks = try {
+                movie.imdbId?.let { imdb ->
+                    val social = imdbApi.getMovieExternalIds(imdb)
+                    ExternalLinks(
+                        imdbId = social.imdbId,
+                        wikipediaUrl = social.wikipediaUrl,
+                        facebookId = social.facebookId,
+                        instagramId = social.instagramId,
+                        twitterId = social.twitterId,
+                        youtubeId = social.youtubeId,
+                        homepage = social.homepage
+                    )
+                }
+            } catch (_: Exception) { null }
+
+            val content = movie.toDomain(omdbRatings, platforms, credits, externalLinks)
             if (movie.imdbId != null) {
                 try {
                     val omdb = omdbApi.getByImdbId(movie.imdbId)

@@ -1,5 +1,15 @@
 package com.dondeloexan.domain.model
 
+data class ExternalLinks(
+    val imdbId: String? = null,
+    val wikipediaUrl: String? = null,
+    val facebookId: String? = null,
+    val instagramId: String? = null,
+    val twitterId: String? = null,
+    val youtubeId: String? = null,
+    val homepage: String? = null
+)
+
 data class Content(
     val id: String,
     val source: ContentSource,
@@ -28,6 +38,7 @@ data class Content(
     val genres: List<String> = emptyList(),
     val countries: List<String> = emptyList(),
     val streamingPlatforms: List<StreamingAvailability> = emptyList(),
+    val externalLinks: ExternalLinks? = null,
     val lastCachedAt: Long = System.currentTimeMillis()
 )
 

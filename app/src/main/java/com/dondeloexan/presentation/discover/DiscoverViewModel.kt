@@ -10,6 +10,7 @@ import com.dondeloexan.data.local.entity.MovieEntity
 import com.dondeloexan.data.local.entity.TvShowEntity
 import com.dondeloexan.data.local.entity.WatchStatus
 import com.dondeloexan.domain.model.ContentPreview
+import com.dondeloexan.domain.model.ContentSource
 import com.dondeloexan.domain.model.DataResult
 import com.dondeloexan.domain.repository.DiscoverRepository
 import com.dondeloexan.presentation.feedback.FeedbackManager
@@ -117,12 +118,22 @@ class DiscoverViewModel(
         }
     }
 
+    private suspend fun resolveContentId(preview: ContentPreview): Pair<String, Int?> {
+        if (preview.tmdbId != null || preview.source != ContentSource.IMDB) {
+            return preview.id to preview.tmdbId
+        }
+        val imdbId = preview.id.removePrefix("imdb-")
+        val tmdbId = discoverRepository.resolveTmdbId(imdbId, preview.type)
+        return if (tmdbId != null) "tmdb-$tmdbId" to tmdbId else preview.id to null
+    }
+
     fun onToggleFavorite(preview: ContentPreview) {
         viewModelScope.launch {
             try {
+                val (contentId, actualTmdbId) = resolveContentId(preview)
                 when (preview.type) {
                     com.dondeloexan.domain.model.ContentType.MOVIE -> {
-                        val existing = movieDao.getByContentId(preview.id)
+                        val existing = movieDao.getByContentId(contentId)
                         if (existing != null) {
                             val newLiked = !existing.liked
                             movieDao.update(existing.copy(liked = newLiked))
@@ -134,8 +145,8 @@ class DiscoverViewModel(
                         } else {
                             movieDao.insert(
                                 MovieEntity(
-                                    contentId = preview.id,
-                                    tmdbId = preview.tmdbId,
+                                    contentId = contentId,
+                                    tmdbId = actualTmdbId,
                                     title = preview.title,
                                     year = preview.year,
                                     releaseDate = preview.releaseDate,
@@ -148,7 +159,7 @@ class DiscoverViewModel(
                         }
                     }
                     com.dondeloexan.domain.model.ContentType.SERIES -> {
-                        val existing = tvShowDao.getByContentId(preview.id)
+                        val existing = tvShowDao.getByContentId(contentId)
                         if (existing != null) {
                             val newLiked = !existing.liked
                             tvShowDao.update(existing.copy(liked = newLiked))
@@ -160,8 +171,8 @@ class DiscoverViewModel(
                         } else {
                             tvShowDao.insert(
                                 TvShowEntity(
-                                    contentId = preview.id,
-                                    tmdbId = preview.tmdbId,
+                                    contentId = contentId,
+                                    tmdbId = actualTmdbId,
                                     title = preview.title,
                                     year = preview.year,
                                     posterUrl = preview.coverUrl,
@@ -183,9 +194,10 @@ class DiscoverViewModel(
     fun onToggleWatched(preview: ContentPreview) {
         viewModelScope.launch {
             try {
+                val (contentId, actualTmdbId) = resolveContentId(preview)
                 when (preview.type) {
                     com.dondeloexan.domain.model.ContentType.MOVIE -> {
-                        val existing = movieDao.getByContentId(preview.id)
+                        val existing = movieDao.getByContentId(contentId)
                         if (existing != null) {
                             val wasWatched = existing.status == WatchStatus.YA_VISTA
                             val newStatus = if (wasWatched) WatchStatus.POR_VER else WatchStatus.YA_VISTA
@@ -203,8 +215,8 @@ class DiscoverViewModel(
                         } else {
                             movieDao.insert(
                                 MovieEntity(
-                                    contentId = preview.id,
-                                    tmdbId = preview.tmdbId,
+                                    contentId = contentId,
+                                    tmdbId = actualTmdbId,
                                     title = preview.title,
                                     year = preview.year,
                                     releaseDate = preview.releaseDate,
@@ -218,7 +230,7 @@ class DiscoverViewModel(
                         }
                     }
                     com.dondeloexan.domain.model.ContentType.SERIES -> {
-                        val existing = tvShowDao.getByContentId(preview.id)
+                        val existing = tvShowDao.getByContentId(contentId)
                         if (existing != null) {
                             val wasWatched = existing.status == WatchStatus.YA_VISTA
                             val newStatus = if (wasWatched) WatchStatus.POR_VER else WatchStatus.YA_VISTA
@@ -231,8 +243,8 @@ class DiscoverViewModel(
                         } else {
                             tvShowDao.insert(
                                 TvShowEntity(
-                                    contentId = preview.id,
-                                    tmdbId = preview.tmdbId,
+                                    contentId = contentId,
+                                    tmdbId = actualTmdbId,
                                     title = preview.title,
                                     year = preview.year,
                                     posterUrl = preview.coverUrl,

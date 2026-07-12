@@ -11,12 +11,14 @@ import com.dondeloexan.domain.model.Content
 import com.dondeloexan.domain.model.ContentPreview
 import com.dondeloexan.domain.model.ContentSource
 import com.dondeloexan.domain.model.ContentType
+import com.dondeloexan.domain.model.ExternalLinks
 import com.dondeloexan.domain.model.StreamingAvailability
 
 fun TmdbMovieDto.toDomain(
     omdbRating: OmdbDetailResponse?,
     platforms: List<StreamingAvailability>,
-    credits: TmdbCreditsResponse? = null
+    credits: TmdbCreditsResponse? = null,
+    externalLinks: ExternalLinks? = null
 ): Content = Content(
     id = "tmdb-$id",
     source = ContentSource.TMDB,
@@ -46,13 +48,15 @@ fun TmdbMovieDto.toDomain(
     genres = genres?.map { it.name }.orEmpty(),
     countries = productionCountries?.map { it.name }.orEmpty(),
     streamingPlatforms = platforms,
+    externalLinks = externalLinks,
     lastCachedAt = System.currentTimeMillis()
 )
 
 fun TmdbTvDetailDto.toDomain(
     omdbRating: OmdbDetailResponse?,
     platforms: List<StreamingAvailability>,
-    credits: TmdbCreditsResponse? = null
+    credits: TmdbCreditsResponse? = null,
+    externalLinks: ExternalLinks? = null
 ): Content = Content(
     id = "tmdb-$id",
     source = ContentSource.TMDB,
@@ -83,6 +87,7 @@ fun TmdbTvDetailDto.toDomain(
     genres = genres?.map { it.name }.orEmpty(),
     countries = productionCountries?.map { it.name }.orEmpty(),
     streamingPlatforms = platforms,
+    externalLinks = externalLinks,
     lastCachedAt = System.currentTimeMillis()
 )
 
