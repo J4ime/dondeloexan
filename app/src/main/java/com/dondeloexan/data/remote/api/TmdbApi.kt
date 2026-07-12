@@ -66,6 +66,38 @@ class TmdbApi(private val client: HttpClient) {
         return response.body()
     }
 
+    suspend fun discoverMovie(
+        language: String = "es-ES",
+        page: Int = 1,
+        watchProviders: String? = null,
+        watchRegion: String? = "ES"
+    ): TmdbTrendingResponse {
+        val response = client.get("discover/movie") {
+            parameter("language", language)
+            parameter("page", page)
+            parameter("sort_by", "popularity.desc")
+            if (!watchProviders.isNullOrBlank()) parameter("with_watch_providers", watchProviders)
+            if (!watchRegion.isNullOrBlank()) parameter("watch_region", watchRegion)
+        }
+        return response.body()
+    }
+
+    suspend fun discoverTv(
+        language: String = "es-ES",
+        page: Int = 1,
+        watchProviders: String? = null,
+        watchRegion: String? = "ES"
+    ): TmdbTrendingResponse {
+        val response = client.get("discover/tv") {
+            parameter("language", language)
+            parameter("page", page)
+            parameter("sort_by", "popularity.desc")
+            if (!watchProviders.isNullOrBlank()) parameter("with_watch_providers", watchProviders)
+            if (!watchRegion.isNullOrBlank()) parameter("watch_region", watchRegion)
+        }
+        return response.body()
+    }
+
     suspend fun getTrending(language: String = "es-ES"): TmdbTrendingResponse {
         val response = client.get("trending/all/week") {
             parameter("language", language)

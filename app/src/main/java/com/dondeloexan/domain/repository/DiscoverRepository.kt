@@ -12,6 +12,6 @@ interface DiscoverRepository {
     suspend fun getDetail(contentId: String, contentType: ContentType = ContentType.MOVIE): Flow<DataResult<Content>>
     suspend fun getTrending(): Flow<DataResult<List<ContentPreview>>>
     suspend fun getTrending(page: Int): Flow<DataResult<List<ContentPreview>>>
-    suspend fun fetchTrendingPage(page: Int): List<ContentPreview>
+    suspend fun fetchTrendingPage(page: Int, filterByPlatforms: Boolean = true): List<ContentPreview>
     suspend fun fetchSearchPage(query: String, page: Int): List<ContentPreview>
 }

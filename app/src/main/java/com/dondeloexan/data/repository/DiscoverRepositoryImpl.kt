@@ -3,6 +3,7 @@ package com.dondeloexan.data.repository
 import com.dondeloexan.data.local.dao.MovieDao
 import com.dondeloexan.data.local.dao.TvShowDao
 import com.dondeloexan.data.local.dao.UserPlatformDao
+import com.dondeloexan.data.remote.TmdbProviderIds
 import com.dondeloexan.data.remote.api.BalloonerismmApi
 import com.dondeloexan.data.remote.api.OmdbApi
 import com.dondeloexan.data.remote.api.TmdbApi
@@ -246,16 +247,39 @@ class DiscoverRepositoryImpl(
         } catch (_: Exception) { emptyList() }
     }
 
-    override suspend fun fetchTrendingPage(page: Int): List<ContentPreview> {
-        val imdbResult = imdbApi.popularAll(page = page)
-        val previews = imdbResult.results
-            .filter { it.mediaType in listOf("movie", "tv") && !it.adult }
-            .map { it.toContentPreview() }
-            .take(20)
-        return if (previews.isNotEmpty()) {
-            attachImdbPlatforms(previews)
-        } else {
-            emptyList()
+    override suspend fun fetchTrendingPage(page: Int, filterByPlatforms: Boolean): List<ContentPreview> {
+        val providerFilter = if (filterByPlatforms) {
+            TmdbProviderIds.toPipeSeparated(userPlatformDao.getActiveNames().toSet())
+        } else null
+
+        return coroutineScope {
+            val movieDeferred = async {
+                tmdbApi.discoverMovie(page = page, watchProviders = providerFilter)
+            }
+            val tvDeferred = async {
+                tmdbApi.discoverTv(page = page, watchProviders = providerFilter)
+            }
+
+            val movieResults = movieDeferred.await()
+            val tvResults = tvDeferred.await()
+
+            val movies = movieResults.results
+                .filter { !it.adult }
+                .map { it.toContentPreview() }
+
+            val tvShows = tvResults.results
+                .filter { !it.adult }
+                .map { it.toContentPreview() }
+
+            val combined = mutableListOf<ContentPreview>()
+            val movieIter = movies.take(10).iterator()
+            val tvIter = tvShows.take(10).iterator()
+            while (movieIter.hasNext() || tvIter.hasNext()) {
+                if (movieIter.hasNext()) combined.add(movieIter.next())
+                if (tvIter.hasNext()) combined.add(tvIter.next())
+            }
+
+            combined
         }
     }
 

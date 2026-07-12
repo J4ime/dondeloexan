@@ -321,7 +321,7 @@ class DiscoverViewModel(
         while (accumulatedResults.size < targetCount && hasMoreApiPages) {
             val pageResults = if (query.isBlank()) {
                 try {
-                    discoverRepository.fetchTrendingPage(apiPage)
+                    discoverRepository.fetchTrendingPage(apiPage, _filterByPlatforms.value)
                 } catch (e: Exception) {
                     AppLogger.e("DiscoverVM", "fetchTrendingPage error", e)
                     emptyList()
@@ -352,20 +352,7 @@ class DiscoverViewModel(
                 pageResults.filter { it.id !in blacklisted && it.id !in liked && it.id !in watched }
             }
 
-            val platformFiltered = if (_filterByPlatforms.value) {
-                val userPlatforms = activePlatforms.value
-                if (userPlatforms.isNotEmpty()) {
-                    filtered.filter { preview ->
-                        preview.streamingPlatforms.any { platform ->
-                            userPlatforms.any { userP ->
-                                platform.platformName.trim().equals(userP.trim(), ignoreCase = true)
-                            }
-                        }
-                    }
-                } else filtered
-            } else filtered
-
-            accumulatedResults.addAll(platformFiltered)
+            accumulatedResults.addAll(filtered)
         }
 
         accumulatedResults.distinctBy { it.id }.let { dedup ->
