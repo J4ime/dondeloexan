@@ -1,10 +1,16 @@
 package com.dondeloexan.data.remote.mapper
 
 import com.dondeloexan.data.remote.dto.ImdbCountryProviders
+import com.dondeloexan.data.remote.dto.ImdbDetailSeasonDto
+import com.dondeloexan.data.remote.dto.ImdbEpisodeDto
 import com.dondeloexan.data.remote.dto.ImdbMovieDetailDto
 import com.dondeloexan.data.remote.dto.ImdbSearchResult
+import com.dondeloexan.data.remote.dto.ImdbSeasonDetailDto
 import com.dondeloexan.data.remote.dto.ImdbTvDetailDto
 import com.dondeloexan.data.remote.dto.OmdbDetailResponse
+import com.dondeloexan.data.remote.dto.TmdbEpisodeDto
+import com.dondeloexan.data.remote.dto.TmdbSeasonDto
+import com.dondeloexan.data.remote.dto.TmdbTvSeasonDetailDto
 import com.dondeloexan.domain.model.AvailabilityType
 import com.dondeloexan.domain.model.Content
 import com.dondeloexan.domain.model.ContentPreview
@@ -134,3 +140,34 @@ fun ImdbCountryProviders.toStreamingAvailability(): List<StreamingAvailability> 
         }
     ).flatten()
 }
+
+fun ImdbDetailSeasonDto.toTmdbSeasonDto(): TmdbSeasonDto = TmdbSeasonDto(
+    seasonNumber = seasonNumber ?: 0,
+    airDate = null,
+    episodeCount = 0,
+    id = 0,
+    name = label ?: "Temporada ${seasonNumber ?: 0}",
+    overview = null,
+    posterPath = null
+)
+
+fun ImdbEpisodeDto.toTmdb(): TmdbEpisodeDto = TmdbEpisodeDto(
+    airDate = airDate,
+    episodeNumber = episodeNumber ?: 0,
+    id = 0,
+    name = name.orEmpty(),
+    overview = overview,
+    stillPath = stillPath,
+    voteAverage = voteAverage,
+    seasonNumber = seasonNumber ?: 0
+)
+
+fun ImdbSeasonDetailDto.toTmdb(): TmdbTvSeasonDetailDto = TmdbTvSeasonDetailDto(
+    internalId = internalId,
+    airDate = airDate,
+    episodes = episodes.map { it.toTmdb() },
+    name = name,
+    overview = overview,
+    id = null,
+    seasonNumber = seasonNumber ?: 0
+)

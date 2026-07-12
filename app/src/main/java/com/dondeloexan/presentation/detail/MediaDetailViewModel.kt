@@ -5,10 +5,14 @@ import androidx.lifecycle.viewModelScope
 import com.dondeloexan.data.local.dao.TvShowDao
 import com.dondeloexan.data.local.dao.TvShowProgressDao
 import com.dondeloexan.data.local.entity.TvShowProgressEntity
+import com.dondeloexan.data.remote.api.BalloonerismmApi
 import com.dondeloexan.data.remote.api.TmdbApi
 import com.dondeloexan.data.remote.dto.TmdbSeasonDto
 import com.dondeloexan.data.remote.dto.TmdbTvSeasonDetailDto
+import com.dondeloexan.data.remote.mapper.toTmdb
+import com.dondeloexan.data.remote.mapper.toTmdbSeasonDto
 import com.dondeloexan.domain.model.Content
+import com.dondeloexan.domain.model.ContentSource
 import com.dondeloexan.domain.model.ContentType
 import com.dondeloexan.domain.model.DataResult
 import com.dondeloexan.domain.repository.DiscoverRepository
@@ -38,6 +42,7 @@ data class CascadeProposal(
 class MediaDetailViewModel(
     private val discoverRepository: DiscoverRepository,
     private val tmdbApi: TmdbApi,
+    private val imdbApi: BalloonerismmApi,
     private val tvShowDao: TvShowDao,
     private val tvShowProgressDao: TvShowProgressDao
 ) : ViewModel() {
@@ -62,7 +67,7 @@ class MediaDetailViewModel(
                             )
 
                             if (content.type == ContentType.SERIES) {
-                                loadSeasons(content.tmdbId)
+                                loadSeasons(content)
                             }
                         }
                         is DataResult.Error -> {
@@ -83,21 +88,29 @@ class MediaDetailViewModel(
         }
     }
 
-    private suspend fun loadSeasons(tmdbId: Int?) {
-        if (tmdbId == null) return
-
+    private suspend fun loadSeasons(content: Content) {
         try {
-            val tvDetail = tmdbApi.getTvDetail(tmdbId)
-            val seasons = tvDetail.seasons?.filter { it.seasonNumber > 0 }
-                ?: emptyList()
-
-            _uiState.value = _uiState.value.copy(seasons = seasons)
-
-            if (seasons.isNotEmpty()) {
-                selectSeason(seasons.first().seasonNumber)
+            when (content.source) {
+                ContentSource.TMDB -> {
+                    val tmdbId = content.tmdbId ?: return
+                    val tvDetail = tmdbApi.getTvDetail(tmdbId)
+                    val seasons = tvDetail.seasons?.filter { it.seasonNumber > 0 } ?: emptyList()
+                    _uiState.value = _uiState.value.copy(seasons = seasons)
+                    if (seasons.isNotEmpty()) selectSeason(seasons.first().seasonNumber)
+                }
+                ContentSource.IMDB -> {
+                    val imdbId = content.imdbId ?: return
+                    val tvDetail = imdbApi.getTvDetail(imdbId)
+                    val seasons = tvDetail.seasons
+                        ?.filter { (it.seasonNumber ?: 0) > 0 }
+                        ?.map { it.toTmdbSeasonDto() }
+                        ?: emptyList()
+                    _uiState.value = _uiState.value.copy(seasons = seasons)
+                    if (seasons.isNotEmpty()) selectSeason(seasons.first().seasonNumber)
+                }
             }
 
-            val tvShow = tvShowDao.getByContentId("tmdb-$tmdbId")
+            val tvShow = tvShowDao.getByContentId(content.id)
             if (tvShow != null) {
                 val progress = tvShowProgressDao.getByTvShowId(tvShow.id)
                 val watchedSet = progress.map { "S${it.season}E${it.episode}" }.toSet()
@@ -112,10 +125,20 @@ class MediaDetailViewModel(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(selectedSeason = seasonNumber, cascadeProposal = null)
 
-            val tmdbId = _uiState.value.content?.tmdbId ?: return@launch
+            val content = _uiState.value.content ?: return@launch
             try {
-                val seasonDetail = tmdbApi.getTvSeason(tmdbId, seasonNumber)
-                _uiState.value = _uiState.value.copy(seasonDetail = seasonDetail)
+                when (content.source) {
+                    ContentSource.TMDB -> {
+                        val tmdbId = content.tmdbId ?: return@launch
+                        val seasonDetail = tmdbApi.getTvSeason(tmdbId, seasonNumber)
+                        _uiState.value = _uiState.value.copy(seasonDetail = seasonDetail)
+                    }
+                    ContentSource.IMDB -> {
+                        val imdbId = content.imdbId ?: return@launch
+                        val seasonDetail = imdbApi.getTvSeason(imdbId, seasonNumber).toTmdb()
+                        _uiState.value = _uiState.value.copy(seasonDetail = seasonDetail)
+                    }
+                }
             } catch (e: Exception) {
                 AppLogger.e("DetailVM", "Error loading season $seasonNumber", e)
             }
@@ -124,9 +147,9 @@ class MediaDetailViewModel(
 
     fun toggleEpisodeWatched(episodeNumber: Int) {
         viewModelScope.launch {
-            val tmdbId = _uiState.value.content?.tmdbId ?: return@launch
+            val content = _uiState.value.content ?: return@launch
             val seasonNumber = _uiState.value.selectedSeason
-            val contentId = "tmdb-$tmdbId"
+            val contentId = content.id
             val episodeKey = "S${seasonNumber}E${episodeNumber}"
             val currentWatched = _uiState.value.watchedEpisodes.toMutableSet()
 
@@ -173,8 +196,8 @@ class MediaDetailViewModel(
     fun confirmCascadeWatched() {
         viewModelScope.launch {
             val proposal = _uiState.value.cascadeProposal ?: return@launch
-            val tmdbId = _uiState.value.content?.tmdbId ?: return@launch
-            val contentId = "tmdb-$tmdbId"
+            val content = _uiState.value.content ?: return@launch
+            val contentId = content.id
             val tvShow = tvShowDao.getByContentId(contentId) ?: return@launch
             val currentWatched = _uiState.value.watchedEpisodes.toMutableSet()
             val seasonDetail = _uiState.value.seasonDetail ?: return@launch
@@ -208,8 +231,8 @@ class MediaDetailViewModel(
     fun dismissCascadeWatched() {
         viewModelScope.launch {
             val proposal = _uiState.value.cascadeProposal ?: return@launch
-            val tmdbId = _uiState.value.content?.tmdbId ?: return@launch
-            val contentId = "tmdb-$tmdbId"
+            val content = _uiState.value.content ?: return@launch
+            val contentId = content.id
             val tvShow = tvShowDao.getByContentId(contentId) ?: return@launch
             val currentWatched = _uiState.value.watchedEpisodes.toMutableSet()
             val targetKey = "S${proposal.season}E${proposal.targetEpisode}"
@@ -232,8 +255,8 @@ class MediaDetailViewModel(
             val seasonDetail = _uiState.value.seasonDetail ?: return@launch
             val episodeNumbers = seasonDetail.episodes.map { it.episodeNumber }
             val seasonNumber = _uiState.value.selectedSeason
-            val tmdbId = _uiState.value.content?.tmdbId ?: return@launch
-            val contentId = "tmdb-$tmdbId"
+            val content = _uiState.value.content ?: return@launch
+            val contentId = content.id
 
             val tvShow = tvShowDao.getByContentId(contentId) ?: return@launch
             val currentWatched = _uiState.value.watchedEpisodes.toMutableSet()

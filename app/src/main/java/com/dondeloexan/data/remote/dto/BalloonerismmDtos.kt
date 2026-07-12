@@ -147,6 +147,34 @@ data class ImdbDetailSeasonDto(
 )
 
 @Serializable
+data class ImdbSeasonDetailDto(
+    @SerialName("_id") val internalId: String? = null,
+    @SerialName("air_date") val airDate: String? = null,
+    val episodes: List<ImdbEpisodeDto> = emptyList(),
+    val name: String? = null,
+    val overview: String? = null,
+    val id: String? = null,
+    @SerialName("poster_path") val posterPath: String? = null,
+    @SerialName("season_number") val seasonNumber: Int? = null,
+    @SerialName("vote_average") val voteAverage: Float? = null
+)
+
+@Serializable
+data class ImdbEpisodeDto(
+    @SerialName("air_date") val airDate: String? = null,
+    @SerialName("episode_number") val episodeNumber: Int? = null,
+    val id: String? = null,
+    val name: String? = null,
+    val overview: String? = null,
+    @SerialName("production_code") val productionCode: String? = null,
+    val runtime: Int? = null,
+    @SerialName("season_number") val seasonNumber: Int? = null,
+    @SerialName("still_path") val stillPath: String? = null,
+    @SerialName("vote_average") val voteAverage: Float? = null,
+    @SerialName("vote_count") val voteCount: Int? = null
+)
+
+@Serializable
 data class ImdbDetailCertificateDto(
     val rating: String? = null,
     val body: String? = null

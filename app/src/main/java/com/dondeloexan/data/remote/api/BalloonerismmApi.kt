@@ -3,6 +3,7 @@ package com.dondeloexan.data.remote.api
 import com.dondeloexan.data.remote.dto.ImdbExternalIds
 import com.dondeloexan.data.remote.dto.ImdbMovieDetailDto
 import com.dondeloexan.data.remote.dto.ImdbSearchResponse
+import com.dondeloexan.data.remote.dto.ImdbSeasonDetailDto
 import com.dondeloexan.data.remote.dto.ImdbTvDetailDto
 import com.dondeloexan.data.remote.dto.ImdbWatchProvidersResponse
 import io.ktor.client.HttpClient
@@ -62,6 +63,11 @@ class BalloonerismmApi(private val client: HttpClient) {
 
     suspend fun getTvDetail(tvId: String): ImdbTvDetailDto {
         val response = client.get("tv/$tvId")
+        return response.body()
+    }
+
+    suspend fun getTvSeason(tvId: String, seasonNumber: Int): ImdbSeasonDetailDto {
+        val response = client.get("tv/$tvId/season/$seasonNumber")
         return response.body()
     }
 
