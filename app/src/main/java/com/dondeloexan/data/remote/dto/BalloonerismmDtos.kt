@@ -57,6 +57,102 @@ data class ImdbProvider(
 )
 
 @Serializable
+data class ImdbMovieDetailDto(
+    val id: String,
+    @SerialName("imdb_url") val imdbUrl: String? = null,
+    val title: String? = null,
+    @SerialName("original_title") val originalTitle: String? = null,
+    @SerialName("original_language") val originalLanguage: String? = null,
+    val overview: String? = null,
+    val tagline: String? = null,
+    @SerialName("release_date") val releaseDate: String? = null,
+    val runtime: Int? = null,
+    @SerialName("vote_average") val voteAverage: Float? = null,
+    @SerialName("vote_count") val voteCount: Int? = null,
+    val popularity: Long? = null,
+    val genres: List<ImdbDetailGenreDto>? = null,
+    @SerialName("spoken_languages") val spokenLanguages: List<ImdbDetailLanguageDto>? = null,
+    @SerialName("production_countries") val productionCountries: List<ImdbDetailCountryDto>? = null,
+    @SerialName("production_companies") val productionCompanies: List<ImdbDetailCompanyDto>? = null,
+    @SerialName("poster_path") val posterPath: String? = null,
+    @SerialName("backdrop_path") val backdropPath: String? = null,
+    val certificate: ImdbDetailCertificateDto? = null,
+    val adult: Boolean? = null,
+    val video: Boolean? = null,
+    val budget: Long? = null,
+    @SerialName("domestic_gross") val domesticGross: Long? = null,
+    @SerialName("worldwide_gross") val worldwideGross: Long? = null,
+    val metascore: Int? = null
+)
+
+@Serializable
+data class ImdbTvDetailDto(
+    val id: String,
+    @SerialName("imdb_url") val imdbUrl: String? = null,
+    val name: String? = null,
+    @SerialName("original_name") val originalName: String? = null,
+    @SerialName("original_language") val originalLanguage: String? = null,
+    val overview: String? = null,
+    val tagline: String? = null,
+    @SerialName("first_air_date") val firstAirDate: String? = null,
+    @SerialName("last_air_date") val lastAirDate: String? = null,
+    @SerialName("in_production") val inProduction: Boolean? = null,
+    @SerialName("number_of_episodes") val numberOfEpisodes: Int? = null,
+    @SerialName("number_of_seasons") val numberOfSeasons: Int? = null,
+    val seasons: List<ImdbDetailSeasonDto>? = null,
+    @SerialName("episode_run_time") val episodeRunTime: List<Int>? = null,
+    val type: String? = null,
+    @SerialName("vote_average") val voteAverage: Float? = null,
+    @SerialName("vote_count") val voteCount: Int? = null,
+    val popularity: Long? = null,
+    val genres: List<ImdbDetailGenreDto>? = null,
+    @SerialName("spoken_languages") val spokenLanguages: List<ImdbDetailLanguageDto>? = null,
+    @SerialName("production_countries") val productionCountries: List<ImdbDetailCountryDto>? = null,
+    @SerialName("production_companies") val productionCompanies: List<ImdbDetailCompanyDto>? = null,
+    @SerialName("origin_country") val originCountry: List<String>? = null,
+    @SerialName("poster_path") val posterPath: String? = null,
+    @SerialName("backdrop_path") val backdropPath: String? = null,
+    val certificate: ImdbDetailCertificateDto? = null,
+    val adult: Boolean? = null
+)
+
+@Serializable
+data class ImdbDetailGenreDto(val id: String, val name: String)
+
+@Serializable
+data class ImdbDetailLanguageDto(
+    @SerialName("iso_639_1") val isoCode: String? = null,
+    val name: String? = null
+)
+
+@Serializable
+data class ImdbDetailCountryDto(
+    @SerialName("iso_3166_1") val isoCode: String? = null,
+    val name: String? = null
+)
+
+@Serializable
+data class ImdbDetailCompanyDto(
+    val id: String? = null,
+    val name: String? = null,
+    val category: String? = null,
+    @SerialName("origin_country") val originCountry: String? = null,
+    @SerialName("logo_path") val logoPath: String? = null
+)
+
+@Serializable
+data class ImdbDetailSeasonDto(
+    @SerialName("season_number") val seasonNumber: Int? = null,
+    val label: String? = null
+)
+
+@Serializable
+data class ImdbDetailCertificateDto(
+    val rating: String? = null,
+    val body: String? = null
+)
+
+@Serializable
 data class ImdbExternalIds(
     val id: String,
     @SerialName("imdb_id") val imdbId: String? = null,

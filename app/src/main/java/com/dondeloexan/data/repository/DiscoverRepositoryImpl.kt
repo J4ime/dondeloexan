@@ -103,13 +103,50 @@ class DiscoverRepositoryImpl(
 
     private suspend fun fetchImdbDetail(id: String, contentType: ContentType): Content {
         val imdbId = id.removePrefix("imdb-")
-        val externalIds = when (contentType) {
-            ContentType.MOVIE -> imdbApi.getMovieExternalIds(imdbId)
-            ContentType.SERIES -> imdbApi.getTvExternalIds(imdbId)
+        val tmdbId = try {
+            val externalIds = when (contentType) {
+                ContentType.MOVIE -> imdbApi.getMovieExternalIds(imdbId)
+                ContentType.SERIES -> imdbApi.getTvExternalIds(imdbId)
+            }
+            externalIds.tmdbId
+        } catch (_: Exception) { null }
+
+        if (tmdbId != null) {
+            return fetchTmdbDetail("tmdb-$tmdbId", contentType)
         }
-        val tmdbId = externalIds.tmdbId
-            ?: throw IllegalArgumentException("No TMDB ID found for IMDb ID: $imdbId")
-        return fetchTmdbDetail("tmdb-$tmdbId", contentType)
+
+        return fetchImdbDirectDetail(imdbId, contentType)
+    }
+
+    private suspend fun fetchImdbDirectDetail(imdbId: String, contentType: ContentType): Content {
+        val providers = when (contentType) {
+            ContentType.MOVIE -> imdbApi.getMovieWatchProviders(imdbId)
+            ContentType.SERIES -> imdbApi.getTvWatchProviders(imdbId)
+        }
+        val platforms = providers.results?.get("ES")?.imdbToStreaming().orEmpty()
+
+        val omdbRating = try { omdbApi.getByImdbId(imdbId) } catch (_: Exception) { null }
+
+        val externalLinks = try {
+            val social = when (contentType) {
+                ContentType.MOVIE -> imdbApi.getMovieExternalIds(imdbId)
+                ContentType.SERIES -> imdbApi.getTvExternalIds(imdbId)
+            }
+            ExternalLinks(
+                imdbId = social.imdbId,
+                wikipediaUrl = social.wikipediaUrl,
+                facebookId = social.facebookId,
+                instagramId = social.instagramId,
+                twitterId = social.twitterId,
+                youtubeId = social.youtubeId,
+                homepage = social.homepage
+            )
+        } catch (_: Exception) { null }
+
+        return when (contentType) {
+            ContentType.MOVIE -> imdbApi.getMovieDetail(imdbId).toDomain(omdbRating, platforms, externalLinks)
+            ContentType.SERIES -> imdbApi.getTvDetail(imdbId).toDomain(omdbRating, platforms, externalLinks)
+        }
     }
 
     override suspend fun getTrending(): Flow<DataResult<List<ContentPreview>>> = getTrending(1)
