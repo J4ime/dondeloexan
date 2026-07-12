@@ -407,7 +407,9 @@ class DiscoverViewModel(
                         is DataResult.Loading -> {}
                         is DataResult.Success -> {
                             val blacklisted = blacklistedIds.value
-                            val filtered = result.data.filter { it.id !in blacklisted }
+                            val liked = likedIds.value
+                            val watched = watchedIds.value
+                            val filtered = result.data.filter { it.id !in blacklisted && it.id !in liked && it.id !in watched }
                             if (filtered.isNotEmpty()) {
                                 accumulatedResults.addAll(filtered)
                                 accumulatedResults.distinctBy { it.id }.let { dedup ->

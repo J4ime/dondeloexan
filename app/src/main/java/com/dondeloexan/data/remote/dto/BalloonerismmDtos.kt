@@ -23,7 +23,7 @@ data class ImdbSearchResult(
     @SerialName("vote_count") val voteCount: Int? = null,
     val popularity: Float? = null,
     val overview: String? = null,
-    @SerialName("genre_ids") val genreIds: List<Int>? = null,
+    @SerialName("genre_ids") val genreIds: List<String>? = null,
     @SerialName("release_date") val releaseDate: String? = null,
     @SerialName("first_air_date") val firstAirDate: String? = null,
     @SerialName("original_language") val originalLanguage: String? = null,
