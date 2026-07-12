@@ -43,12 +43,12 @@ fun FeedbackBanner(
 
     Box(
         modifier = modifier.fillMaxWidth(),
-        contentAlignment = Alignment.TopCenter
+        contentAlignment = Alignment.BottomCenter
     ) {
         AnimatedVisibility(
             visible = visible,
-            enter = slideInVertically { -it } + fadeIn(),
-            exit = slideOutVertically { -it } + fadeOut()
+            enter = slideInVertically { it } + fadeIn(),
+            exit = slideOutVertically { it } + fadeOut()
         ) {
             Box(
                 modifier = Modifier

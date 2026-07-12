@@ -262,6 +262,7 @@ class DiscoverViewModel(
                     )
                 )
                 feedbackManager.emit("${preview.title} ocultado")
+                removeAndEmit(preview.id)
             } catch (e: Exception) {
                 AppLogger.e("DiscoverVM", "Blacklist error", e)
             }

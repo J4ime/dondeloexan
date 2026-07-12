@@ -156,7 +156,7 @@ fun DondeLoExanNavGraph(navController: NavHostController) {
 
         FeedbackBanner(
             message = feedbackMessage,
-            modifier = Modifier.align(Alignment.TopCenter)
+            modifier = Modifier.align(Alignment.BottomCenter)
         )
     }
 }

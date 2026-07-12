@@ -9,6 +9,7 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,6 +27,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.pullrefresh.PullRefreshIndicator
@@ -36,14 +38,13 @@ import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.SearchOff
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -62,6 +63,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.dondeloexan.domain.model.ContentPreview
 import com.dondeloexan.presentation.discover.components.SearchItemCard
@@ -85,6 +87,8 @@ fun DiscoverScreen(
     val filterByPlatforms by viewModel.filterByPlatforms.collectAsState()
     val activePlatforms by viewModel.activePlatforms.collectAsState()
 
+    var isSearchFocused by remember { mutableStateOf(false) }
+
     Column(modifier = Modifier.fillMaxSize()) {
         Row(
             modifier = Modifier
@@ -94,34 +98,55 @@ fun DiscoverScreen(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = viewModel::onSearchQueryChanged,
-                modifier = Modifier.weight(1f).fillMaxHeight(),
-                placeholder = null,
-                leadingIcon = {
-                    Icon(Icons.Outlined.Search, null, tint = TextSecondary, modifier = Modifier.size(18.dp))
-                },
-                trailingIcon = {
-                    if (searchQuery.isNotEmpty()) {
-                        IconButton(onClick = viewModel::onClearSearch) {
-                            Icon(Icons.Outlined.Close, "Limpiar", tint = TextSecondary)
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(DarkSurface, RoundedCornerShape(8.dp))
+                    .border(
+                        width = 1.dp,
+                        color = if (isSearchFocused) EleganteRose.copy(alpha = 0.5f) else TextSecondary.copy(alpha = 0.2f),
+                        shape = RoundedCornerShape(8.dp)
+                    )
+            ) {
+                BasicTextField(
+                    value = searchQuery,
+                    onValueChange = viewModel::onSearchQueryChanged,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 12.dp, vertical = 0.dp)
+                        .onFocusChanged { isSearchFocused = it.isFocused },
+                    singleLine = true,
+                    textStyle = UbuntuTypography.bodyLarge.copy(
+                        color = Color.White,
+                        fontSize = 18.sp,
+                        lineHeight = 22.sp
+                    ),
+                    cursorBrush = SolidColor(EleganteRose),
+                    decorationBox = { innerTextField ->
+                        Row(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Outlined.Search, null,
+                                tint = TextSecondary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Box(modifier = Modifier.weight(1f)) {
+                                innerTextField()
+                            }
+                            if (searchQuery.isNotEmpty()) {
+                                IconButton(onClick = viewModel::onClearSearch) {
+                                    Icon(Icons.Outlined.Close, "Limpiar", tint = TextSecondary)
+                                }
+                            }
                         }
                     }
-                },
-                singleLine = true,
-                shape = RoundedCornerShape(8.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = EleganteRose.copy(alpha = 0.5f),
-                    unfocusedBorderColor = TextSecondary.copy(alpha = 0.2f),
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White,
-                    cursorColor = EleganteRose,
-                    focusedContainerColor = DarkSurface,
-                    unfocusedContainerColor = DarkSurface
-                ),
-                textStyle = UbuntuTypography.bodyLarge
-            )
+                )
+            }
 
             FilterChip(
                 selected = filterByPlatforms,
