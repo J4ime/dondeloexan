@@ -374,6 +374,10 @@ class DiscoverViewModel(
                             } else {
                                 if (page == 1) accumulatedResults.clear()
                                 accumulatedResults.addAll(filtered)
+                                accumulatedResults.distinctBy { it.id }.let { dedup ->
+                                    accumulatedResults.clear()
+                                    accumulatedResults.addAll(dedup)
+                                }
                                 DiscoverUiState.Success(accumulatedResults.toList())
                             }
                         }
@@ -406,6 +410,10 @@ class DiscoverViewModel(
                             val filtered = result.data.filter { it.id !in blacklisted }
                             if (filtered.isNotEmpty()) {
                                 accumulatedResults.addAll(filtered)
+                                accumulatedResults.distinctBy { it.id }.let { dedup ->
+                                    accumulatedResults.clear()
+                                    accumulatedResults.addAll(dedup)
+                                }
                                 _uiState.value = DiscoverUiState.Success(accumulatedResults.toList())
                             } else {
                                 _uiState.value = if (accumulatedResults.isEmpty()) {
