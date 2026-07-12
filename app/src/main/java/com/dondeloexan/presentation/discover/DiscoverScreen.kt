@@ -199,7 +199,7 @@ fun DiscoverContent(
                     derivedStateOf {
                         val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
                         val totalItems = listState.layoutInfo.totalItemsCount
-                        lastVisible >= totalItems - 3 && totalItems > 0
+                        lastVisible >= totalItems - 3 && totalItems > 3
                     }
                 }
                 LaunchedEffect(shouldLoadMore) {
