@@ -5,7 +5,12 @@ import androidx.lifecycle.viewModelScope
 import com.dondeloexan.data.local.dao.MovieDao
 import com.dondeloexan.data.local.entity.MovieEntity
 import com.dondeloexan.data.local.entity.WatchStatus
+import com.dondeloexan.data.local.entity.toPlatformsString
+import com.dondeloexan.data.remote.api.TmdbApi
+import com.dondeloexan.data.remote.mapper.toStreamingAvailability
 import com.dondeloexan.presentation.feedback.FeedbackManager
+import com.dondeloexan.util.AppLogger
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -13,6 +18,7 @@ import kotlinx.coroutines.launch
 
 class MoviesViewModel(
     private val movieDao: MovieDao,
+    private val tmdbApi: TmdbApi,
     private val feedbackManager: FeedbackManager
 ) : ViewModel() {
 
@@ -21,6 +27,36 @@ class MoviesViewModel(
 
     val watchedMovies: StateFlow<List<MovieEntity>> = movieDao.getWatchedMoviesFlow()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    init {
+        refreshMoviePlatforms()
+    }
+
+    private fun refreshMoviePlatforms() {
+        viewModelScope.launch {
+            while (true) {
+                try {
+                    val liked = movieDao.getAll().filter { it.liked }
+                    for (movie in liked) {
+                        val tmdbId = movie.tmdbId ?: continue
+                        if (!movie.streamingPlatforms.isNullOrEmpty()) continue
+                        try {
+                            val providers = tmdbApi.getMovieWatchProviders(tmdbId)
+                            val platforms = providers.results.get("ES")?.toStreamingAvailability().orEmpty()
+                            val platformsStr = platforms.toPlatformsString()
+                            val existing = movieDao.getByContentId(movie.contentId ?: continue) ?: continue
+                            movieDao.update(existing.copy(streamingPlatforms = platformsStr))
+                        } catch (e: Exception) {
+                            AppLogger.e("MoviesVM", "Refresh movie platforms error", e)
+                        }
+                    }
+                } catch (e: Exception) {
+                    AppLogger.e("MoviesVM", "Refresh movie platforms error", e)
+                }
+                delay(3_600_000)
+            }
+        }
+    }
 
     fun toggleLike(movie: MovieEntity) {
         viewModelScope.launch {

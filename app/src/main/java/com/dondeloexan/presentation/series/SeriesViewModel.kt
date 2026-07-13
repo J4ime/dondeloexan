@@ -7,7 +7,10 @@ import com.dondeloexan.data.local.dao.TvShowProgressDao
 import com.dondeloexan.data.local.entity.TvShowEntity
 import com.dondeloexan.data.local.entity.TvShowProgressEntity
 import com.dondeloexan.data.local.entity.WatchStatus
+import com.dondeloexan.data.local.entity.toPlatformsString
 import com.dondeloexan.data.remote.api.TmdbApi
+import com.dondeloexan.data.remote.dto.TmdbSeasonDto
+import com.dondeloexan.data.remote.mapper.toStreamingAvailability
 import com.dondeloexan.presentation.feedback.FeedbackManager
 import com.dondeloexan.util.AppLogger
 import kotlinx.coroutines.delay
@@ -31,7 +34,7 @@ class SeriesViewModel(
     private val feedbackManager: FeedbackManager
 ) : ViewModel() {
 
-    private fun deriveTotalEpisodes(tvShowId: Long, storedTotal: Int?, watchedCount: Int): Int? {
+    private fun deriveTotalEpisodes(storedTotal: Int?, watchedCount: Int): Int? {
         if (storedTotal != null && storedTotal > 0) return storedTotal
         if (watchedCount > 0) return watchedCount
         return null
@@ -47,7 +50,7 @@ class SeriesViewModel(
             SeriesWithProgress(
                 show = show,
                 watchedCount = watchedCount,
-                totalEpisodes = deriveTotalEpisodes(show.id, show.totalEpisodes, watchedCount)
+                totalEpisodes = deriveTotalEpisodes(show.totalEpisodes, watchedCount)
             )
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -62,7 +65,7 @@ class SeriesViewModel(
             SeriesWithProgress(
                 show = show,
                 watchedCount = watchedCount,
-                totalEpisodes = deriveTotalEpisodes(show.id, show.totalEpisodes, watchedCount)
+                totalEpisodes = deriveTotalEpisodes(show.totalEpisodes, watchedCount)
             )
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -77,7 +80,7 @@ class SeriesViewModel(
             SeriesWithProgress(
                 show = show,
                 watchedCount = watchedCount,
-                totalEpisodes = deriveTotalEpisodes(show.id, show.totalEpisodes, watchedCount)
+                totalEpisodes = deriveTotalEpisodes(show.totalEpisodes, watchedCount)
             )
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -100,13 +103,23 @@ class SeriesViewModel(
                         try {
                             val tvDetail = tmdbApi.getTvDetail(tmdbId)
                             val existing = tvShowDao.getByContentId(show.contentId ?: continue) ?: continue
+
+                            val platformsStr = if (existing.streamingPlatforms.isNullOrEmpty()) {
+                                try {
+                                    val providers = tmdbApi.getTvWatchProviders(tmdbId)
+                                    val platforms = providers.results.get("ES")?.toStreamingAvailability().orEmpty()
+                                    platforms.toPlatformsString()
+                                } catch (_: Exception) { null }
+                            } else existing.streamingPlatforms
+
                             tvShowDao.update(
                                 existing.copy(
                                     totalEpisodes = tvDetail.numberOfEpisodes ?: existing.totalEpisodes,
                                     nextEpisodeAirDate = tvDetail.nextEpisodeToAir?.airDate,
                                     nextEpisodeNumber = tvDetail.nextEpisodeToAir?.episodeNumber,
                                     nextEpisodeSeasonNumber = tvDetail.nextEpisodeToAir?.seasonNumber,
-                                    seriesStatus = tvDetail.status
+                                    seriesStatus = tvDetail.status,
+                                    streamingPlatforms = platformsStr
                                 )
                             )
                         } catch (e: Exception) {
@@ -140,20 +153,50 @@ class SeriesViewModel(
                 tvShowDao.update(show.copy(status = WatchStatus.POR_VER, lastWatchedAt = null))
                 feedbackManager.emit("Serie quitada de vistos")
             } else {
-                val totalEp = show.totalEpisodes
-                if (totalEp != null && totalEp > 0) {
-                    val allEpisodes = (1..totalEp).map { epNum ->
-                        TvShowProgressEntity(
-                            tvShowId = show.id,
-                            season = 1,
-                            episode = epNum
-                        )
+                var totalEp = show.totalEpisodes
+                var seasons = emptyList<TmdbSeasonDto>()
+                if (totalEp == null || totalEp <= 0) {
+                    val tmdbId = show.tmdbId
+                    if (tmdbId != null) {
+                        try {
+                            val detail = tmdbApi.getTvDetail(tmdbId)
+                            totalEp = detail.numberOfEpisodes
+                            seasons = detail.seasons.orEmpty().filter { it.seasonNumber > 0 }
+                            if (totalEp != null && totalEp > 0) {
+                                tvShowDao.update(show.copy(totalEpisodes = totalEp))
+                            }
+                        } catch (_: Exception) { }
                     }
-                    tvShowProgressDao.insertAll(allEpisodes)
-                    tvShowDao.update(show.copy(status = WatchStatus.YA_VISTA, lastWatchedAt = System.currentTimeMillis()))
-                } else {
-                    tvShowDao.update(show.copy(status = WatchStatus.YA_VISTA, lastWatchedAt = System.currentTimeMillis()))
                 }
+                if (totalEp != null && totalEp > 0) {
+                    if (seasons.isEmpty() && show.tmdbId != null) {
+                        try {
+                            val detail = tmdbApi.getTvDetail(show.tmdbId)
+                            seasons = detail.seasons.orEmpty().filter { it.seasonNumber > 0 }
+                        } catch (_: Exception) { }
+                    }
+                    val allProgress = if (seasons.isNotEmpty()) {
+                        seasons.flatMap { s ->
+                            (1..s.episodeCount).map { ep ->
+                                TvShowProgressEntity(
+                                    tvShowId = show.id,
+                                    season = s.seasonNumber,
+                                    episode = ep
+                                )
+                            }
+                        }
+                    } else {
+                        (1..totalEp).map { ep ->
+                            TvShowProgressEntity(
+                                tvShowId = show.id,
+                                season = 1,
+                                episode = ep
+                            )
+                        }
+                    }
+                    tvShowProgressDao.insertAll(allProgress)
+                }
+                tvShowDao.update(show.copy(status = WatchStatus.YA_VISTA, lastWatchedAt = System.currentTimeMillis()))
                 feedbackManager.emit("Serie marcada como vista")
             }
         }

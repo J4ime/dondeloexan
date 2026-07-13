@@ -73,7 +73,13 @@ interface TvShowDao {
         seriesStatus: String?
     )
 
-    @Query("SELECT DISTINCT ts.* FROM tv_shows ts LEFT JOIN tv_show_progress tsp ON ts.id = tsp.tv_show_id WHERE ts.liked = 1 AND (ts.total_episodes IS NULL OR (SELECT COUNT(*) FROM tv_show_progress WHERE tv_show_id = ts.id) < ts.total_episodes) ORDER BY ts.last_watched_at DESC, ts.added_at DESC")
+    @Query("""
+        SELECT * FROM tv_shows 
+        WHERE liked = 1 AND status != 'YA_VISTA'
+        AND (total_episodes IS NULL 
+             OR (SELECT COUNT(*) FROM tv_show_progress WHERE tv_show_id = id) < total_episodes)
+        ORDER BY last_watched_at DESC, added_at DESC
+    """)
     fun getInProgressFlow(): Flow<List<TvShowEntity>>
 
     @Query("SELECT * FROM tv_shows WHERE liked = 1 AND next_episode_air_date IS NOT NULL AND next_episode_air_date >= :today ORDER BY next_episode_air_date ASC")
@@ -81,8 +87,9 @@ interface TvShowDao {
 
     @Query("""
         SELECT * FROM tv_shows WHERE liked = 1 
-        AND total_episodes IS NOT NULL AND total_episodes > 0
-        AND (SELECT COUNT(*) FROM tv_show_progress WHERE tv_show_id = id) >= total_episodes
+        AND (status = 'YA_VISTA'
+             OR (total_episodes IS NOT NULL AND total_episodes > 0
+                 AND (SELECT COUNT(*) FROM tv_show_progress WHERE tv_show_id = id) >= total_episodes))
         ORDER BY last_watched_at DESC
     """)
     fun getFinishedFlow(): Flow<List<TvShowEntity>>
