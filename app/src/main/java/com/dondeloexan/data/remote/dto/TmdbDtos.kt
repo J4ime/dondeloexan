@@ -151,7 +151,8 @@ data class TmdbEpisodeDto(
     val overview: String? = null,
     @SerialName("still_path") val stillPath: String? = null,
     @SerialName("vote_average") val voteAverage: Float? = null,
-    @SerialName("season_number") val seasonNumber: Int
+    @SerialName("season_number") val seasonNumber: Int,
+    @SerialName("episode_type") val episodeType: String? = null
 )
 
 @Serializable

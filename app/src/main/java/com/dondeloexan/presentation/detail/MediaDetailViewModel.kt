@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.dondeloexan.data.local.dao.TvShowDao
 import com.dondeloexan.data.local.dao.TvShowProgressDao
 import com.dondeloexan.data.local.entity.TvShowProgressEntity
+import com.dondeloexan.data.local.entity.WatchStatus
 import com.dondeloexan.data.remote.api.BalloonerismmApi
 import com.dondeloexan.data.remote.api.TmdbApi
 import com.dondeloexan.data.remote.dto.TmdbSeasonDto
@@ -161,6 +162,9 @@ class MediaDetailViewModel(
                 tvShowProgressDao.deleteEpisode(tvShow.id, seasonNumber, episodeNumber)
                 val lastWatched = tvShowProgressDao.getLastWatchedAt(tvShow.id)
                 tvShowDao.updateLastWatchedAt(tvShow.id, lastWatched)
+                if (tvShow.finishedAt != null && currentWatched.isEmpty()) {
+                    tvShowDao.update(tvShow.copy(finishedAt = null, status = WatchStatus.POR_VER))
+                }
                 _uiState.value = _uiState.value.copy(watchedEpisodes = currentWatched, cascadeProposal = null)
             } else {
                 val seasonDetail = _uiState.value.seasonDetail
@@ -187,6 +191,7 @@ class MediaDetailViewModel(
                         )
                     )
                     tvShowDao.updateLastWatchedAt(tvShow.id, System.currentTimeMillis())
+                    checkAndMarkFinale(seasonNumber, episodeNumber)
                     _uiState.value = _uiState.value.copy(watchedEpisodes = currentWatched)
                 }
             }
@@ -223,6 +228,7 @@ class MediaDetailViewModel(
             if (allItems.isNotEmpty()) {
                 tvShowProgressDao.insertAll(allItems)
                 tvShowDao.updateLastWatchedAt(tvShow.id, System.currentTimeMillis())
+                checkAndMarkFinale(proposal.season, proposal.targetEpisode)
             }
             _uiState.value = _uiState.value.copy(watchedEpisodes = currentWatched, cascadeProposal = null)
         }
@@ -246,8 +252,35 @@ class MediaDetailViewModel(
                 )
             )
             tvShowDao.updateLastWatchedAt(tvShow.id, System.currentTimeMillis())
+            checkAndMarkFinale(proposal.season, proposal.targetEpisode)
             _uiState.value = _uiState.value.copy(watchedEpisodes = currentWatched, cascadeProposal = null)
         }
+    }
+
+    private suspend fun checkAndMarkFinale(seasonNumber: Int, episodeNumber: Int) {
+        val state = _uiState.value
+        val seasonDetail = state.seasonDetail ?: return
+        val content = state.content ?: return
+
+        val isFinaleType = seasonDetail.episodes.any {
+            it.episodeNumber == episodeNumber &&
+                    (it.episodeType == "finale" || it.episodeType == "series_finale")
+        }
+
+        if (!isFinaleType) {
+            val lastSeason = state.seasons.maxOfOrNull { it.seasonNumber } ?: return
+            val lastEpCount = seasonDetail.episodes.size
+            if (seasonNumber != lastSeason || episodeNumber != lastEpCount) return
+            if (content.totalEpisodes != null && seasonNumber != lastSeason) return
+        }
+
+        try {
+            val tvShow = tvShowDao.getByContentId(content.id) ?: return
+            tvShowDao.update(tvShow.copy(
+                status = WatchStatus.YA_VISTA,
+                finishedAt = System.currentTimeMillis()
+            ))
+        } catch (_: Exception) { }
     }
 
     fun markSeasonWatched() {
@@ -275,6 +308,7 @@ class MediaDetailViewModel(
                 val lastWatched = tvShowProgressDao.getLastWatchedAt(tvShow.id)
                 tvShowDao.updateLastWatchedAt(tvShow.id, lastWatched)
             } else {
+                val lastEp = episodeNumbers.maxOrNull() ?: 0
                 episodeNumbers.forEach { epNum ->
                     val key = "S${seasonNumber}E${epNum}"
                     if (!currentWatched.contains(key)) {
@@ -289,6 +323,7 @@ class MediaDetailViewModel(
                     }
                 }
                 tvShowDao.updateLastWatchedAt(tvShow.id, System.currentTimeMillis())
+                if (lastEp > 0) checkAndMarkFinale(seasonNumber, lastEp)
             }
 
             _uiState.value = _uiState.value.copy(watchedEpisodes = currentWatched)

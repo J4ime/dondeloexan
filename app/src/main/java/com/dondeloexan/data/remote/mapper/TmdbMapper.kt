@@ -1,10 +1,12 @@
 package com.dondeloexan.data.remote.mapper
 
 import com.dondeloexan.data.remote.dto.OmdbDetailResponse
+import com.dondeloexan.data.remote.TmdbProviderIds
 import com.dondeloexan.data.remote.dto.TmdbCountryProviders
 import com.dondeloexan.data.remote.dto.TmdbCreditsResponse
 import com.dondeloexan.data.remote.dto.TmdbMovieDto
 import com.dondeloexan.data.remote.dto.TmdbMultiSearchResult
+import com.dondeloexan.data.remote.dto.TmdbProvider
 import com.dondeloexan.data.remote.dto.TmdbTvDetailDto
 import com.dondeloexan.domain.model.AvailabilityType
 import com.dondeloexan.domain.model.Content
@@ -107,11 +109,16 @@ fun TmdbMultiSearchResult.toContentPreview(): ContentPreview = ContentPreview(
     isAdult = adult
 )
 
+private fun TmdbProvider.normalizedPlatformName(): String {
+    val providerId = this.providerId ?: return this.providerName
+    return TmdbProviderIds.providerIdToName[providerId] ?: this.providerName
+}
+
 fun TmdbCountryProviders.toStreamingAvailability(): List<StreamingAvailability> {
     return listOfNotNull(
         flatrate?.map {
             StreamingAvailability(
-                platformName = it.providerName,
+                platformName = it.normalizedPlatformName(),
                 platformId = it.providerId?.toString(),
                 logoUrl = it.logoPath?.let { path ->
                     "https://image.tmdb.org/t/p/w92$path"
@@ -121,7 +128,7 @@ fun TmdbCountryProviders.toStreamingAvailability(): List<StreamingAvailability> 
         },
         rent?.map {
             StreamingAvailability(
-                platformName = it.providerName,
+                platformName = it.normalizedPlatformName(),
                 platformId = it.providerId?.toString(),
                 logoUrl = it.logoPath?.let { path ->
                     "https://image.tmdb.org/t/p/w92$path"
@@ -131,7 +138,7 @@ fun TmdbCountryProviders.toStreamingAvailability(): List<StreamingAvailability> 
         },
         buy?.map {
             StreamingAvailability(
-                platformName = it.providerName,
+                platformName = it.normalizedPlatformName(),
                 platformId = it.providerId?.toString(),
                 logoUrl = it.logoPath?.let { path ->
                     "https://image.tmdb.org/t/p/w92$path"
@@ -141,7 +148,7 @@ fun TmdbCountryProviders.toStreamingAvailability(): List<StreamingAvailability> 
         },
         ads?.map {
             StreamingAvailability(
-                platformName = it.providerName,
+                platformName = it.normalizedPlatformName(),
                 platformId = it.providerId?.toString(),
                 logoUrl = it.logoPath?.let { path ->
                     "https://image.tmdb.org/t/p/w92$path"
@@ -151,7 +158,7 @@ fun TmdbCountryProviders.toStreamingAvailability(): List<StreamingAvailability> 
         },
         free?.map {
             StreamingAvailability(
-                platformName = it.providerName,
+                platformName = it.normalizedPlatformName(),
                 platformId = it.providerId?.toString(),
                 logoUrl = it.logoPath?.let { path ->
                     "https://image.tmdb.org/t/p/w92$path"

@@ -75,7 +75,8 @@ interface TvShowDao {
 
     @Query("""
         SELECT * FROM tv_shows 
-        WHERE liked = 1 AND status != 'YA_VISTA'
+        WHERE liked = 1
+        AND finished_at IS NULL
         AND (total_episodes IS NULL 
              OR (SELECT COUNT(*) FROM tv_show_progress WHERE tv_show_id = id) < total_episodes)
         ORDER BY last_watched_at DESC, added_at DESC
@@ -87,7 +88,7 @@ interface TvShowDao {
 
     @Query("""
         SELECT * FROM tv_shows WHERE liked = 1 
-        AND (status = 'YA_VISTA'
+        AND (finished_at IS NOT NULL
              OR (total_episodes IS NOT NULL AND total_episodes > 0
                  AND (SELECT COUNT(*) FROM tv_show_progress WHERE tv_show_id = id) >= total_episodes))
         ORDER BY last_watched_at DESC

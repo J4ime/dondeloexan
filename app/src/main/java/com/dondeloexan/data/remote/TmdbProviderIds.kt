@@ -10,10 +10,14 @@ object TmdbProviderIds {
         "Apple TV+" to 350,
         "SkyShowtime" to 1773,
         "Paramount+" to 5315,
-        "Filmin" to 5681,
-        "Atresplayer" to 5765,
-        "Mitele" to 4378,
-        "RTVE Play" to 5764
+        "Filmin" to 63,
+        "Atresplayer" to 62,
+        "RTVE Play" to 541
+    )
+
+    val providerIdToName: Map<Int, String> = platformToProviderId.entries.associateBy(
+        { it.value },
+        { it.key }
     )
 
     fun toProviderIds(platformNames: Set<String>): Set<Int> {

@@ -44,7 +44,11 @@ class MoviesViewModel(
                             val providers = tmdbApi.getMovieWatchProviders(tmdbId)
                             val platforms = providers.results.get("ES")?.toStreamingAvailability().orEmpty()
                             val platformsStr = platforms.toPlatformsString()
-                            val existing = movieDao.getByContentId(movie.contentId ?: continue) ?: continue
+                            val existing = if (!movie.contentId.isNullOrBlank()) {
+                                movieDao.getByContentId(movie.contentId) ?: movieDao.getByTmdbId(tmdbId)
+                            } else {
+                                movieDao.getByTmdbId(tmdbId)
+                            } ?: continue
                             movieDao.update(existing.copy(streamingPlatforms = platformsStr))
                         } catch (e: Exception) {
                             AppLogger.e("MoviesVM", "Refresh movie platforms error", e)
@@ -53,7 +57,7 @@ class MoviesViewModel(
                 } catch (e: Exception) {
                     AppLogger.e("MoviesVM", "Refresh movie platforms error", e)
                 }
-                delay(3_600_000)
+                delay(300_000)
             }
         }
     }

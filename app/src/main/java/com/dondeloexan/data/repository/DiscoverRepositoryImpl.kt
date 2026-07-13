@@ -308,11 +308,16 @@ class DiscoverRepositoryImpl(
         }
     }
 
+    private fun platformMatches(platformName: String, userPlatform: String): Boolean {
+        return platformName.contains(userPlatform, ignoreCase = true) ||
+                userPlatform.contains(platformName, ignoreCase = true)
+    }
+
     private fun prioritizePlatforms(content: Content, userPlatforms: Set<String>): Content {
         if (userPlatforms.isEmpty()) return content
         val (active, others) = content.streamingPlatforms.partition { platform ->
             userPlatforms.any { userP ->
-                platform.platformName.contains(userP, ignoreCase = true)
+                platformMatches(platform.platformName, userP)
             }
         }
         return content.copy(streamingPlatforms = active + others)
@@ -414,7 +419,7 @@ class DiscoverRepositoryImpl(
                 combined = combined.filter { preview ->
                     preview.streamingPlatforms.any { platform ->
                         activePlatforms.any { active ->
-                            platform.platformName.contains(active, ignoreCase = true)
+                            platformMatches(platform.platformName, active)
                         }
                     }
                 }

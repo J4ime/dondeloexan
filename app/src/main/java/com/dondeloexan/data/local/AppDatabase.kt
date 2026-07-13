@@ -30,7 +30,7 @@ import com.dondeloexan.data.local.entity.UserPlatformEntity
         UserPlatformEntity::class,
         BlacklistedEntity::class
     ],
-    version = 11,
+    version = 12,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -95,6 +95,10 @@ abstract class AppDatabase : RoomDatabase() {
             db.execSQL("ALTER TABLE movies ADD COLUMN imdb_id TEXT")
         }
 
+        private val MIGRATION_11_12 = Migration(11, 12) { db ->
+            db.execSQL("ALTER TABLE tv_shows ADD COLUMN finished_at INTEGER")
+        }
+
         private val MIGRATION_9_10 = Migration(9, 10) { db ->
             db.execSQL("""
                 CREATE TABLE movies_new (
@@ -155,7 +159,7 @@ abstract class AppDatabase : RoomDatabase() {
 
         fun create(context: Context): AppDatabase {
             return Room.databaseBuilder(context, AppDatabase::class.java, DB_NAME)
-                .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11)
+                .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12)
                 .fallbackToDestructiveMigration()
                 .addCallback(seedCallback)
                 .build()

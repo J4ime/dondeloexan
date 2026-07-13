@@ -12,9 +12,12 @@ import com.dondeloexan.data.local.entity.TvShowEntity
 import com.dondeloexan.data.local.entity.TvShowProgressEntity
 import com.dondeloexan.data.local.entity.WatchStatus
 import com.dondeloexan.data.local.entity.toPlatformsString
+import com.dondeloexan.data.remote.api.TmdbApi
+import com.dondeloexan.data.remote.mapper.toStreamingAvailability
 import com.dondeloexan.domain.model.ContentPreview
 import com.dondeloexan.domain.model.ContentSource
 import com.dondeloexan.domain.model.DataResult
+import com.dondeloexan.domain.model.StreamingAvailability
 import com.dondeloexan.domain.repository.DiscoverRepository
 import com.dondeloexan.presentation.feedback.FeedbackManager
 import com.dondeloexan.util.AppLogger
@@ -38,6 +41,7 @@ class DiscoverViewModel(
     private val tvShowDao: TvShowDao,
     private val tvShowProgressDao: TvShowProgressDao,
     private val blacklistDao: BlacklistDao,
+    private val tmdbApi: TmdbApi,
     private val feedbackManager: FeedbackManager
 ) : ViewModel() {
 
@@ -165,11 +169,25 @@ class DiscoverViewModel(
         val imdbId: String?
     )
 
+    private suspend fun fetchPlatformsIfEmpty(preview: ContentPreview): List<StreamingAvailability> {
+        if (preview.streamingPlatforms.isNotEmpty()) return preview.streamingPlatforms
+        val tmdbId = preview.tmdbId ?: return emptyList()
+        return try {
+            val providers = if (preview.type == com.dondeloexan.domain.model.ContentType.SERIES) {
+                tmdbApi.getTvWatchProviders(tmdbId)
+            } else {
+                tmdbApi.getMovieWatchProviders(tmdbId)
+            }
+            providers.results["ES"]?.toStreamingAvailability().orEmpty()
+        } catch (_: Exception) { emptyList() }
+    }
+
     fun onToggleFavorite(preview: ContentPreview) {
         viewModelScope.launch {
             try {
                 val info = resolveContentForSave(preview)
-                val platformsStr = preview.streamingPlatforms.toPlatformsString()
+                val platforms = fetchPlatformsIfEmpty(preview)
+                val platformsStr = platforms.toPlatformsString()
                 when (preview.type) {
                     com.dondeloexan.domain.model.ContentType.MOVIE -> {
                         val existing = movieDao.getByContentId(info.contentId)
@@ -240,7 +258,8 @@ class DiscoverViewModel(
         viewModelScope.launch {
             try {
                 val info = resolveContentForSave(preview)
-                val platformsStr = preview.streamingPlatforms.toPlatformsString()
+                val platforms = fetchPlatformsIfEmpty(preview)
+                val platformsStr = platforms.toPlatformsString()
                 when (preview.type) {
                     com.dondeloexan.domain.model.ContentType.MOVIE -> {
                         val existing = movieDao.getByContentId(info.contentId)
