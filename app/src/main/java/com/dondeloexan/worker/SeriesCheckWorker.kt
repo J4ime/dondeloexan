@@ -74,7 +74,8 @@ class SeriesCheckWorker(
                 nextEpisodeAirDate = tv.nextEpisodeToAir?.airDate,
                 nextEpisodeNumber = tv.nextEpisodeToAir?.episodeNumber,
                 nextEpisodeSeasonNumber = tv.nextEpisodeToAir?.seasonNumber,
-                seriesStatus = tv.status
+                seriesStatus = tv.status,
+                inProduction = tv.inProduction
             )
         } catch (_: Exception) { }
     }

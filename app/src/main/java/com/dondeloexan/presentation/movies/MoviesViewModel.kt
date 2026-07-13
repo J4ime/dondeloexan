@@ -32,6 +32,8 @@ class MoviesViewModel(
         refreshMoviePlatforms()
     }
 
+    private val checkedTmdbIds = mutableSetOf<Int>()
+
     private fun refreshMoviePlatforms() {
         viewModelScope.launch {
             while (true) {
@@ -39,7 +41,8 @@ class MoviesViewModel(
                     val liked = movieDao.getAll().filter { it.liked }
                     for (movie in liked) {
                         val tmdbId = movie.tmdbId ?: continue
-                        if (!movie.streamingPlatforms.isNullOrEmpty()) continue
+                        if (tmdbId in checkedTmdbIds) continue
+                        checkedTmdbIds.add(tmdbId)
                         try {
                             val providers = tmdbApi.getMovieWatchProviders(tmdbId)
                             val platforms = providers.results.get("ES")?.toStreamingAvailability().orEmpty()

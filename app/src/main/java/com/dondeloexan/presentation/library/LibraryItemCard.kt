@@ -333,16 +333,13 @@ private fun MovieOverlayBadge(
                     )
                 }
                 else -> {
-                    // Past cinema window
-                    if (futurePlatforms.isNotEmpty()) {
-                        CinemaInfo(
-                            label = "Fin de cartelera",
-                            isActive = false,
-                            endDate = null,
-                            digitalRelease = null,
-                            digitalPlatforms = futurePlatforms
-                        )
-                    } else null
+                    CinemaInfo(
+                        label = "Fin de cartelera",
+                        isActive = false,
+                        endDate = null,
+                        digitalRelease = null,
+                        digitalPlatforms = futurePlatforms
+                    )
                 }
             }
         } catch (_: Exception) { null }

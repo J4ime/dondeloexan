@@ -194,7 +194,11 @@ class DiscoverViewModel(
                             ?: movieDao.getByTmdbId(info.tmdbId ?: return@launch)
                         if (existing != null) {
                             val newLiked = !existing.liked
-                            movieDao.update(existing.copy(liked = newLiked))
+                            movieDao.update(existing.copy(
+                                liked = newLiked,
+                                streamingPlatforms = platformsStr ?: existing.streamingPlatforms,
+                                releaseDate = preview.releaseDate ?: existing.releaseDate
+                            ))
                             feedbackManager.emit(
                                 if (newLiked) "Película añadida"
                                 else "Película quitada"
@@ -223,7 +227,10 @@ class DiscoverViewModel(
                             ?: tvShowDao.getByTmdbId(info.tmdbId ?: return@launch)
                         if (existing != null) {
                             val newLiked = !existing.liked
-                            tvShowDao.update(existing.copy(liked = newLiked))
+                            tvShowDao.update(existing.copy(
+                                liked = newLiked,
+                                streamingPlatforms = platformsStr ?: existing.streamingPlatforms
+                            ))
                             feedbackManager.emit(
                                 if (newLiked) "Serie añadida"
                                 else "Serie quitada"

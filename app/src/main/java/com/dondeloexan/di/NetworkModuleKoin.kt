@@ -33,8 +33,8 @@ val networkModule = module {
         val client = HttpClient {
             install(ContentNegotiation) { json(get()) }
             install(HttpTimeout) {
-                requestTimeoutMillis = 20_000
-                connectTimeoutMillis = 15_000
+                requestTimeoutMillis = 60_000
+                connectTimeoutMillis = 60_000
             }
             install(Logging) { level = LogLevel.HEADERS }
             defaultRequest {
@@ -50,8 +50,8 @@ val networkModule = module {
         val client = HttpClient {
             install(ContentNegotiation) { json(get()) }
             install(HttpTimeout) {
-                requestTimeoutMillis = 20_000
-                connectTimeoutMillis = 15_000
+                requestTimeoutMillis = 60_000
+                connectTimeoutMillis = 60_000
             }
             install(Logging) { level = LogLevel.HEADERS }
             defaultRequest {
@@ -68,8 +68,8 @@ val networkModule = module {
         val client = HttpClient {
             install(ContentNegotiation) { json(get()) }
             install(HttpTimeout) {
-                requestTimeoutMillis = 10_000
-                connectTimeoutMillis = 10_000
+                requestTimeoutMillis = 60_000
+                connectTimeoutMillis = 60_000
             }
             defaultRequest {
                 url("https://www.omdbapi.com/")

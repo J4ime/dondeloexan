@@ -61,7 +61,8 @@ interface TvShowDao {
             next_episode_air_date = :nextEpisodeAirDate,
             next_episode_number = :nextEpisodeNumber,
             next_episode_season = :nextEpisodeSeasonNumber,
-            series_status = :seriesStatus
+            series_status = :seriesStatus,
+            in_production = :inProduction
         WHERE id = :id
     """)
     suspend fun updateById(
@@ -70,7 +71,8 @@ interface TvShowDao {
         nextEpisodeAirDate: String?,
         nextEpisodeNumber: Int?,
         nextEpisodeSeasonNumber: Int?,
-        seriesStatus: String?
+        seriesStatus: String?,
+        inProduction: Boolean?
     )
 
     @Query("""
@@ -78,7 +80,9 @@ interface TvShowDao {
         WHERE liked = 1
         AND finished_at IS NULL
         AND (total_episodes IS NULL 
-             OR (SELECT COUNT(*) FROM tv_show_progress WHERE tv_show_id = id) < total_episodes)
+             OR (SELECT COUNT(*) FROM tv_show_progress WHERE tv_show_id = id) < total_episodes
+             OR in_production = 1
+             OR series_status IN ('Returning Series', 'In Production'))
         ORDER BY last_watched_at DESC, added_at DESC
     """)
     fun getInProgressFlow(): Flow<List<TvShowEntity>>
@@ -90,7 +94,9 @@ interface TvShowDao {
         SELECT * FROM tv_shows WHERE liked = 1 
         AND (finished_at IS NOT NULL
              OR (total_episodes IS NOT NULL AND total_episodes > 0
-                 AND (SELECT COUNT(*) FROM tv_show_progress WHERE tv_show_id = id) >= total_episodes))
+                 AND (SELECT COUNT(*) FROM tv_show_progress WHERE tv_show_id = id) >= total_episodes
+                 AND (in_production IS NULL OR in_production = 0)
+                 AND (series_status IS NULL OR series_status NOT IN ('Returning Series', 'In Production'))))
         ORDER BY last_watched_at DESC
     """)
     fun getFinishedFlow(): Flow<List<TvShowEntity>>

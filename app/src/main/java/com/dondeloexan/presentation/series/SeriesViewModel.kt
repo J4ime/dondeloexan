@@ -119,6 +119,7 @@ class SeriesViewModel(
                                     nextEpisodeNumber = tvDetail.nextEpisodeToAir?.episodeNumber,
                                     nextEpisodeSeasonNumber = tvDetail.nextEpisodeToAir?.seasonNumber,
                                     seriesStatus = tvDetail.status,
+                                    inProduction = tvDetail.inProduction ?: existing.inProduction,
                                     streamingPlatforms = platformsStr
                                 )
                             )
