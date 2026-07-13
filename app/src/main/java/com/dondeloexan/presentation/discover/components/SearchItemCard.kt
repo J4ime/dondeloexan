@@ -181,30 +181,30 @@ fun SearchItemCard(
                 )
             }
 
-            if (content.type.name == "MOVIE" && content.releaseDate != null && content.streamingPlatforms.isEmpty()) {
-                val cinemaInfo = remember(content.releaseDate) {
+            if (content.type.name == "MOVIE" && content.releaseDate != null) {
+                val cinemaInfo = remember(content.releaseDate, content.streamingPlatforms) {
                     try {
                         val date = java.time.LocalDate.parse(content.releaseDate)
                         val now = java.time.LocalDate.now()
                         val daysSince = java.time.temporal.ChronoUnit.DAYS.between(date, now)
                         val daysUntil = java.time.temporal.ChronoUnit.DAYS.between(now, date)
+                        val cinemaEnd = date.plusDays(90)
+                        val nonCinemaPlatforms = content.streamingPlatforms.filter { it.platformName != "Cine" }
+
                         when {
-                            daysSince in 0..90 -> Pair("En cines", true)
-                            daysUntil > 0 -> Pair("Estreno: ${date.format(
-                                java.time.format.DateTimeFormatter.ofPattern("dd/MM")
-                            )}", false)
-                            else -> null
+                            daysUntil > 0 -> "Estreno: ${date.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"))}" to false
+                            daysSince in 0..90 -> "En cines → Fin: ${cinemaEnd.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM"))}" to true
+                            else -> if (nonCinemaPlatforms.isEmpty()) null else "Fin de cartelera" to false
                         }
                     } catch (_: Exception) { null }
                 }
                 if (cinemaInfo != null) {
+                    val (label, isActive) = cinemaInfo
                     Spacer(Modifier.height(4.dp))
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        val (label, isActive) = cinemaInfo
-                        Text(
-                            "\uD83C\uDFAC",
-                            fontSize = 11.sp
-                        )
+                        if (isActive) {
+                            Text("\uD83C\uDFAC", fontSize = 11.sp)
+                        }
                         Text(
                             label,
                             style = UbuntuTypography.labelSmall,

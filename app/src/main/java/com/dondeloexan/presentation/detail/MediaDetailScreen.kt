@@ -602,9 +602,10 @@ private fun appendCinemaPlatform(
         val now = LocalDate.now()
         val daysSinceRelease = ChronoUnit.DAYS.between(date, now)
         val daysUntilRelease = ChronoUnit.DAYS.between(now, date)
+        val cinemaEnd = date.plusDays(90)
 
         when {
-            daysSinceRelease in 0..90 -> "Cine"
+            daysSinceRelease in 0..90 -> "En cines → Fin: ${cinemaEnd.format(DateTimeFormatter.ofPattern("dd/MM"))}"
             daysUntilRelease > 0 -> "Estreno: ${date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}"
             else -> null
         }

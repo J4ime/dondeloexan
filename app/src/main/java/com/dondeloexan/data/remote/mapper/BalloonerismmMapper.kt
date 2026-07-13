@@ -85,6 +85,7 @@ fun ImdbTvDetailDto.toDomain(
 fun ImdbSearchResult.toContentPreview(): ContentPreview = ContentPreview(
     id = "imdb-$id",
     source = ContentSource.IMDB,
+    imdbId = id,
     title = title ?: name.orEmpty(),
     type = if (mediaType == "tv") ContentType.SERIES else ContentType.MOVIE,
     year = releaseDate?.substringBefore("-")?.toIntOrNull()

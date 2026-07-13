@@ -2,6 +2,7 @@ package com.dondeloexan.data.repository
 
 import com.dondeloexan.data.local.dao.MovieDao
 import com.dondeloexan.data.local.dao.TvShowDao
+import com.dondeloexan.data.local.dao.TvShowProgressDao
 import com.dondeloexan.data.local.dao.UserPlatformDao
 import com.dondeloexan.data.remote.TmdbProviderIds
 import com.dondeloexan.data.remote.api.BalloonerismmApi
@@ -31,7 +32,8 @@ class DiscoverRepositoryImpl(
     private val omdbApi: OmdbApi,
     private val userPlatformDao: UserPlatformDao,
     private val movieDao: MovieDao,
-    private val tvShowDao: TvShowDao
+    private val tvShowDao: TvShowDao,
+    private val tvShowProgressDao: TvShowProgressDao? = null
 ) : DiscoverRepository {
 
     override suspend fun search(query: String): Flow<DataResult<List<ContentPreview>>> = search(query, 1)
@@ -90,7 +92,7 @@ class DiscoverRepositoryImpl(
             val content = when {
                 contentId.startsWith("tmdb-") -> fetchTmdbDetail(contentId, contentType)
                 contentId.startsWith("imdb-") -> fetchImdbDetail(contentId, contentType)
-                else -> throw IllegalArgumentException("Unknown content ID: $contentId")
+                else -> fetchLocalDetail(contentId, contentType)
             }
 
             val activePlatforms = userPlatformDao.getActiveNames().toSet()
@@ -98,6 +100,41 @@ class DiscoverRepositoryImpl(
             emit(DataResult.Success(prioritized))
         } catch (e: Exception) {
             emit(DataResult.Error(e))
+        }
+    }
+
+    private suspend fun fetchLocalDetail(localContentId: String, contentType: ContentType): Content {
+        return when (contentType) {
+            ContentType.MOVIE -> {
+                val movie = movieDao.getByContentId(localContentId)
+                    ?: throw IllegalArgumentException("Content not found locally: $localContentId")
+                val tmdbId = movie.tmdbId
+                if (tmdbId != null) {
+                    fetchTmdbDetail("tmdb-$tmdbId", contentType)
+                } else {
+                    val imdbId = movie.imdbId
+                    if (imdbId != null) {
+                        fetchImdbDetail("imdb-$imdbId", contentType)
+                    } else {
+                        throw IllegalArgumentException("No API ID for content: $localContentId")
+                    }
+                }
+            }
+            ContentType.SERIES -> {
+                val series = tvShowDao.getByContentId(localContentId)
+                    ?: throw IllegalArgumentException("Content not found locally: $localContentId")
+                val tmdbId = series.tmdbId
+                if (tmdbId != null) {
+                    fetchTmdbDetail("tmdb-$tmdbId", contentType)
+                } else {
+                    val imdbId = series.imdbId
+                    if (imdbId != null) {
+                        fetchImdbDetail("imdb-$imdbId", contentType)
+                    } else {
+                        throw IllegalArgumentException("No API ID for content: $localContentId")
+                    }
+                }
+            }
         }
     }
 
@@ -339,9 +376,12 @@ class DiscoverRepositoryImpl(
     }
 
     override suspend fun fetchTrendingPage(page: Int, filterByPlatforms: Boolean): List<ContentPreview> {
+        val activePlatforms = userPlatformDao.getActiveNames().toSet()
         val providerFilter = if (filterByPlatforms) {
-            TmdbProviderIds.toPipeSeparated(userPlatformDao.getActiveNames().toSet())
+            TmdbProviderIds.toPipeSeparated(activePlatforms)
         } else null
+
+        val postFilterByPlatforms = filterByPlatforms && providerFilter == null
 
         return coroutineScope {
             val movieDeferred = async {
@@ -368,12 +408,16 @@ class DiscoverRepositoryImpl(
                     .take(10)
             )
 
-            val combined = mutableListOf<ContentPreview>()
-            val movieIter = moviePreviews.iterator()
-            val tvIter = tvPreviews.iterator()
-            while (movieIter.hasNext() || tvIter.hasNext()) {
-                if (movieIter.hasNext()) combined.add(movieIter.next())
-                if (tvIter.hasNext()) combined.add(tvIter.next())
+            var combined = (moviePreviews + tvPreviews).shuffled()
+
+            if (postFilterByPlatforms) {
+                combined = combined.filter { preview ->
+                    preview.streamingPlatforms.any { platform ->
+                        activePlatforms.any { active ->
+                            platform.platformName.contains(active, ignoreCase = true)
+                        }
+                    }
+                }
             }
 
             combined

@@ -25,12 +25,12 @@ object WorkScheduler {
 
         val request = PeriodicWorkRequestBuilder<SeriesCheckWorker>(24, TimeUnit.HOURS)
             .setConstraints(constraints)
-            .setInitialDelay(delay.toMinutes(), TimeUnit.MINUTES)
+            .setInitialDelay(delay.toMinutes().coerceAtLeast(1), TimeUnit.MINUTES)
             .build()
 
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(
             WORK_NAME,
-            ExistingPeriodicWorkPolicy.KEEP,
+            ExistingPeriodicWorkPolicy.UPDATE,
             request
         )
     }
@@ -43,6 +43,7 @@ object WorkScheduler {
             eightAM = eightAM.plusDays(1)
         }
 
-        return Duration.between(now, eightAM)
+        val duration = Duration.between(now, eightAM)
+        return if (duration.isNegative()) Duration.ofMinutes(1) else duration
     }
 }

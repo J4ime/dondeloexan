@@ -1,10 +1,12 @@
 package com.dondeloexan.worker
 
 import android.Manifest
+import android.app.Notification
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
@@ -16,6 +18,7 @@ import com.dondeloexan.data.local.dao.TvShowDao
 import com.dondeloexan.data.remote.api.TmdbApi
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
+import java.time.LocalDate
 
 class SeriesCheckWorker(
     appContext: Context,
@@ -30,72 +33,115 @@ class SeriesCheckWorker(
             val likedShows = tvShowDao.getAllLiked()
             if (likedShows.isEmpty()) return Result.success()
 
-            var newEpisodesToday = 0
-            val today = java.time.LocalDate.now().toString()
+            val today = LocalDate.now().toString()
+            val todayEpisodes = mutableListOf<EpisodeInfo>()
 
             for (show in likedShows) {
-                val tmdbId = show.tmdbId ?: continue
+                val tmdbId = show.tmdbId
 
-                try {
-                    val tv = tmdbApi.getTvDetail(tmdbId)
+                if (tmdbId != null) {
+                    updateFromTmdb(show.id, tmdbId)
+                }
 
-                    tvShowDao.update(
-                        show.copy(
-                            totalEpisodes = tv.numberOfEpisodes ?: show.totalEpisodes,
-                            nextEpisodeAirDate = tv.nextEpisodeToAir?.airDate,
-                            nextEpisodeNumber = tv.nextEpisodeToAir?.episodeNumber,
-                            nextEpisodeSeasonNumber = tv.nextEpisodeToAir?.seasonNumber,
-                            seriesStatus = tv.status
+                if (show.nextEpisodeAirDate == today) {
+                    todayEpisodes.add(
+                        EpisodeInfo(
+                            title = show.title,
+                            season = show.nextEpisodeSeasonNumber ?: 0,
+                            episode = show.nextEpisodeNumber ?: 0,
+                            episodeName = null
                         )
                     )
+                }
+            }
 
-                    if (tv.nextEpisodeToAir?.airDate == today) {
-                        notifyNewEpisode(
-                            show.title,
-                            tv.nextEpisodeToAir.seasonNumber,
-                            tv.nextEpisodeToAir.episodeNumber,
-                            tv.nextEpisodeToAir.name
-                        )
-                        newEpisodesToday++
-                    }
-                } catch (_: Exception) { }
+            if (todayEpisodes.isNotEmpty()) {
+                notifyNewEpisodes(todayEpisodes)
             }
 
             Result.success()
         } catch (e: Exception) {
-            Result.retry()
+            if (runAttemptCount < 3) Result.retry() else Result.failure()
         }
     }
 
-    private fun notifyNewEpisode(title: String, season: Int, episode: Int, episodeName: String) {
+    private suspend fun updateFromTmdb(showId: Long, tmdbId: Int) {
+        try {
+            val tv = tmdbApi.getTvDetail(tmdbId)
+            tvShowDao.updateById(
+                id = showId,
+                totalEpisodes = tv.numberOfEpisodes,
+                nextEpisodeAirDate = tv.nextEpisodeToAir?.airDate,
+                nextEpisodeNumber = tv.nextEpisodeToAir?.episodeNumber,
+                nextEpisodeSeasonNumber = tv.nextEpisodeToAir?.seasonNumber,
+                seriesStatus = tv.status
+            )
+        } catch (_: Exception) { }
+    }
+
+    private fun notifyNewEpisodes(episodes: List<EpisodeInfo>) {
+        if (!hasNotificationPermission()) return
+
         val intent = Intent(applicationContext, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
         val pendingIntent = PendingIntent.getActivity(
             applicationContext,
-            title.hashCode(),
+            0,
             intent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_popcorn)
-            .setContentTitle("Nuevo episodio")
-            .setContentText("$title — T${season}E$episode: $episodeName")
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-            .setContentIntent(pendingIntent)
-            .setAutoCancel(true)
-            .build()
+        if (episodes.size == 1) {
+            val ep = episodes.first()
+            val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_popcorn)
+                .setContentTitle("Nuevo episodio")
+                .setContentText("${ep.title} — T${ep.season}E${ep.episode}")
+                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                .setContentIntent(pendingIntent)
+                .setAutoCancel(true)
+                .build()
+            safeNotify(ep.title.hashCode(), notification)
+        } else {
+            val inboxStyle = NotificationCompat.InboxStyle()
+            episodes.forEach { ep ->
+                inboxStyle.addLine("${ep.title} — T${ep.season}E${ep.episode}")
+            }
+            val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_popcorn)
+                .setContentTitle("${episodes.size} nuevos episodios")
+                .setContentText("Hoy se estrenan ${episodes.size} episodios")
+                .setStyle(inboxStyle)
+                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                .setContentIntent(pendingIntent)
+                .setAutoCancel(true)
+                .build()
+            safeNotify(episodes.hashCode(), notification)
+        }
+    }
 
-        if (ContextCompat.checkSelfPermission(
+    private fun hasNotificationPermission(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            ContextCompat.checkSelfPermission(
                 applicationContext,
                 Manifest.permission.POST_NOTIFICATIONS
             ) == PackageManager.PERMISSION_GRANTED
-        ) {
-            NotificationManagerCompat.from(applicationContext)
-                .notify(title.hashCode(), notification)
-        }
+        } else true
     }
+
+    private fun safeNotify(id: Int, notification: android.app.Notification) {
+        try {
+            NotificationManagerCompat.from(applicationContext).notify(id, notification)
+        } catch (_: Exception) { }
+    }
+
+    private data class EpisodeInfo(
+        val title: String,
+        val season: Int,
+        val episode: Int,
+        val episodeName: String?
+    )
 
     companion object {
         const val CHANNEL_ID = "series_new_episodes"

@@ -50,7 +50,8 @@ val dataModule = module {
             omdbApi = get(),
             userPlatformDao = get(),
             movieDao = get(),
-            tvShowDao = get()
+            tvShowDao = get(),
+            tvShowProgressDao = get()
         )
     }
 

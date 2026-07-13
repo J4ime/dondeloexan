@@ -9,6 +9,7 @@ data class TvShowEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     @ColumnInfo(name = "content_id") val contentId: String? = null,
     @ColumnInfo(name = "tmdb_id") val tmdbId: Int? = null,
+    @ColumnInfo(name = "imdb_id") val imdbId: String? = null,
     val title: String,
     val year: Int? = null,
     @ColumnInfo(name = "poster_url") val posterUrl: String? = null,

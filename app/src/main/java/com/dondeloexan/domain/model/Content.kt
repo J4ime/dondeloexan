@@ -46,6 +46,7 @@ data class ContentPreview(
     val id: String,
     val source: ContentSource,
     val tmdbId: Int? = null,
+    val imdbId: String? = null,
     val title: String,
     val type: ContentType,
     val year: Int? = null,

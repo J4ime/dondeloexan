@@ -283,33 +283,72 @@ fun LibraryItemCard(
     }
 }
 
+private data class CinemaInfo(
+    val label: String,
+    val isActive: Boolean,
+    val endDate: LocalDate?,
+    val digitalRelease: LocalDate?,
+    val digitalPlatforms: List<StreamingAvailability>
+)
+
 @Composable
 private fun MovieOverlayBadge(
     releaseDate: String,
     platforms: List<StreamingAvailability>,
     modifier: Modifier = Modifier
 ) {
-    val info = remember(releaseDate) {
+    val cinemaInfo = remember(releaseDate, platforms) {
         try {
             val date = LocalDate.parse(releaseDate)
             val now = LocalDate.now()
             val daysSince = ChronoUnit.DAYS.between(date, now)
+            val daysUntil = ChronoUnit.DAYS.between(now, date)
+            val cinemaEnd = date.plusDays(90)
+            val futurePlatforms = platforms.filter { it.platformName != "Cine" }
+
             when {
-                daysSince in 0..90 -> Pair("En cines", true)
-                daysSince < 0 -> {
-                    val daysUntil = -daysSince
-                    Pair(
-                        "Estreno: ${date.format(DateTimeFormatter.ofPattern("dd/MM"))}",
-                        false
+                daysUntil > 0 -> {
+                    // Not yet released
+                    CinemaInfo(
+                        label = "Estreno: ${date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}",
+                        isActive = false,
+                        endDate = null,
+                        digitalRelease = null,
+                        digitalPlatforms = emptyList()
                     )
                 }
-                else -> null
+                daysSince in 0..90 -> {
+                    // Currently in cinemas
+                    val cinemaLabel = if (daysSince <= cinemaEnd.datesUntil(now).count()) {
+                        "En cines"
+                    } else {
+                        "En cines"
+                    }
+                    CinemaInfo(
+                        label = "$cinemaLabel → Fin: ${cinemaEnd.format(DateTimeFormatter.ofPattern("dd/MM"))}",
+                        isActive = true,
+                        endDate = cinemaEnd,
+                        digitalRelease = null,
+                        digitalPlatforms = futurePlatforms
+                    )
+                }
+                else -> {
+                    // Past cinema window
+                    if (futurePlatforms.isNotEmpty()) {
+                        CinemaInfo(
+                            label = "Fin de cartelera",
+                            isActive = false,
+                            endDate = null,
+                            digitalRelease = null,
+                            digitalPlatforms = futurePlatforms
+                        )
+                    } else null
+                }
             }
         } catch (_: Exception) { null }
     }
 
-    if (info != null) {
-        val (label, isActive) = info
+    if (cinemaInfo != null) {
         Column(modifier = modifier) {
             Surface(
                 shape = RoundedCornerShape(6.dp),
@@ -322,47 +361,49 @@ private fun MovieOverlayBadge(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        if (isActive) {
+                        if (cinemaInfo.isActive) {
                             Text("\uD83C\uDFAC", fontSize = 12.sp)
                         }
                         Text(
-                            label,
+                            cinemaInfo.label,
                             style = UbuntuTypography.labelSmall,
-                            color = if (isActive) Color(0xFFFF8F00) else TextSecondary,
+                            color = if (cinemaInfo.isActive) Color(0xFFFF8F00) else TextSecondary,
                             fontSize = 10.sp,
-                            fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal
+                            fontWeight = if (cinemaInfo.isActive) FontWeight.Bold else FontWeight.Normal
                         )
                     }
 
-                    if (platforms.isNotEmpty()) {
+                    if (cinemaInfo.digitalPlatforms.isNotEmpty()) {
                         Spacer(Modifier.height(2.dp))
-                        val firstPlatform = platforms.first()
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            if (firstPlatform.logoUrl != null) {
-                                val context = LocalContext.current
-                                AsyncImage(
-                                    model = ImageRequest.Builder(context)
-                                        .data(firstPlatform.logoUrl)
-                                        .crossfade(200)
-                                        .memoryCachePolicy(CachePolicy.ENABLED)
-                                        .build(),
-                                    contentDescription = firstPlatform.platformName,
-                                    modifier = Modifier
-                                        .size(14.dp)
-                                        .clip(CircleShape),
-                                    contentScale = ContentScale.Fit
+                        cinemaInfo.digitalPlatforms.forEach { platform ->
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                modifier = Modifier.padding(vertical = 1.dp)
+                            ) {
+                                if (platform.logoUrl != null) {
+                                    val context = LocalContext.current
+                                    AsyncImage(
+                                        model = ImageRequest.Builder(context)
+                                            .data(platform.logoUrl)
+                                            .crossfade(200)
+                                            .memoryCachePolicy(CachePolicy.ENABLED)
+                                            .build(),
+                                        contentDescription = platform.platformName,
+                                        modifier = Modifier
+                                            .size(14.dp)
+                                            .clip(CircleShape),
+                                        contentScale = ContentScale.Fit
+                                    )
+                                }
+                                Text(
+                                    platform.platformName,
+                                    style = UbuntuTypography.labelSmall,
+                                    color = TextSecondary,
+                                    fontSize = 9.sp,
+                                    maxLines = 1
                                 )
                             }
-                            Text(
-                                firstPlatform.platformName,
-                                style = UbuntuTypography.labelSmall,
-                                color = TextSecondary,
-                                fontSize = 9.sp,
-                                maxLines = 1
-                            )
                         }
                     }
                 }

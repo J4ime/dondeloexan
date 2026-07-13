@@ -36,3 +36,25 @@ fun String?.toStreamingPlatforms(): List<StreamingAvailability> {
         emptyList()
     }
 }
+
+fun List<StreamingAvailability>.toPlatformsString(): String? {
+    if (isEmpty()) return null
+    return try {
+        buildString {
+            append("[")
+            this@toPlatformsString.forEachIndexed { index, platform ->
+                if (index > 0) append(",")
+                append("""{"platformName":""")
+                append(platform.platformName.replace("\"", "\\\""))
+                append(""","platformId":""")
+                append((platform.platformId ?: "").replace("\"", "\\\""))
+                append(""","logoUrl":""")
+                append((platform.logoUrl ?: "").replace("\"", "\\\""))
+                append(""","availabilityType":""")
+                append(platform.availabilityType.name)
+                append("""}""")
+            }
+            append("]")
+        }
+    } catch (_: Exception) { null }
+}

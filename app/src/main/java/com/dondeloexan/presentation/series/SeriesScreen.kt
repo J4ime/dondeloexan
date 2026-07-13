@@ -61,6 +61,7 @@ fun SeriesScreen(
 ) {
     val allSeries by viewModel.seriesWithProgress.collectAsState()
     val inProgress by viewModel.inProgress.collectAsState()
+    val finished by viewModel.finished.collectAsState()
     val upcoming by viewModel.upcomingAgenda.collectAsState()
     var selectedTab by remember { mutableIntStateOf(0) }
     var isGridView by remember { mutableStateOf(false) }
@@ -96,6 +97,11 @@ fun SeriesScreen(
                 onClick = { selectedTab = 1 },
                 text = { Text("Agenda", color = if (selectedTab == 1) EleganteRose else TextSecondary) }
             )
+            Tab(
+                selected = selectedTab == 2,
+                onClick = { selectedTab = 2 },
+                text = { Text("Terminadas", color = if (selectedTab == 2) EleganteRose else TextSecondary) }
+            )
         }
 
         when (selectedTab) {
@@ -107,6 +113,12 @@ fun SeriesScreen(
             )
             1 -> AgendaTab(
                 series = upcoming,
+                navController = navController,
+                viewModel = viewModel
+            )
+            2 -> FinishedTab(
+                series = finished,
+                isGridView = isGridView,
                 navController = navController,
                 viewModel = viewModel
             )
@@ -211,6 +223,118 @@ private fun InProgressTab(
                         numberOfSeasons = s.numberOfSeasons,
                         isLiked = s.liked,
                         isWatched = s.status.name == "YA_VISTA",
+                        onLikeClick = { viewModel.toggleLike(s) },
+                        onWatchedClick = { viewModel.toggleWatched(s) },
+                        onClick = {
+                            navController.navigate("detail/${s.contentId ?: ""}/series")
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(180.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FinishedTab(
+    series: List<SeriesWithProgress>,
+    isGridView: Boolean,
+    navController: NavController,
+    viewModel: SeriesViewModel
+) {
+    if (series.isEmpty()) {
+        Box(
+            Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(
+                    painter = painterResource(com.dondeloexan.R.drawable.ic_popcorn),
+                    contentDescription = null,
+                    modifier = Modifier.size(80.dp),
+                    tint = EleganteRoseDark.copy(alpha = 0.2f)
+                )
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    "No tienes series terminadas",
+                    style = UbuntuTypography.titleMedium,
+                    color = TextSecondary
+                )
+                Text(
+                    "Las series que completes al 100% aparecerán aquí",
+                    style = UbuntuTypography.bodySmall,
+                    color = TextSecondary.copy(alpha = 0.6f)
+                )
+            }
+        }
+    } else if (isGridView) {
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(2),
+            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxSize()
+        ) {
+            items(series, key = { it.show.id }) { item ->
+                val s = item.show
+                LibraryItemCard(
+                    posterUrl = s.posterUrl,
+                    title = s.title,
+                    year = s.year,
+                    streamingPlatforms = s.streamingPlatforms.toStreamingPlatforms(),
+                    watchedCount = item.watchedCount,
+                    totalEpisodes = item.totalEpisodes,
+                    nextEpisodeAirDate = s.nextEpisodeAirDate,
+                    nextEpisodeNumber = s.nextEpisodeNumber,
+                    nextEpisodeSeasonNumber = s.nextEpisodeSeasonNumber,
+                    seriesStatus = s.seriesStatus,
+                    inProduction = s.inProduction,
+                    numberOfSeasons = s.numberOfSeasons,
+                    isLiked = s.liked,
+                    isWatched = true,
+                    onLikeClick = { viewModel.toggleLike(s) },
+                    onWatchedClick = { viewModel.toggleWatched(s) },
+                    onClick = {
+                        navController.navigate("detail/${s.contentId ?: ""}/series")
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(0.65f)
+                )
+            }
+        }
+    } else {
+        LazyColumn(
+            contentPadding = PaddingValues(
+                start = 12.dp, end = 12.dp, top = 8.dp, bottom = 8.dp
+            ),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxSize()
+        ) {
+            items(series, key = { it.show.id }) { item ->
+                val s = item.show
+                AnimatedVisibility(
+                    visible = true,
+                    enter = fadeIn() + slideInVertically { it / 2 }
+                ) {
+                    LibraryItemCard(
+                        posterUrl = s.posterUrl,
+                        title = s.title,
+                        year = s.year,
+                        streamingPlatforms = s.streamingPlatforms.toStreamingPlatforms(),
+                        watchedCount = item.watchedCount,
+                        totalEpisodes = item.totalEpisodes,
+                        nextEpisodeAirDate = s.nextEpisodeAirDate,
+                        nextEpisodeNumber = s.nextEpisodeNumber,
+                        nextEpisodeSeasonNumber = s.nextEpisodeSeasonNumber,
+                        seriesStatus = s.seriesStatus,
+                        inProduction = s.inProduction,
+                        numberOfSeasons = s.numberOfSeasons,
+                        isLiked = s.liked,
+                        isWatched = true,
                         onLikeClick = { viewModel.toggleLike(s) },
                         onWatchedClick = { viewModel.toggleWatched(s) },
                         onClick = {
