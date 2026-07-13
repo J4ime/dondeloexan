@@ -1,13 +1,9 @@
 package com.dondeloexan.presentation.discover
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
+import com.dondeloexan.presentation.components.PopcornSpinner
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -57,9 +53,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -292,87 +286,11 @@ fun InitialState() {
 
 @Composable
 fun LoadingState() {
-    LazyColumn(
-        contentPadding = PaddingValues(vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-        items(5) {
-            ShimmerCard()
-        }
-    }
-}
-
-@Composable
-fun ShimmerCard() {
-    val shimmerColors = listOf(
-        DarkSurface.copy(alpha = 0.6f),
-        DarkSurface.copy(alpha = 0.2f),
-        DarkSurface.copy(alpha = 0.6f)
-    )
-    val transition = rememberInfiniteTransition()
-    val translateAnim = transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1000f,
-        animationSpec = infiniteRepeatable(
-            tween(1200, easing = LinearEasing)
-        )
-    )
-    val brush = Brush.linearGradient(
-        colors = shimmerColors,
-        start = Offset(translateAnim.value - 200f, 0f),
-        end = Offset(translateAnim.value, 0f)
-    )
-
     Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp)
-            .height(220.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .background(DarkSurface)
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .width(80.dp)
-                    .height(120.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(brush)
-                    .align(Alignment.BottomStart)
-            )
-            Column(
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .fillMaxWidth(0.65f),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .height(18.dp)
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(brush)
-                )
-                Box(
-                    Modifier
-                        .fillMaxWidth(0.6f)
-                        .height(12.dp)
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(brush)
-                )
-                Box(
-                    Modifier
-                        .fillMaxWidth(0.8f)
-                        .height(20.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(brush)
-                )
-            }
-        }
+        PopcornSpinner()
     }
 }
 
