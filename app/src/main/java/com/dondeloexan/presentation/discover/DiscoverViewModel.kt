@@ -188,6 +188,7 @@ class DiscoverViewModel(
                 val info = resolveContentForSave(preview)
                 val platforms = fetchPlatformsIfEmpty(preview)
                 val platformsStr = platforms.toPlatformsString()
+                AppLogger.d("DiscoverVM", "toggleFavorite ${preview.title}: platforms.size=${platforms.size}, platformsStr=${platformsStr != null}")
                 when (preview.type) {
                     com.dondeloexan.domain.model.ContentType.MOVIE -> {
                         val existing = movieDao.getByContentId(info.contentId)

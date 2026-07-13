@@ -32,8 +32,6 @@ class MoviesViewModel(
         refreshMoviePlatforms()
     }
 
-    private val checkedTmdbIds = mutableSetOf<Int>()
-
     private fun refreshMoviePlatforms() {
         viewModelScope.launch {
             while (true) {
@@ -41,8 +39,6 @@ class MoviesViewModel(
                     val liked = movieDao.getAll().filter { it.liked }
                     for (movie in liked) {
                         val tmdbId = movie.tmdbId ?: continue
-                        if (tmdbId in checkedTmdbIds) continue
-                        checkedTmdbIds.add(tmdbId)
                         try {
                             val providers = tmdbApi.getMovieWatchProviders(tmdbId)
                             val platforms = providers.results.get("ES")?.toStreamingAvailability().orEmpty()
@@ -53,6 +49,7 @@ class MoviesViewModel(
                                 movieDao.getByTmdbId(tmdbId)
                             } ?: continue
                             movieDao.update(existing.copy(streamingPlatforms = platformsStr))
+                            AppLogger.d("MoviesVM", "Refreshed platforms for ${movie.title}: ${platforms.size} platforms")
                         } catch (e: Exception) {
                             AppLogger.e("MoviesVM", "Refresh movie platforms error", e)
                         }
@@ -68,6 +65,19 @@ class MoviesViewModel(
     fun toggleLike(movie: MovieEntity) {
         viewModelScope.launch {
             val newLiked = !movie.liked
+            if (newLiked) {
+                movie.tmdbId?.let { tmdbId ->
+                    try {
+                        val providers = tmdbApi.getMovieWatchProviders(tmdbId)
+                        val platforms = providers.results["ES"]?.toStreamingAvailability().orEmpty()
+                        val platformsStr = platforms.toPlatformsString()
+                        movieDao.update(movie.copy(liked = true, streamingPlatforms = platformsStr ?: movie.streamingPlatforms))
+                        AppLogger.d("MoviesVM", "toggleLike fetch platforms for ${movie.title}: ${platforms.size}")
+                        feedbackManager.emit("Película añadida")
+                        return@launch
+                    } catch (_: Exception) {}
+                }
+            }
             movieDao.update(movie.copy(liked = newLiked))
             feedbackManager.emit(
                 if (newLiked) "Película añadida"
