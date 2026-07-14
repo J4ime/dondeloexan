@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -23,14 +22,15 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ViewList
 import androidx.compose.material.icons.outlined.Apps
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.PlayCircle
+import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -57,7 +57,6 @@ import com.dondeloexan.presentation.theme.UbuntuTypography
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SeriesScreen(
     navController: NavController,
@@ -77,51 +76,74 @@ fun SeriesScreen(
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        TopAppBar(
-            title = { Text("Mis Series", color = TextPrimary) },
-            actions = {
-                IconButton(onClick = { isGridView = !isGridView }) {
-                    Icon(
-                        if (isGridView) Icons.AutoMirrored.Outlined.ViewList else Icons.Outlined.Apps,
-                        contentDescription = if (isGridView) "Vista lista" else "Vista cuadrícula",
-                        tint = if (isGridView) EleganteRose else TextSecondary
-                    )
-                }
-            },
-            colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBackground),
-            windowInsets = WindowInsets(top = 0)
-        )
-
         FeedbackBanner(
             message = feedbackMessage,
             modifier = Modifier.padding(horizontal = 16.dp)
         )
 
-        TabRow(
-            selectedTabIndex = selectedTab,
-            containerColor = DarkBackground,
-            contentColor = EleganteRose
-        ) {
-            Tab(
-                selected = selectedTab == 0,
-                onClick = { selectedTab = 0 },
-                text = { Text("Pendientes", color = if (selectedTab == 0) EleganteRose else TextSecondary) }
-            )
-            Tab(
-                selected = selectedTab == 1,
-                onClick = { selectedTab = 1 },
-                text = { Text("En curso", color = if (selectedTab == 1) EleganteRose else TextSecondary) }
-            )
-            Tab(
-                selected = selectedTab == 2,
-                onClick = { selectedTab = 2 },
-                text = { Text("Agenda", color = if (selectedTab == 2) EleganteRose else TextSecondary) }
-            )
-            Tab(
-                selected = selectedTab == 3,
-                onClick = { selectedTab = 3 },
-                text = { Text("Terminadas", color = if (selectedTab == 3) EleganteRose else TextSecondary) }
-            )
+        Box(modifier = Modifier.fillMaxWidth()) {
+            TabRow(
+                selectedTabIndex = selectedTab,
+                containerColor = DarkBackground,
+                contentColor = EleganteRose
+            ) {
+                Tab(
+                    selected = selectedTab == 0,
+                    onClick = { selectedTab = 0 },
+                    icon = {
+                        Icon(
+                            Icons.Outlined.Schedule,
+                            contentDescription = "Pendientes",
+                            tint = if (selectedTab == 0) EleganteRose else TextSecondary
+                        )
+                    }
+                )
+                Tab(
+                    selected = selectedTab == 1,
+                    onClick = { selectedTab = 1 },
+                    icon = {
+                        Icon(
+                            Icons.Outlined.PlayCircle,
+                            contentDescription = "En curso",
+                            tint = if (selectedTab == 1) EleganteRose else TextSecondary
+                        )
+                    }
+                )
+                Tab(
+                    selected = selectedTab == 2,
+                    onClick = { selectedTab = 2 },
+                    icon = {
+                        Icon(
+                            Icons.Outlined.CalendarMonth,
+                            contentDescription = "Agenda",
+                            tint = if (selectedTab == 2) EleganteRose else TextSecondary
+                        )
+                    }
+                )
+                Tab(
+                    selected = selectedTab == 3,
+                    onClick = { selectedTab = 3 },
+                    icon = {
+                        Icon(
+                            Icons.Outlined.CheckCircle,
+                            contentDescription = "Terminadas",
+                            tint = if (selectedTab == 3) EleganteRose else TextSecondary
+                        )
+                    }
+                )
+            }
+
+            IconButton(
+                modifier = Modifier.align(Alignment.TopEnd).padding(top = 4.dp, end = 4.dp).size(32.dp),
+                onClick = { isGridView = !isGridView }
+            ) {
+                Icon(
+                    if (isGridView) Icons.AutoMirrored.Outlined.ViewList else Icons.Outlined.Apps,
+                    contentDescription = if (isGridView) "Vista lista" else "Vista cuadrícula",
+                    tint = if (isGridView) EleganteRose else TextSecondary,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
         }
 
         when (selectedTab) {

@@ -443,6 +443,12 @@ class DiscoverViewModel(
         }
     }
 
+    override fun onCleared() {
+        super.onCleared()
+        searchJob?.cancel()
+        trendingJob?.cancel()
+    }
+
     private fun loadTrending() {
         trendingJob?.cancel()
         trendingJob = viewModelScope.launch {

@@ -26,6 +26,9 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
+import java.util.concurrent.ConcurrentHashMap
 
 class DiscoverRepositoryImpl(
     private val imdbApi: BalloonerismmApi,
@@ -36,6 +39,16 @@ class DiscoverRepositoryImpl(
     private val tvShowDao: TvShowDao,
     private val tvShowProgressDao: TvShowProgressDao? = null
 ) : DiscoverRepository {
+
+    private val platformSemaphore = Semaphore(4)
+
+    private data class CachedPlatforms(
+        val platforms: List<StreamingAvailability>,
+        val timestamp: Long
+    )
+
+    private val platformsCache = ConcurrentHashMap<String, CachedPlatforms>()
+    private val CACHE_TTL_MS = 4 * 60 * 60 * 1000L
 
     override suspend fun search(query: String): Flow<DataResult<List<ContentPreview>>> = search(query, 1)
 
@@ -352,24 +365,26 @@ class DiscoverRepositoryImpl(
         return coroutineScope {
             previews.map { preview ->
                 async {
-                    val platforms = try {
-                        val imdbId = preview.id.removePrefix("imdb-")
-                        val providerResponse = if (preview.type == ContentType.SERIES) {
-                            imdbApi.getTvWatchProviders(imdbId)
-                        } else {
-                            imdbApi.getMovieWatchProviders(imdbId)
+                    platformSemaphore.withPermit {
+                        val platforms = try {
+                            val imdbId = preview.id.removePrefix("imdb-")
+                            val providerResponse = if (preview.type == ContentType.SERIES) {
+                                imdbApi.getTvWatchProviders(imdbId)
+                            } else {
+                                imdbApi.getMovieWatchProviders(imdbId)
+                            }
+                            providerResponse.results?.get("ES")?.imdbToStreaming().orEmpty()
+                        } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+                            AppLogger.w("DiscoverRepo", "IMDB platforms for ${preview.id} (timeout): ${e.message}")
+                            emptyList()
+                        } catch (e: kotlinx.coroutines.CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            AppLogger.e("DiscoverRepo", "IMDB platforms for ${preview.id}, fallback to TMDB", e)
+                            tryFetchTmbdPlatforms(preview)
                         }
-                        providerResponse.results?.get("ES")?.imdbToStreaming().orEmpty()
-                    } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
-                        AppLogger.w("DiscoverRepo", "IMDB platforms for ${preview.id} (timeout): ${e.message}")
-                        emptyList()
-                    } catch (e: kotlinx.coroutines.CancellationException) {
-                        throw e
-                    } catch (e: Exception) {
-                        AppLogger.e("DiscoverRepo", "IMDB platforms for ${preview.id}, fallback to TMDB", e)
-                        tryFetchTmbdPlatforms(preview)
+                        preview.copy(streamingPlatforms = platforms)
                     }
-                    preview.copy(streamingPlatforms = platforms)
                 }
             }.map { it.await() }
         }
@@ -379,24 +394,34 @@ class DiscoverRepositoryImpl(
         return coroutineScope {
             previews.map { preview ->
                 async {
-                    val platforms = try {
-                        val tmdbId = preview.tmdbId ?: return@async preview
-                        val providerResponse = if (preview.type == ContentType.SERIES) {
-                            tmdbApi.getTvWatchProviders(tmdbId)
-                        } else {
-                            tmdbApi.getMovieWatchProviders(tmdbId)
+                    platformSemaphore.withPermit {
+                        val platforms = try {
+                            val tmdbId = preview.tmdbId ?: return@withPermit preview
+                            val cacheKey = "tmdb-$tmdbId-${preview.type}"
+                            val cached = platformsCache[cacheKey]
+                            if (cached != null && (System.currentTimeMillis() - cached.timestamp) < CACHE_TTL_MS) {
+                                cached.platforms
+                            } else {
+                                val providerResponse = if (preview.type == ContentType.SERIES) {
+                                    tmdbApi.getTvWatchProviders(tmdbId)
+                                } else {
+                                    tmdbApi.getMovieWatchProviders(tmdbId)
+                                }
+                                val platforms = providerResponse.results?.get("ES")?.toStreamingAvailability().orEmpty()
+                                platformsCache[cacheKey] = CachedPlatforms(platforms, System.currentTimeMillis())
+                                platforms
+                            }
+                        } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+                            AppLogger.w("DiscoverRepo", "TMDB platforms for ${preview.id} (timeout): ${e.message}")
+                            emptyList<StreamingAvailability>()
+                        } catch (e: kotlinx.coroutines.CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            AppLogger.e("DiscoverRepo", "TMDB platforms for ${preview.id}", e)
+                            emptyList<StreamingAvailability>()
                         }
-                        providerResponse.results?.get("ES")?.toStreamingAvailability().orEmpty()
-                    } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
-                        AppLogger.w("DiscoverRepo", "TMDB platforms for ${preview.id} (timeout): ${e.message}")
-                        emptyList<StreamingAvailability>()
-                    } catch (e: kotlinx.coroutines.CancellationException) {
-                        throw e
-                    } catch (e: Exception) {
-                        AppLogger.e("DiscoverRepo", "TMDB platforms for ${preview.id}", e)
-                        emptyList<StreamingAvailability>()
+                        preview.copy(streamingPlatforms = platforms)
                     }
-                    preview.copy(streamingPlatforms = platforms)
                 }
             }.map { it.await() }
         }
@@ -409,12 +434,20 @@ class DiscoverRepositoryImpl(
                 it.mediaType == if (preview.type == ContentType.SERIES) "tv" else "movie"
             }
             if (match != null) {
-                val providerResponse = if (preview.type == ContentType.SERIES) {
-                    tmdbApi.getTvWatchProviders(match.id)
+                val cacheKey = "tmdb-${match.id}-${preview.type}"
+                val cached = platformsCache[cacheKey]
+                if (cached != null && (System.currentTimeMillis() - cached.timestamp) < CACHE_TTL_MS) {
+                    cached.platforms
                 } else {
-                    tmdbApi.getMovieWatchProviders(match.id)
+                    val providerResponse = if (preview.type == ContentType.SERIES) {
+                        tmdbApi.getTvWatchProviders(match.id)
+                    } else {
+                        tmdbApi.getMovieWatchProviders(match.id)
+                    }
+                    val platforms = providerResponse.results?.get("ES")?.toStreamingAvailability().orEmpty()
+                    platformsCache[cacheKey] = CachedPlatforms(platforms, System.currentTimeMillis())
+                    platforms
                 }
-                providerResponse.results?.get("ES")?.toStreamingAvailability().orEmpty()
             } else emptyList()
         } catch (e: Exception) {
             AppLogger.e("DiscoverRepo", "TMDB fallback platforms for ${preview.title}", e)
