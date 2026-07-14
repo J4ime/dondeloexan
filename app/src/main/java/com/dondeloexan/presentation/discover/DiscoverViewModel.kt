@@ -200,7 +200,7 @@ class DiscoverViewModel(
                             val newLiked = !existing.liked
                             movieDao.update(existing.copy(
                                 liked = newLiked,
-                                streamingPlatforms = platformsStr ?: existing.streamingPlatforms,
+                                streamingPlatforms = if (platformsStr.isNullOrEmpty() || platformsStr == "[]") existing.streamingPlatforms else platformsStr,
                                 releaseDate = preview.releaseDate ?: existing.releaseDate
                             ))
                             feedbackManager.emit(

@@ -47,9 +47,13 @@ fun String?.toStreamingPlatforms(): List<StreamingAvailability> {
 
 private fun tryFallbackParse(badJson: String?): List<StreamingAvailability>? {
     val input = badJson ?: return null
+    AppLogger.d("Converters", "tryFallbackParse: entering, len=${input.length}, preview=${input.take(100)}")
     return try {
-        val inner = input.trimStart('[').trimEnd(']')
-        if (!inner.startsWith("{") || !inner.endsWith("}")) return null
+        val inner = input.trimStart('[').trimEnd(']').trim()
+        if (!inner.startsWith("{") || !inner.endsWith("}")) {
+            AppLogger.d("Converters", "tryFallbackParse: no outer braces")
+            return null
+        }
 
         val objects = mutableListOf<String>()
         var depth = 0
@@ -66,40 +70,64 @@ private fun tryFallbackParse(badJson: String?): List<StreamingAvailability>? {
                 }
             }
         }
-        if (objects.isEmpty()) return null
+        if (objects.isEmpty()) {
+            AppLogger.d("Converters", "tryFallbackParse: no objects found")
+            return null
+        }
+        AppLogger.d("Converters", "tryFallbackParse: found ${objects.size} objects")
 
         val fixed = objects.mapNotNull { obj ->
-            val content = obj.removeSurrounding("{", "}")
-            val pairs = mutableMapOf<String, String>()
-            var remaining = content
-            for (key in listOf("platformName", "platformId", "logoUrl", "availabilityType")) {
-                val prefix = "\"$key\":"
-                val idx = remaining.indexOf(prefix)
-                if (idx < 0) return@mapNotNull null
-                val afterPrefix = remaining.substring(idx + prefix.length)
-                val endIdx = afterPrefix.indexOfFirst { it == ',' || it == '}' }.let { if (it < 0) afterPrefix.length else it }
-                val value = afterPrefix.substring(0, endIdx)
-                pairs[key] = value
-                remaining = afterPrefix.substring(endIdx)
-            }
-            if (pairs.size < 4) return@mapNotNull null
-            StreamingAvailability(
-                platformName = pairs["platformName"]?.trim()?.trimEnd(',')?.trim('"') ?: return@mapNotNull null,
-                platformId = pairs["platformId"]?.trim()?.trimEnd(',')?.trim('"'),
-                logoUrl = pairs["logoUrl"]?.trim()?.trimEnd(',')?.trim('"')?.takeIf { it.isNotEmpty() },
-                availabilityType = try {
-                    AvailabilityType.valueOf(pairs["availabilityType"]?.trim()?.trimEnd(',')?.trim('"') ?: "SUBSCRIPTION")
-                } catch (_: Exception) { AvailabilityType.SUBSCRIPTION }
-            )
+            parseFallbackObject(obj.removeSurrounding("{", "}"))
         }
 
-        if (fixed.isEmpty()) return null
+        if (fixed.isEmpty()) {
+            AppLogger.d("Converters", "tryFallbackParse: all objects returned null")
+            return null
+        }
         AppLogger.d("Converters", "tryFallbackParse: recovered ${fixed.size} platforms")
         fixed
     } catch (e: Exception) {
         AppLogger.e("Converters", "tryFallbackParse failed", e)
         null
     }
+}
+
+private fun parseFallbackObject(inner: String): StreamingAvailability? {
+    val keys = listOf("platformName", "platformId", "logoUrl", "availabilityType")
+    val pairs = mutableMapOf<String, String>()
+    var remaining = inner
+
+    for (key in keys) {
+        val prefix = "\"$key\":"
+        val idx = remaining.indexOf(prefix)
+        if (idx < 0) {
+            AppLogger.d("Converters", "parseFallbackObject: key $key not found in: ${remaining.take(60)}")
+            return null
+        }
+        val afterPrefix = remaining.substring(idx + prefix.length)
+
+        var end = afterPrefix.length
+        for (otherKey in keys) {
+            val marker = ",\"$otherKey\":"
+            val mIdx = afterPrefix.indexOf(marker)
+            if (mIdx >= 0 && mIdx < end) end = mIdx
+        }
+
+        val value = afterPrefix.substring(0, end)
+        pairs[key] = value.trimEnd(',')
+        remaining = afterPrefix.substring(end)
+    }
+
+    if (pairs.size < keys.size) return null
+
+    return StreamingAvailability(
+        platformName = pairs["platformName"]?.trim()?.trim('"') ?: return null,
+        platformId = pairs["platformId"]?.trim()?.trim('"'),
+        logoUrl = pairs["logoUrl"]?.trim()?.trim('"')?.takeIf { it.isNotEmpty() },
+        availabilityType = try {
+            AvailabilityType.valueOf(pairs["availabilityType"]?.trim()?.trim('"') ?: "SUBSCRIPTION")
+        } catch (_: Exception) { AvailabilityType.SUBSCRIPTION }
+    )
 }
 
 fun List<StreamingAvailability>.toPlatformsString(): String? {
