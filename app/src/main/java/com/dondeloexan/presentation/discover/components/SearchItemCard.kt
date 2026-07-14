@@ -183,20 +183,21 @@ fun SearchItemCard(
                 )
             }
 
-            if (content.type.name == "MOVIE" && content.releaseDate != null) {
+            if (content.type.name == "MOVIE" && !content.releaseDate.isNullOrBlank()) {
+                val nonCinemaPlatforms = content.streamingPlatforms.none { it.platformName != "Cine" }
                 val cinemaInfo = remember(content.releaseDate, content.streamingPlatforms) {
+                    if (!nonCinemaPlatforms) return@remember null
                     try {
                         val date = java.time.LocalDate.parse(content.releaseDate)
                         val now = java.time.LocalDate.now()
                         val daysSince = java.time.temporal.ChronoUnit.DAYS.between(date, now)
                         val daysUntil = java.time.temporal.ChronoUnit.DAYS.between(now, date)
                         val cinemaEnd = date.plusDays(90)
-                        val nonCinemaPlatforms = content.streamingPlatforms.filter { it.platformName != "Cine" }
 
                         when {
                             daysUntil > 0 -> "Estreno: ${date.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"))}" to false
                             daysSince in 0..90 -> "En cines → Fin: ${cinemaEnd.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM"))}" to true
-                            else -> if (nonCinemaPlatforms.isEmpty()) null else "Fin de cartelera" to false
+                            else -> null
                         }
                     } catch (e: Exception) {
                         AppLogger.e("SearchItemCard", "cinemaInfo: ${content.releaseDate}", e)
@@ -231,7 +232,7 @@ fun SearchItemCard(
                         platforms = content.streamingPlatforms,
                         maxVisible = 4
                     )
-                    if (content.releaseDate != null) {
+                    if (!content.releaseDate.isNullOrBlank()) {
                         val isFuture = remember(content.releaseDate) {
                             try {
                                 val date = java.time.LocalDate.parse(content.releaseDate)

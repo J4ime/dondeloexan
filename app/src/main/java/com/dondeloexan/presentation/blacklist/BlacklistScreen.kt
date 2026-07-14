@@ -23,12 +23,18 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.dondeloexan.presentation.feedback.FeedbackBanner
+import com.dondeloexan.presentation.feedback.FeedbackManager
 import com.dondeloexan.presentation.theme.DarkBackground
 import com.dondeloexan.presentation.theme.DarkSurfaceVariant
 import com.dondeloexan.presentation.theme.EleganteRose
@@ -36,6 +42,7 @@ import com.dondeloexan.presentation.theme.TextPrimary
 import com.dondeloexan.presentation.theme.TextSecondary
 import com.dondeloexan.presentation.theme.UbuntuTypography
 import org.koin.androidx.compose.koinViewModel
+import org.koin.compose.koinInject
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -44,6 +51,11 @@ fun BlacklistScreen(
     viewModel: BlacklistViewModel = koinViewModel()
 ) {
     val items by viewModel.items.collectAsState()
+    val feedbackManager: FeedbackManager = koinInject()
+    var feedbackMessage by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) {
+        feedbackManager.events.collect { message -> feedbackMessage = message }
+    }
 
     Column(modifier = Modifier.fillMaxSize()) {
         TopAppBar(
@@ -55,6 +67,11 @@ fun BlacklistScreen(
             },
             colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBackground),
             windowInsets = WindowInsets(top = 0)
+        )
+
+        FeedbackBanner(
+            message = feedbackMessage,
+            modifier = Modifier.padding(horizontal = 16.dp)
         )
 
         if (items.isEmpty()) {

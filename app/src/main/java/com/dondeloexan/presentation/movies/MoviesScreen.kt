@@ -32,6 +32,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -44,6 +45,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.dondeloexan.data.local.entity.toStreamingPlatforms
+import com.dondeloexan.presentation.feedback.FeedbackBanner
+import com.dondeloexan.presentation.feedback.FeedbackManager
 import com.dondeloexan.presentation.library.LibraryItemCard
 import com.dondeloexan.presentation.theme.DarkBackground
 import com.dondeloexan.presentation.theme.EleganteRose
@@ -52,6 +55,7 @@ import com.dondeloexan.presentation.theme.TextPrimary
 import com.dondeloexan.presentation.theme.TextSecondary
 import com.dondeloexan.presentation.theme.UbuntuTypography
 import org.koin.androidx.compose.koinViewModel
+import org.koin.compose.koinInject
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -63,6 +67,12 @@ fun MoviesScreen(
     val watchedMovies by viewModel.watchedMovies.collectAsState()
     var selectedTab by remember { mutableIntStateOf(0) }
     var isGridView by remember { mutableStateOf(false) }
+
+    val feedbackManager: FeedbackManager = koinInject()
+    var feedbackMessage by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) {
+        feedbackManager.events.collect { message -> feedbackMessage = message }
+    }
 
     Column(modifier = Modifier.fillMaxSize()) {
         TopAppBar(
@@ -78,6 +88,11 @@ fun MoviesScreen(
             },
             colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBackground),
             windowInsets = WindowInsets(top = 0)
+        )
+
+        FeedbackBanner(
+            message = feedbackMessage,
+            modifier = Modifier.padding(horizontal = 16.dp)
         )
 
         TabRow(

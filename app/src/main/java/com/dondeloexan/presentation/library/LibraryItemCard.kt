@@ -343,7 +343,9 @@ private fun MovieOverlayBadge(
     platforms: List<StreamingAvailability>,
     modifier: Modifier = Modifier
 ) {
-    val cinemaInfo = remember(releaseDate, platforms) {
+    val hasNonCinemaPlatforms = platforms.any { it.platformName != "Cine" }
+
+    val cinemaInfo = if (!hasNonCinemaPlatforms) {
         try {
             val date = LocalDate.parse(releaseDate)
             val now = LocalDate.now()
@@ -354,7 +356,6 @@ private fun MovieOverlayBadge(
 
             when {
                 daysUntil > 0 -> {
-                    // Not yet released
                     CinemaInfo(
                         label = "Estreno: ${date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}",
                         isActive = false,
@@ -364,14 +365,8 @@ private fun MovieOverlayBadge(
                     )
                 }
                 daysSince in 0..90 -> {
-                    // Currently in cinemas
-                    val cinemaLabel = if (daysSince <= cinemaEnd.datesUntil(now).count()) {
-                        "En cines"
-                    } else {
-                        "En cines"
-                    }
                     CinemaInfo(
-                        label = "$cinemaLabel → Fin: ${cinemaEnd.format(DateTimeFormatter.ofPattern("dd/MM"))}",
+                        label = "En cines → Fin: ${cinemaEnd.format(DateTimeFormatter.ofPattern("dd/MM"))}",
                         isActive = true,
                         endDate = cinemaEnd,
                         digitalRelease = null,
@@ -384,7 +379,7 @@ private fun MovieOverlayBadge(
             AppLogger.e("LibraryItemCard", "cinemaInfo: $releaseDate", e)
             null
         }
-    }
+    } else null
 
     if (cinemaInfo != null) {
         Column(modifier = modifier) {

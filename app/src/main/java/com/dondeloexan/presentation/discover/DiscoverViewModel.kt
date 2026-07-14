@@ -94,9 +94,11 @@ class DiscoverViewModel(
     fun onSearchQueryChanged(query: String) {
         _searchQuery.value = query
 
-        if (query.isBlank()) {
-            searchJob?.cancel()
-            loadTrending()
+        if (query.isBlank() || query.length < 3) {
+            if (query.isBlank()) {
+                searchJob?.cancel()
+                loadTrending()
+            }
             return
         }
 
@@ -193,7 +195,8 @@ class DiscoverViewModel(
                 when (preview.type) {
                     com.dondeloexan.domain.model.ContentType.MOVIE -> {
                         val existing = movieDao.getByContentId(info.contentId)
-                            ?: movieDao.getByTmdbId(info.tmdbId ?: return@launch)
+                            ?: (info.tmdbId?.let { movieDao.getByTmdbId(it) }
+                                ?: info.imdbId?.let { movieDao.getByImdbId(it) })
                         if (existing != null) {
                             val newLiked = !existing.liked
                             movieDao.update(existing.copy(
@@ -226,7 +229,8 @@ class DiscoverViewModel(
                     }
                     com.dondeloexan.domain.model.ContentType.SERIES -> {
                         val existing = tvShowDao.getByContentId(info.contentId)
-                            ?: tvShowDao.getByTmdbId(info.tmdbId ?: return@launch)
+                            ?: (info.tmdbId?.let { tvShowDao.getByTmdbId(it) }
+                                ?: info.imdbId?.let { tvShowDao.getByImdbId(it) })
                         if (existing != null) {
                             val newLiked = !existing.liked
                             tvShowDao.update(existing.copy(
@@ -272,7 +276,8 @@ class DiscoverViewModel(
                 when (preview.type) {
                     com.dondeloexan.domain.model.ContentType.MOVIE -> {
                         val existing = movieDao.getByContentId(info.contentId)
-                            ?: movieDao.getByTmdbId(info.tmdbId ?: return@launch)
+                            ?: (info.tmdbId?.let { movieDao.getByTmdbId(it) }
+                                ?: info.imdbId?.let { movieDao.getByImdbId(it) })
                         if (existing != null) {
                             val wasWatched = existing.status == WatchStatus.YA_VISTA
                             val newStatus = if (wasWatched) WatchStatus.POR_VER else WatchStatus.YA_VISTA
@@ -308,7 +313,8 @@ class DiscoverViewModel(
                     }
                     com.dondeloexan.domain.model.ContentType.SERIES -> {
                         val existing = tvShowDao.getByContentId(info.contentId)
-                            ?: tvShowDao.getByTmdbId(info.tmdbId ?: return@launch)
+                            ?: (info.tmdbId?.let { tvShowDao.getByTmdbId(it) }
+                                ?: info.imdbId?.let { tvShowDao.getByImdbId(it) })
                         val platformsStrFinal = platformsStr ?: existing?.streamingPlatforms
                         if (existing != null) {
                             val wasWatched = existing.status == WatchStatus.YA_VISTA
