@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -69,6 +70,7 @@ import android.net.Uri
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.dondeloexan.data.remote.dto.TmdbSeasonDto
+import com.dondeloexan.data.remote.dto.TmdbEpisodeDto
 import com.dondeloexan.data.remote.dto.TmdbTvSeasonDetailDto
 import com.dondeloexan.domain.model.Content
 import com.dondeloexan.domain.model.ContentType
@@ -172,6 +174,7 @@ fun MediaDetailScreen(
                             selectedSeason = uiState.selectedSeason,
                             seasonDetail = uiState.seasonDetail,
                             watchedEpisodes = uiState.watchedEpisodes,
+                            lastWatchedEpisode = if (uiState.selectedSeason == uiState.lastWatchedSeason) uiState.lastWatchedEpisode else null,
                             onSeasonSelected = viewModel::selectSeason,
                             onToggleEpisode = viewModel::toggleEpisodeWatched,
                             onMarkSeasonToggle = viewModel::markSeasonWatched
@@ -243,24 +246,93 @@ private fun EpisodiosTab(
     selectedSeason: Int,
     seasonDetail: TmdbTvSeasonDetailDto?,
     watchedEpisodes: Set<String>,
+    lastWatchedEpisode: Int?,
     onSeasonSelected: (Int) -> Unit,
     onToggleEpisode: (Int) -> Unit,
     onMarkSeasonToggle: () -> Unit
 ) {
-    LazyColumn(modifier = Modifier.fillMaxSize()) {
+    val listState = rememberLazyListState()
+    var dialogEpisodeNumber by remember { mutableStateOf(0) }
+    var dialogIsWatched by remember { mutableStateOf(false) }
+    var showDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(seasonDetail, lastWatchedEpisode) {
+        if (seasonDetail != null && lastWatchedEpisode != null) {
+            val index = seasonDetail.episodes.indexOfFirst { it.episodeNumber == lastWatchedEpisode }
+            if (index >= 0) {
+                listState.animateScrollToItem(index + 1)
+            }
+        }
+    }
+
+    LazyColumn(
+        state = listState,
+        modifier = Modifier.fillMaxSize()
+    ) {
         if (seasons.isNotEmpty()) {
             item {
-                SeasonsSection(
+                SeasonsSectionHeader(
                     seasons = seasons,
                     selectedSeason = selectedSeason,
                     seasonDetail = seasonDetail,
                     watchedEpisodes = watchedEpisodes,
                     onSeasonSelected = onSeasonSelected,
-                    onToggleEpisode = onToggleEpisode,
                     onMarkSeasonToggle = onMarkSeasonToggle
                 )
             }
+
+            if (seasonDetail != null) {
+                items(seasonDetail.episodes, key = { "ep-${selectedSeason}-${it.episodeNumber}" }) { episode ->
+                    EpisodeRow(
+                        episode = episode,
+                        selectedSeason = selectedSeason,
+                        watchedEpisodes = watchedEpisodes,
+                        onLongClick = { epNum, isWatched ->
+                            dialogEpisodeNumber = epNum
+                            dialogIsWatched = isWatched
+                            showDialog = true
+                        },
+                        onToggle = onToggleEpisode
+                    )
+                }
+            }
         }
+    }
+
+    if (showDialog) {
+        AlertDialog(
+            onDismissRequest = { showDialog = false },
+            title = {
+                Text(
+                    "Episodio $dialogEpisodeNumber",
+                    color = TextPrimary
+                )
+            },
+            text = {
+                Text(
+                    if (dialogIsWatched) "¿Marcar como no visto?" else "¿Marcar como visto?",
+                    color = TextSecondary
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    onToggleEpisode(dialogEpisodeNumber)
+                    showDialog = false
+                }) {
+                    Text(
+                        if (dialogIsWatched) "No visto" else "Visto",
+                        color = EleganteRose
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDialog = false }) {
+                    Text("Cancelar", color = TextSecondary)
+                }
+            },
+            containerColor = DarkSurface,
+            tonalElevation = 0.dp
+        )
     }
 }
 
@@ -715,21 +787,16 @@ private fun StreamingSection(platforms: List<StreamingAvailability>) {
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SeasonsSection(
+private fun SeasonsSectionHeader(
     seasons: List<TmdbSeasonDto>,
     selectedSeason: Int,
     seasonDetail: TmdbTvSeasonDetailDto?,
     watchedEpisodes: Set<String>,
     onSeasonSelected: (Int) -> Unit,
-    onToggleEpisode: (Int) -> Unit,
     onMarkSeasonToggle: () -> Unit
 ) {
-    var showEpisodeDialog by remember { mutableStateOf(false) }
-    var dialogEpisodeNumber by remember { mutableStateOf(0) }
-    var dialogIsWatched by remember { mutableStateOf(false) }
-
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -793,118 +860,81 @@ private fun SeasonsSection(
                 }
             }
         }
+    }
+}
 
-        Spacer(Modifier.height(8.dp))
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun EpisodeRow(
+    episode: TmdbEpisodeDto,
+    selectedSeason: Int,
+    watchedEpisodes: Set<String>,
+    onLongClick: (Int, Boolean) -> Unit,
+    onToggle: (Int) -> Unit
+) {
+    val episodeKey = "S${selectedSeason}E${episode.episodeNumber}"
+    val isWatched = watchedEpisodes.contains(episodeKey)
+    val airDateInfo = remember(episode.airDate) { parseAirDate(episode.airDate) }
+    val isAired = airDateInfo == null || airDateInfo.daysUntil <= 0
 
-        if (seasonDetail != null) {
-            seasonDetail.episodes.forEach { episode ->
-                val episodeKey = "S${selectedSeason}E${episode.episodeNumber}"
-                val isWatched = watchedEpisodes.contains(episodeKey)
-                val airDateInfo = remember(episode.airDate) { parseAirDate(episode.airDate) }
-                val isAired = airDateInfo == null || airDateInfo.daysUntil <= 0
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .combinedClickable(
-                            onClick = {
-                                if (isAired) onToggleEpisode(episode.episodeNumber)
-                            },
-                            onLongClick = {
-                                if (isAired) {
-                                    dialogEpisodeNumber = episode.episodeNumber
-                                    dialogIsWatched = isWatched
-                                    showEpisodeDialog = true
-                                }
-                            }
-                        )
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        if (isWatched) Icons.Filled.Check else Icons.Outlined.CheckCircleOutline,
-                        contentDescription = if (isWatched) "Visto" else "Marcar visto",
-                        tint = if (isWatched) EleganteRose else if (isAired) TextSecondary.copy(alpha = 0.4f) else TextSecondary.copy(alpha = 0.15f),
-                        modifier = Modifier.size(24.dp)
-                    )
-
-                    Column(modifier = Modifier.weight(1f)) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Text(
-                                "${episode.episodeNumber}. ${episode.name}",
-                                style = UbuntuTypography.bodyMedium,
-                                color = if (isAired) TextPrimary else TextSecondary.copy(alpha = 0.6f),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f, fill = false)
-                            )
-                            EpisodeAirDateBadge(airDateInfo)
-                        }
-                        if (!episode.overview.isNullOrBlank()) {
-                            Text(
-                                episode.overview,
-                                style = UbuntuTypography.bodySmall,
-                                color = TextSecondary,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
-
-                    if (episode.voteAverage != null && episode.voteAverage > 0f) {
-                        Text(
-                            String.format("%.1f", episode.voteAverage),
-                            style = UbuntuTypography.labelSmall,
-                            color = when {
-                                episode.voteAverage >= 7.0f -> RatingHigh
-                                episode.voteAverage >= 5.0f -> RatingMedium
-                                else -> RatingLow
-                            }
-                        )
-                    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .combinedClickable(
+                onClick = {
+                    if (isAired) onToggle(episode.episodeNumber)
+                },
+                onLongClick = {
+                    if (isAired) onLongClick(episode.episodeNumber, isWatched)
                 }
+            )
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            if (isWatched) Icons.Filled.Check else Icons.Outlined.CheckCircleOutline,
+            contentDescription = if (isWatched) "Visto" else "Marcar visto",
+            tint = if (isWatched) EleganteRose else if (isAired) TextSecondary.copy(alpha = 0.4f) else TextSecondary.copy(alpha = 0.15f),
+            modifier = Modifier.size(24.dp)
+        )
+
+        Column(modifier = Modifier.weight(1f)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    "${episode.episodeNumber}. ${episode.name}",
+                    style = UbuntuTypography.bodyMedium,
+                    color = if (isAired) TextPrimary else TextSecondary.copy(alpha = 0.6f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
+                )
+                EpisodeAirDateBadge(airDateInfo)
+            }
+            if (!episode.overview.isNullOrBlank()) {
+                Text(
+                    episode.overview,
+                    style = UbuntuTypography.bodySmall,
+                    color = TextSecondary,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
         }
-    }
 
-    if (showEpisodeDialog) {
-        AlertDialog(
-            onDismissRequest = { showEpisodeDialog = false },
-            title = {
-                Text(
-                    "Episodio $dialogEpisodeNumber",
-                    color = TextPrimary
-                )
-            },
-            text = {
-                Text(
-                    if (dialogIsWatched) "¿Marcar como no visto?" else "¿Marcar como visto?",
-                    color = TextSecondary
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    onToggleEpisode(dialogEpisodeNumber)
-                    showEpisodeDialog = false
-                }) {
-                    Text(
-                        if (dialogIsWatched) "No visto" else "Visto",
-                        color = EleganteRose
-                    )
+        if (episode.voteAverage != null && episode.voteAverage > 0f) {
+            Text(
+                String.format("%.1f", episode.voteAverage),
+                style = UbuntuTypography.labelSmall,
+                color = when {
+                    episode.voteAverage >= 7.0f -> RatingHigh
+                    episode.voteAverage >= 5.0f -> RatingMedium
+                    else -> RatingLow
                 }
-            },
-            dismissButton = {
-                TextButton(onClick = { showEpisodeDialog = false }) {
-                    Text("Cancelar", color = TextSecondary)
-                }
-            },
-            containerColor = DarkSurface,
-            tonalElevation = 0.dp
-        )
+            )
+        }
     }
-
 }

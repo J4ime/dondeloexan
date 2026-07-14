@@ -67,15 +67,6 @@ fun DondeLoExanNavGraph(navController: NavHostController) {
     )
     val scope = rememberCoroutineScope()
 
-    val feedbackManager: FeedbackManager = koinInject()
-    var feedbackMessage by remember { mutableStateOf<String?>(null) }
-
-    LaunchedEffect(Unit) {
-        feedbackManager.events.collect { message ->
-            feedbackMessage = message
-        }
-    }
-
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
             bottomBar = {
@@ -154,10 +145,6 @@ fun DondeLoExanNavGraph(navController: NavHostController) {
             }
         }
 
-        FeedbackBanner(
-            message = feedbackMessage,
-            modifier = Modifier.align(Alignment.BottomCenter)
-        )
     }
 }
 

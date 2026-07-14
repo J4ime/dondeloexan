@@ -3,7 +3,7 @@ package com.dondeloexan.presentation.discover
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
-import com.dondeloexan.presentation.components.PopcornSpinner
+import com.dondeloexan.presentation.components.BouncingDotsSpinner
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -67,7 +67,10 @@ import com.dondeloexan.presentation.theme.EleganteRoseDark
 import com.dondeloexan.presentation.theme.TextPrimary
 import com.dondeloexan.presentation.theme.TextSecondary
 import com.dondeloexan.presentation.theme.UbuntuTypography
+import com.dondeloexan.presentation.feedback.FeedbackBanner
+import com.dondeloexan.presentation.feedback.FeedbackManager
 import org.koin.androidx.compose.koinViewModel
+import org.koin.compose.koinInject
 
 @Composable
 fun DiscoverScreen(
@@ -79,9 +82,14 @@ fun DiscoverScreen(
     val likedIds by viewModel.likedIds.collectAsState()
     val watchedIds by viewModel.watchedIds.collectAsState()
     val filterByPlatforms by viewModel.filterByPlatforms.collectAsState()
-    val activePlatforms by viewModel.activePlatforms.collectAsState()
 
     var isSearchFocused by remember { mutableStateOf(false) }
+
+    val feedbackManager: FeedbackManager = koinInject()
+    var feedbackMessage by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) {
+        feedbackManager.events.collect { message -> feedbackMessage = message }
+    }
 
     Column(modifier = Modifier.fillMaxSize()) {
         Row(
@@ -161,6 +169,11 @@ fun DiscoverScreen(
                 )
             )
         }
+
+        FeedbackBanner(
+            message = feedbackMessage,
+            modifier = Modifier.padding(horizontal = 16.dp)
+        )
 
         DiscoverContent(
             uiState = uiState,
@@ -290,7 +303,7 @@ fun LoadingState() {
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
-        PopcornSpinner()
+        BouncingDotsSpinner()
     }
 }
 

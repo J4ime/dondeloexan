@@ -28,6 +28,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.map
@@ -459,6 +460,12 @@ class DiscoverViewModel(
     }
 
     private suspend fun fillUntil(targetCount: Int, query: String = "") {
+        val liked = likedIds.value.takeIf { it.isNotEmpty() }
+            ?: movieDao.getLiked().first().mapNotNull { it.contentId }.toSet() +
+                tvShowDao.getLiked().first().mapNotNull { it.contentId }.toSet()
+        val watched = watchedIds.value.takeIf { it.isNotEmpty() }
+            ?: movieDao.getByStatus(WatchStatus.YA_VISTA).first().mapNotNull { it.contentId }.toSet() +
+                tvShowDao.getByStatus(WatchStatus.YA_VISTA).first().mapNotNull { it.contentId }.toSet()
         while (accumulatedResults.size < targetCount && hasMoreApiPages) {
             val pageResults = if (query.isBlank()) {
                 try {
@@ -483,9 +490,7 @@ class DiscoverViewModel(
 
             apiPage++
 
-            val liked = likedIds.value
             val blacklisted = blacklistedIds.value
-            val watched = watchedIds.value
 
             val filtered = if (query.isBlank()) {
                 pageResults.filter { it.id !in liked && it.id !in blacklisted && it.id !in watched }
