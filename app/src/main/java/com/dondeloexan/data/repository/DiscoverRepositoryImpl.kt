@@ -360,6 +360,11 @@ class DiscoverRepositoryImpl(
                             imdbApi.getMovieWatchProviders(imdbId)
                         }
                         providerResponse.results?.get("ES")?.imdbToStreaming().orEmpty()
+                    } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+                        AppLogger.w("DiscoverRepo", "IMDB platforms for ${preview.id} (timeout): ${e.message}")
+                        emptyList()
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        throw e
                     } catch (e: Exception) {
                         AppLogger.e("DiscoverRepo", "IMDB platforms for ${preview.id}, fallback to TMDB", e)
                         tryFetchTmbdPlatforms(preview)
@@ -382,6 +387,11 @@ class DiscoverRepositoryImpl(
                             tmdbApi.getMovieWatchProviders(tmdbId)
                         }
                         providerResponse.results?.get("ES")?.toStreamingAvailability().orEmpty()
+                    } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+                        AppLogger.w("DiscoverRepo", "TMDB platforms for ${preview.id} (timeout): ${e.message}")
+                        emptyList<StreamingAvailability>()
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        throw e
                     } catch (e: Exception) {
                         AppLogger.e("DiscoverRepo", "TMDB platforms for ${preview.id}", e)
                         emptyList<StreamingAvailability>()
@@ -467,8 +477,16 @@ class DiscoverRepositoryImpl(
             .filter { it.mediaType in listOf("movie", "tv") && !it.adult }
             .map { it.toContentPreview() }
             .take(20)
-        return if (previews.isNotEmpty()) {
-            attachImdbPlatforms(previews)
+        if (previews.isNotEmpty()) {
+            return attachImdbPlatforms(previews)
+        }
+        val tmdbResult = tmdbApi.searchMulti(query, page = page)
+        val tmdbPreviews = tmdbResult.results
+            .filter { it.mediaType in listOf("movie", "tv") && !it.adult }
+            .map { it.toContentPreview() }
+            .take(20)
+        return if (tmdbPreviews.isNotEmpty()) {
+            attachTmbdPlatforms(tmdbPreviews)
         } else {
             emptyList()
         }

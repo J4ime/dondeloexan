@@ -14,7 +14,9 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.dondeloexan.MainActivity
 import com.dondeloexan.R
+import com.dondeloexan.data.local.dao.MovieDao
 import com.dondeloexan.data.local.dao.TvShowDao
+import com.dondeloexan.data.local.entity.WatchStatus
 import com.dondeloexan.data.remote.api.TmdbApi
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
@@ -27,37 +29,52 @@ class SeriesCheckWorker(
 ) : CoroutineWorker(appContext, params), KoinComponent {
 
     private val tvShowDao: TvShowDao by inject()
+    private val movieDao: MovieDao by inject()
     private val tmdbApi: TmdbApi by inject()
 
     override suspend fun doWork(): Result {
         return try {
-            val likedShows = tvShowDao.getAllLiked()
-            if (likedShows.isEmpty()) return Result.success()
-
             val today = LocalDate.now().toString()
-            val todayEpisodes = mutableListOf<EpisodeInfo>()
+            val todayNotifications = mutableListOf<EpisodeInfo>()
 
+            // Series
+            val likedShows = tvShowDao.getAllLiked()
             for (show in likedShows) {
                 val tmdbId = show.tmdbId
-
                 if (tmdbId != null) {
                     updateFromTmdb(show.id, tmdbId)
                 }
-
                 if (show.nextEpisodeAirDate == today) {
-                    todayEpisodes.add(
+                    todayNotifications.add(
                         EpisodeInfo(
                             title = show.title,
                             season = show.nextEpisodeSeasonNumber ?: 0,
                             episode = show.nextEpisodeNumber ?: 0,
-                            episodeName = null
+                            episodeName = null,
+                            isMovie = false
                         )
                     )
                 }
             }
 
-            if (todayEpisodes.isNotEmpty()) {
-                notifyNewEpisodes(todayEpisodes)
+            // Movies pending to watch that premiere today
+            val allMovies = movieDao.getAll()
+            for (movie in allMovies) {
+                if (movie.status == WatchStatus.POR_VER && movie.releaseDate == today) {
+                    todayNotifications.add(
+                        EpisodeInfo(
+                            title = movie.title,
+                            season = 0,
+                            episode = 0,
+                            episodeName = null,
+                            isMovie = true
+                        )
+                    )
+                }
+            }
+
+            if (todayNotifications.isNotEmpty()) {
+                notifyNewEpisodes(todayNotifications)
             }
 
             Result.success()
@@ -83,7 +100,7 @@ class SeriesCheckWorker(
         }
     }
 
-    private fun notifyNewEpisodes(episodes: List<EpisodeInfo>) {
+    private fun notifyNewEpisodes(notifications: List<EpisodeInfo>) {
         if (!hasNotificationPermission()) return
 
         val intent = Intent(applicationContext, MainActivity::class.java).apply {
@@ -96,8 +113,11 @@ class SeriesCheckWorker(
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        if (episodes.size == 1) {
-            val ep = episodes.first()
+        val seriesEpisodes = notifications.filter { !it.isMovie }
+        val movieReleases = notifications.filter { it.isMovie }
+
+        if (seriesEpisodes.size == 1 && movieReleases.isEmpty()) {
+            val ep = seriesEpisodes.first()
             val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_popcorn)
                 .setContentTitle("Nuevo episodio")
@@ -107,21 +127,33 @@ class SeriesCheckWorker(
                 .setAutoCancel(true)
                 .build()
             safeNotify(ep.title.hashCode(), notification)
-        } else {
+        } else if (seriesEpisodes.size > 1 && movieReleases.isEmpty()) {
             val inboxStyle = NotificationCompat.InboxStyle()
-            episodes.forEach { ep ->
+            seriesEpisodes.forEach { ep ->
                 inboxStyle.addLine("${ep.title} — T${ep.season}E${ep.episode}")
             }
             val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_popcorn)
-                .setContentTitle("${episodes.size} nuevos episodios")
-                .setContentText("Hoy se estrenan ${episodes.size} episodios")
+                .setContentTitle("${seriesEpisodes.size} nuevos episodios")
+                .setContentText("Hoy se estrenan ${seriesEpisodes.size} episodios")
                 .setStyle(inboxStyle)
                 .setPriority(NotificationCompat.PRIORITY_DEFAULT)
                 .setContentIntent(pendingIntent)
                 .setAutoCancel(true)
                 .build()
-            safeNotify(episodes.hashCode(), notification)
+            safeNotify(seriesEpisodes.hashCode(), notification)
+        }
+
+        for (movie in movieReleases) {
+            val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_popcorn)
+                .setContentTitle("Estreno en cines")
+                .setContentText("Hoy se estrena ${movie.title}")
+                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                .setContentIntent(pendingIntent)
+                .setAutoCancel(true)
+                .build()
+            safeNotify("movie_${movie.title}".hashCode(), notification)
         }
     }
 
@@ -146,7 +178,8 @@ class SeriesCheckWorker(
         val title: String,
         val season: Int,
         val episode: Int,
-        val episodeName: String?
+        val episodeName: String?,
+        val isMovie: Boolean = false
     )
 
     companion object {

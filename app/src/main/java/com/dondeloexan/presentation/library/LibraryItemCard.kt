@@ -170,7 +170,9 @@ fun LibraryItemCard(
                 )
             }
 
-            val isFinished = totalEpisodes != null && totalEpisodes > 0 && watchedCount >= totalEpisodes
+            val hasFutureEpisodes = nextEpisodeAirDate != null
+                    && (inProduction == true || seriesStatus in listOf("Returning Series", "In Production"))
+            val isFinished = totalEpisodes != null && totalEpisodes > 0 && watchedCount >= totalEpisodes && !hasFutureEpisodes
             val isFinalEpisode = totalEpisodes != null && totalEpisodes > 0 &&
                     nextEpisodeAirDate != null && inProduction == false &&
                     !isFinished
@@ -221,10 +223,12 @@ fun LibraryItemCard(
 
             if (nextEpisodeAirDate != null && seriesStatus != "Ended" && seriesStatus != "Canceled") {
                 Spacer(Modifier.height(4.dp))
+                val isCaughtUp = totalEpisodes != null && totalEpisodes > 0 && watchedCount >= totalEpisodes
                 NextEpisodeLabel(
                     airDate = nextEpisodeAirDate,
                     season = nextEpisodeSeasonNumber,
-                    episode = nextEpisodeNumber
+                    episode = nextEpisodeNumber,
+                    isCaughtUp = isCaughtUp
                 )
             }
 
@@ -563,7 +567,8 @@ private fun PlatformBadgeRow(platforms: List<StreamingAvailability>, maxVisible:
 private fun NextEpisodeLabel(
     airDate: String,
     season: Int?,
-    episode: Int?
+    episode: Int?,
+    isCaughtUp: Boolean = false
 ) {
     val label = remember(airDate) {
         try {
@@ -572,10 +577,10 @@ private fun NextEpisodeLabel(
             val days = ChronoUnit.DAYS.between(now, date)
             when {
                 days < 0 -> null
-                days == 0L -> "¡Hoy nuevo episodio!"
-                days == 1L -> "Mañana nuevo episodio"
-                days <= 7 -> "Próximo en $days días"
-                else -> "Próximo: ${date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}"
+                days == 0L -> if (isCaughtUp) "¡Hoy nueva temporada!" else "¡Hoy nuevo episodio!"
+                days == 1L -> if (isCaughtUp) "Mañana nueva temporada" else "Mañana nuevo episodio"
+                days <= 7 -> if (isCaughtUp) "Próxima temporada en $days días" else "Próximo en $days días"
+                else -> if (isCaughtUp) "Próxima temporada: ${date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}" else "Próximo: ${date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}"
             }
         } catch (e: Exception) {
             AppLogger.e("LibraryItemCard", "nextEpisodeLabel: $airDate", e)

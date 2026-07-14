@@ -17,6 +17,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -55,39 +56,41 @@ class SeriesViewModel(
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val inProgress: StateFlow<List<SeriesWithProgress>> = combine(
-        tvShowDao.getInProgressFlow(),
-        tvShowProgressDao.getWatchedCounts()
-    ) { series, counts ->
-        val countMap = counts.associate { it.tvShowId to it.count }
-        series.map { show ->
-            val watchedCount = countMap[show.id] ?: 0
-            SeriesWithProgress(
-                show = show,
-                watchedCount = watchedCount,
-                totalEpisodes = deriveTotalEpisodes(show.totalEpisodes, watchedCount)
-            )
-        }
+    private fun SeriesWithProgress.hasFutureEpisodes(): Boolean {
+        return show.nextEpisodeAirDate != null
+                && show.seriesStatus in listOf("Returning Series", "In Production")
+    }
+
+    private fun SeriesWithProgress.isCaughtUp(): Boolean {
+        val total = totalEpisodes ?: return false
+        return total > 0 && watchedCount >= total && hasFutureEpisodes()
+    }
+
+    private fun SeriesWithProgress.isFinished(): Boolean {
+        if (show.finishedAt != null) return true
+        if (show.status == com.dondeloexan.data.local.entity.WatchStatus.YA_VISTA && !hasFutureEpisodes()) return true
+        val total = totalEpisodes ?: return false
+        if (total <= 0) return false
+        if (watchedCount < total) return false
+        if (show.inProduction == true) return false
+        if (show.seriesStatus in listOf("Returning Series", "In Production")) return false
+        return true
+    }
+
+    val inProgress: StateFlow<List<SeriesWithProgress>> = seriesWithProgress.map { list ->
+        list.filter { s -> s.show.liked && !s.isCaughtUp() && !s.isFinished() }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val finished: StateFlow<List<SeriesWithProgress>> = combine(
-        tvShowDao.getFinishedFlow(),
-        tvShowProgressDao.getWatchedCounts()
-    ) { series, counts ->
-        val countMap = counts.associate { it.tvShowId to it.count }
-        series.map { show ->
-            val watchedCount = countMap[show.id] ?: 0
-            SeriesWithProgress(
-                show = show,
-                watchedCount = watchedCount,
-                totalEpisodes = deriveTotalEpisodes(show.totalEpisodes, watchedCount)
-            )
-        }
+    val finished: StateFlow<List<SeriesWithProgress>> = seriesWithProgress.map { list ->
+        list.filter { s -> s.show.liked && s.isFinished() }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val upcomingAgenda: StateFlow<List<TvShowEntity>> = tvShowDao.getUpcomingFlow(
-        today = LocalDate.now().toString()
-    ).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val upcomingAgenda: StateFlow<List<SeriesWithProgress>> = seriesWithProgress.map { list ->
+        val today = LocalDate.now().toString()
+        list.filter { s ->
+            s.show.liked && s.isCaughtUp() && s.show.nextEpisodeAirDate != null && s.show.nextEpisodeAirDate >= today
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     init {
         refreshSeriesData()

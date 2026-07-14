@@ -19,6 +19,8 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -51,9 +53,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -89,12 +91,13 @@ import com.dondeloexan.presentation.theme.TextPrimary
 import com.dondeloexan.presentation.theme.TextSecondary
 import com.dondeloexan.presentation.theme.UbuntuTypography
 import com.dondeloexan.util.AppLogger
+import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun MediaDetailScreen(
     contentId: String,
@@ -103,7 +106,7 @@ fun MediaDetailScreen(
     viewModel: MediaDetailViewModel = koinViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    var selectedTab by remember { mutableIntStateOf(0) }
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(contentId, contentType) {
         viewModel.loadContent(contentId, contentType)
@@ -150,38 +153,54 @@ fun MediaDetailScreen(
             }
             uiState.content != null -> {
                 val content = uiState.content!!
+                val pageCount = if (content.type == ContentType.SERIES) 2 else 1
+                val pagerState = rememberPagerState(pageCount = { pageCount })
+
+                LaunchedEffect(pagerState.currentPage) {
+                    if (content.type == ContentType.SERIES && pagerState.currentPage == 1
+                        && uiState.seasonDetail == null && uiState.seasons.isNotEmpty()) {
+                        viewModel.selectSeason(uiState.selectedSeason)
+                    }
+                }
+
                 if (content.type == ContentType.SERIES) {
                     TabRow(
-                        selectedTabIndex = selectedTab,
+                        selectedTabIndex = pagerState.currentPage,
                         containerColor = DarkBackground,
                         contentColor = EleganteRose
                     ) {
                         Tab(
-                            selected = selectedTab == 0,
-                            onClick = { selectedTab = 0 },
+                            selected = pagerState.currentPage == 0,
+                            onClick = { scope.launch { pagerState.animateScrollToPage(0) } },
                             text = { Text("Ficha") }
                         )
                         Tab(
-                            selected = selectedTab == 1,
-                            onClick = { selectedTab = 1 },
+                            selected = pagerState.currentPage == 1,
+                            onClick = { scope.launch { pagerState.animateScrollToPage(1) } },
                             text = { Text("Episodios") }
                         )
                     }
-                    when (selectedTab) {
+                }
+
+                HorizontalPager(
+                    state = pagerState,
+                    modifier = Modifier.fillMaxSize()
+                ) { page ->
+                    when (page) {
                         0 -> FichaTab(content)
-                        1 -> EpisodiosTab(
-                            seasons = uiState.seasons,
-                            selectedSeason = uiState.selectedSeason,
-                            seasonDetail = uiState.seasonDetail,
-                            watchedEpisodes = uiState.watchedEpisodes,
-                            lastWatchedEpisode = if (uiState.selectedSeason == uiState.lastWatchedSeason) uiState.lastWatchedEpisode else null,
-                            onSeasonSelected = viewModel::selectSeason,
-                            onToggleEpisode = viewModel::toggleEpisodeWatched,
-                            onMarkSeasonToggle = viewModel::markSeasonWatched
-                        )
+                        1 -> if (content.type == ContentType.SERIES) {
+                            EpisodiosTab(
+                                seasons = uiState.seasons,
+                                selectedSeason = uiState.selectedSeason,
+                                seasonDetail = uiState.seasonDetail,
+                                watchedEpisodes = uiState.watchedEpisodes,
+                                lastWatchedEpisode = if (uiState.selectedSeason == uiState.lastWatchedSeason) uiState.lastWatchedEpisode else null,
+                                onSeasonSelected = viewModel::selectSeason,
+                                onToggleEpisode = viewModel::toggleEpisodeWatched,
+                                onMarkSeasonToggle = viewModel::markSeasonWatched
+                            )
+                        }
                     }
-                } else {
-                    FichaTab(content)
                 }
             }
         }

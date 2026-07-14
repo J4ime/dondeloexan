@@ -462,6 +462,11 @@ class DiscoverViewModel(
         }
     }
 
+    private fun platformMatches(platformName: String, userPlatform: String): Boolean {
+        return platformName.contains(userPlatform, ignoreCase = true) ||
+                userPlatform.contains(platformName, ignoreCase = true)
+    }
+
     private suspend fun fillUntil(targetCount: Int, query: String = "") {
         val liked = buildSet {
             addAll(likedIds.value)
@@ -485,6 +490,8 @@ class DiscoverViewModel(
             val pageResults = if (query.isBlank()) {
                 try {
                     discoverRepository.fetchTrendingPage(apiPage, _filterByPlatforms.value)
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     AppLogger.e("DiscoverVM", "fetchTrendingPage error", e)
                     emptyList()
@@ -492,6 +499,8 @@ class DiscoverViewModel(
             } else {
                 try {
                     discoverRepository.fetchSearchPage(query, apiPage)
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     AppLogger.e("DiscoverVM", "fetchSearchPage error", e)
                     emptyList()
@@ -506,9 +515,18 @@ class DiscoverViewModel(
             apiPage++
 
             val blacklisted = blacklistedIds.value
+            val filterByPlatforms = _filterByPlatforms.value
+            val activePlatformsSet = activePlatforms.value
 
             val filtered = if (query.isBlank()) {
                 pageResults.filter { it.id !in liked && it.id !in blacklisted && it.id !in watched }
+            } else if (filterByPlatforms && activePlatformsSet.isNotEmpty()) {
+                pageResults.filter { preview ->
+                    preview.id !in blacklisted && preview.id !in liked && preview.id !in watched &&
+                            preview.streamingPlatforms.any { platform ->
+                                activePlatformsSet.any { active -> platformMatches(platform.platformName, active) }
+                            }
+                }
             } else {
                 pageResults.filter { it.id !in blacklisted && it.id !in liked && it.id !in watched }
             }

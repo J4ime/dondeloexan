@@ -299,6 +299,13 @@ class MediaDetailViewModel(
 
         try {
             val tvShow = tvShowDao.getByContentId(content.id) ?: content.tmdbId?.let { tvShowDao.getByTmdbId(it) } ?: return
+
+            if (tvShow.inProduction == true
+                || tvShow.seriesStatus in listOf("Returning Series", "In Production")
+                || tvShow.nextEpisodeAirDate != null) {
+                return
+            }
+
             tvShowDao.update(tvShow.copy(
                 status = WatchStatus.YA_VISTA,
                 finishedAt = System.currentTimeMillis()

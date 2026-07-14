@@ -54,7 +54,6 @@ import com.dondeloexan.presentation.theme.EleganteRoseDark
 import com.dondeloexan.presentation.theme.TextPrimary
 import com.dondeloexan.presentation.theme.TextSecondary
 import com.dondeloexan.presentation.theme.UbuntuTypography
-import com.dondeloexan.util.AppLogger
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
 
@@ -64,7 +63,6 @@ fun SeriesScreen(
     navController: NavController,
     viewModel: SeriesViewModel = koinViewModel()
 ) {
-    val allSeries by viewModel.seriesWithProgress.collectAsState()
     val inProgress by viewModel.inProgress.collectAsState()
     val finished by viewModel.finished.collectAsState()
     val upcoming by viewModel.upcomingAgenda.collectAsState()
@@ -368,7 +366,7 @@ private fun FinishedTab(
 
 @Composable
 private fun AgendaTab(
-    series: List<com.dondeloexan.data.local.entity.TvShowEntity>,
+    series: List<SeriesWithProgress>,
     navController: NavController,
     viewModel: SeriesViewModel
 ) {
@@ -403,31 +401,15 @@ private fun AgendaTab(
             verticalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxSize()
         ) {
-            items(series, key = { it.id }) { show ->
-                val airDate = show.nextEpisodeAirDate
-                val label = if (airDate != null) {
-                    try {
-                        val date = java.time.LocalDate.parse(airDate)
-                        val now = java.time.LocalDate.now()
-                        val days = java.time.temporal.ChronoUnit.DAYS.between(now, date)
-                        when {
-                            days < 0 -> "Estrenado el ${date.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"))}"
-                            days == 0L -> "¡Hoy!"
-                            days == 1L -> "Mañana"
-                            else -> date.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"))
-                        }
-                    } catch (e: Exception) {
-                        AppLogger.e("SeriesScreen", "airDate parse: $airDate", e)
-                        airDate
-                    }
-                } else "Fecha por confirmar"
-
+            items(series, key = { it.show.id }) { item ->
+                val show = item.show
                 com.dondeloexan.presentation.library.LibraryItemCard(
                     posterUrl = show.posterUrl,
                     title = show.title,
                     year = show.year,
                     streamingPlatforms = show.streamingPlatforms.toStreamingPlatforms(),
-                    totalEpisodes = show.totalEpisodes,
+                    watchedCount = item.watchedCount,
+                    totalEpisodes = item.totalEpisodes,
                     nextEpisodeAirDate = show.nextEpisodeAirDate,
                     nextEpisodeNumber = show.nextEpisodeNumber,
                     nextEpisodeSeasonNumber = show.nextEpisodeSeasonNumber,
