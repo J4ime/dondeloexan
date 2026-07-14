@@ -77,8 +77,7 @@ private fun tryFallbackParse(badJson: String?): List<StreamingAvailability>? {
                 val idx = remaining.indexOf(prefix)
                 if (idx < 0) return@mapNotNull null
                 val afterPrefix = remaining.substring(idx + prefix.length)
-                val endIdx = afterPrefix.indexOfFirst { it == ',' || it == '}' }
-                if (endIdx < 0) return@mapNotNull null
+                val endIdx = afterPrefix.indexOfFirst { it == ',' || it == '}' }.let { if (it < 0) afterPrefix.length else it }
                 val value = afterPrefix.substring(0, endIdx)
                 pairs[key] = value
                 remaining = afterPrefix.substring(endIdx)
