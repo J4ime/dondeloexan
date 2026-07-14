@@ -63,6 +63,7 @@ fun SeriesScreen(
     navController: NavController,
     viewModel: SeriesViewModel = koinViewModel()
 ) {
+    val pending by viewModel.pending.collectAsState()
     val inProgress by viewModel.inProgress.collectAsState()
     val finished by viewModel.finished.collectAsState()
     val upcoming by viewModel.upcomingAgenda.collectAsState()
@@ -104,38 +105,116 @@ fun SeriesScreen(
             Tab(
                 selected = selectedTab == 0,
                 onClick = { selectedTab = 0 },
-                text = { Text("En curso", color = if (selectedTab == 0) EleganteRose else TextSecondary) }
+                text = { Text("Pendientes", color = if (selectedTab == 0) EleganteRose else TextSecondary) }
             )
             Tab(
                 selected = selectedTab == 1,
                 onClick = { selectedTab = 1 },
-                text = { Text("Agenda", color = if (selectedTab == 1) EleganteRose else TextSecondary) }
+                text = { Text("En curso", color = if (selectedTab == 1) EleganteRose else TextSecondary) }
             )
             Tab(
                 selected = selectedTab == 2,
                 onClick = { selectedTab = 2 },
-                text = { Text("Terminadas", color = if (selectedTab == 2) EleganteRose else TextSecondary) }
+                text = { Text("Agenda", color = if (selectedTab == 2) EleganteRose else TextSecondary) }
+            )
+            Tab(
+                selected = selectedTab == 3,
+                onClick = { selectedTab = 3 },
+                text = { Text("Terminadas", color = if (selectedTab == 3) EleganteRose else TextSecondary) }
             )
         }
 
         when (selectedTab) {
-            0 -> InProgressTab(
+            0 -> PendingTab(
+                series = pending,
+                navController = navController,
+                viewModel = viewModel
+            )
+            1 -> InProgressTab(
                 series = inProgress,
                 isGridView = isGridView,
                 navController = navController,
                 viewModel = viewModel
             )
-            1 -> AgendaTab(
+            2 -> AgendaTab(
                 series = upcoming,
                 navController = navController,
                 viewModel = viewModel
             )
-            2 -> FinishedTab(
+            3 -> FinishedTab(
                 series = finished,
                 isGridView = isGridView,
                 navController = navController,
                 viewModel = viewModel
             )
+        }
+    }
+}
+
+@Composable
+private fun PendingTab(
+    series: List<SeriesWithProgress>,
+    navController: NavController,
+    viewModel: SeriesViewModel
+) {
+    if (series.isEmpty()) {
+        Box(
+            Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(
+                    painter = painterResource(com.dondeloexan.R.drawable.ic_popcorn),
+                    contentDescription = null,
+                    modifier = Modifier.size(80.dp),
+                    tint = EleganteRoseDark.copy(alpha = 0.2f)
+                )
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    "No tienes series pendientes",
+                    style = UbuntuTypography.titleMedium,
+                    color = TextSecondary
+                )
+                Text(
+                    "Las series que añadas aparecerán aquí",
+                    style = UbuntuTypography.bodySmall,
+                    color = TextSecondary.copy(alpha = 0.6f)
+                )
+            }
+        }
+    } else {
+        LazyColumn(
+            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxSize()
+        ) {
+            items(series, key = { it.show.id }) { item ->
+                val s = item.show
+                com.dondeloexan.presentation.library.LibraryItemCard(
+                    posterUrl = s.posterUrl,
+                    title = s.title,
+                    year = s.year,
+                    streamingPlatforms = s.streamingPlatforms.toStreamingPlatforms(),
+                    watchedCount = item.watchedCount,
+                    totalEpisodes = item.totalEpisodes,
+                    nextEpisodeAirDate = s.nextEpisodeAirDate,
+                    nextEpisodeNumber = s.nextEpisodeNumber,
+                    nextEpisodeSeasonNumber = s.nextEpisodeSeasonNumber,
+                    seriesStatus = s.seriesStatus,
+                    inProduction = s.inProduction,
+                    numberOfSeasons = s.numberOfSeasons,
+                    isLiked = s.liked,
+                    isWatched = s.status.name == "YA_VISTA",
+                    onLikeClick = { viewModel.toggleLike(s) },
+                    onWatchedClick = { viewModel.toggleWatched(s) },
+                    onClick = {
+                        navController.navigate("detail/${s.contentId ?: ""}/series")
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(180.dp)
+                )
+            }
         }
     }
 }

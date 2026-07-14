@@ -97,6 +97,18 @@ class MediaDetailViewModel(
 
     private suspend fun loadSeasons(content: Content) {
         try {
+            val tvShow = tvShowDao.getByContentId(content.id) ?: content.tmdbId?.let { tvShowDao.getByTmdbId(it) }
+            if (tvShow != null) {
+                val progress = tvShowProgressDao.getByTvShowId(tvShow.id)
+                val watchedSet = progress.map { "S${it.season}E${it.episode}" }.toSet()
+                val lastWatched = progress.maxByOrNull { it.watchedAt }
+                _uiState.value = _uiState.value.copy(
+                    watchedEpisodes = watchedSet,
+                    lastWatchedSeason = lastWatched?.season,
+                    lastWatchedEpisode = lastWatched?.episode
+                )
+            }
+
             when (content.source) {
                 ContentSource.TMDB -> {
                     val tmdbId = content.tmdbId ?: return
@@ -125,18 +137,6 @@ class MediaDetailViewModel(
                         selectSeason(targetSeason.seasonNumber)
                     }
                 }
-            }
-
-            val tvShow = tvShowDao.getByContentId(content.id) ?: content.tmdbId?.let { tvShowDao.getByTmdbId(it) }
-            if (tvShow != null) {
-                val progress = tvShowProgressDao.getByTvShowId(tvShow.id)
-                val watchedSet = progress.map { "S${it.season}E${it.episode}" }.toSet()
-                val lastWatched = progress.maxByOrNull { it.watchedAt }
-                _uiState.value = _uiState.value.copy(
-                    watchedEpisodes = watchedSet,
-                    lastWatchedSeason = lastWatched?.season,
-                    lastWatchedEpisode = lastWatched?.episode
-                )
             }
         } catch (e: Exception) {
             AppLogger.e("DetailVM", "Error loading seasons", e)

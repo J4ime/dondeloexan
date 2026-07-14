@@ -58,7 +58,7 @@ class SeriesViewModel(
 
     private fun SeriesWithProgress.hasFutureEpisodes(): Boolean {
         return show.nextEpisodeAirDate != null
-                && show.seriesStatus in listOf("Returning Series", "In Production")
+                && show.seriesStatus !in listOf("Ended", "Canceled")
     }
 
     private fun SeriesWithProgress.isCaughtUp(): Boolean {
@@ -67,7 +67,7 @@ class SeriesViewModel(
     }
 
     private fun SeriesWithProgress.isFinished(): Boolean {
-        if (show.finishedAt != null) return true
+        if (show.finishedAt != null && !hasFutureEpisodes()) return true
         if (show.status == com.dondeloexan.data.local.entity.WatchStatus.YA_VISTA && !hasFutureEpisodes()) return true
         val total = totalEpisodes ?: return false
         if (total <= 0) return false
@@ -77,8 +77,12 @@ class SeriesViewModel(
         return true
     }
 
+    val pending: StateFlow<List<SeriesWithProgress>> = seriesWithProgress.map { list ->
+        list.filter { s -> s.show.liked && s.watchedCount == 0 }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     val inProgress: StateFlow<List<SeriesWithProgress>> = seriesWithProgress.map { list ->
-        list.filter { s -> s.show.liked && !s.isCaughtUp() && !s.isFinished() }
+        list.filter { s -> s.show.liked && s.watchedCount > 0 && !s.isCaughtUp() && !s.isFinished() }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val finished: StateFlow<List<SeriesWithProgress>> = seriesWithProgress.map { list ->
