@@ -140,9 +140,9 @@ fun MoviesScreen(
                     year = movie.year,
                     streamingPlatforms = movie.streamingPlatforms.toStreamingPlatforms(),
                         releaseDate = movie.releaseDate,
-                        isLiked = movie.liked,
                         isWatched = movie.status.name == "YA_VISTA",
-                        onLikeClick = { viewModel.toggleLike(movie) },
+                        watchedAt = movie.watchedAt,
+                        onDeleteClick = { viewModel.deleteMovie(movie) },
                         onWatchedClick = { viewModel.toggleWatched(movie) },
                             onClick = {
                                 navController.navigate("detail/${movie.contentId ?: ""}/movie")
@@ -172,9 +172,9 @@ fun MoviesScreen(
                             year = movie.year,
                             streamingPlatforms = movie.streamingPlatforms.toStreamingPlatforms(),
                             releaseDate = movie.releaseDate,
-                            isLiked = movie.liked,
                             isWatched = movie.status.name == "YA_VISTA",
-                            onLikeClick = { viewModel.toggleLike(movie) },
+                            watchedAt = movie.watchedAt,
+                            onDeleteClick = { viewModel.deleteMovie(movie) },
                             onWatchedClick = { viewModel.toggleWatched(movie) },
                             onClick = {
                                 navController.navigate("detail/${movie.contentId ?: ""}/movie")

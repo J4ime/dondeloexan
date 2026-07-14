@@ -48,8 +48,10 @@ class MoviesViewModel(
                             } else {
                                 movieDao.getByTmdbId(tmdbId)
                             } ?: continue
-                            movieDao.update(existing.copy(streamingPlatforms = platformsStr))
-                            AppLogger.d("MoviesVM", "Refreshed platforms for ${movie.title}: ${platforms.size} platforms")
+                            if (platformsStr != null) {
+                                movieDao.update(existing.copy(streamingPlatforms = platformsStr))
+                            }
+                            AppLogger.d("MoviesVM", "Refreshed platforms for ${movie.title}: ${platforms.size} platforms, saved=${platformsStr != null}, preview=${platformsStr?.take(120)}")
                         } catch (e: Exception) {
                             AppLogger.e("MoviesVM", "Refresh movie platforms error", e)
                         }
@@ -62,27 +64,10 @@ class MoviesViewModel(
         }
     }
 
-    fun toggleLike(movie: MovieEntity) {
+    fun deleteMovie(movie: MovieEntity) {
         viewModelScope.launch {
-            val newLiked = !movie.liked
-            if (newLiked) {
-                movie.tmdbId?.let { tmdbId ->
-                    try {
-                        val providers = tmdbApi.getMovieWatchProviders(tmdbId)
-                        val platforms = providers.results["ES"]?.toStreamingAvailability().orEmpty()
-                        val platformsStr = platforms.toPlatformsString()
-                        movieDao.update(movie.copy(liked = true, streamingPlatforms = platformsStr ?: movie.streamingPlatforms))
-                        AppLogger.d("MoviesVM", "toggleLike fetch platforms for ${movie.title}: ${platforms.size}")
-                        feedbackManager.emit("Película añadida")
-                        return@launch
-                    } catch (_: Exception) {}
-                }
-            }
-            movieDao.update(movie.copy(liked = newLiked))
-            feedbackManager.emit(
-                if (newLiked) "Película añadida"
-                else "Película quitada"
-            )
+            movieDao.delete(movie)
+            feedbackManager.emit("Película eliminada")
         }
     }
 

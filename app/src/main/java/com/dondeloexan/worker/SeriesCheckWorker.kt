@@ -18,6 +18,7 @@ import com.dondeloexan.data.local.dao.TvShowDao
 import com.dondeloexan.data.remote.api.TmdbApi
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
+import com.dondeloexan.util.AppLogger
 import java.time.LocalDate
 
 class SeriesCheckWorker(
@@ -77,7 +78,9 @@ class SeriesCheckWorker(
                 seriesStatus = tv.status,
                 inProduction = tv.inProduction
             )
-        } catch (_: Exception) { }
+        } catch (e: Exception) {
+            AppLogger.e("SeriesCheckWorker", "Error updating from TMDB for show $showId", e)
+        }
     }
 
     private fun notifyNewEpisodes(episodes: List<EpisodeInfo>) {
@@ -134,7 +137,9 @@ class SeriesCheckWorker(
     private fun safeNotify(id: Int, notification: android.app.Notification) {
         try {
             NotificationManagerCompat.from(applicationContext).notify(id, notification)
-        } catch (_: Exception) { }
+        } catch (e: Exception) {
+            AppLogger.e("SeriesCheckWorker", "Error showing notification $id", e)
+        }
     }
 
     private data class EpisodeInfo(

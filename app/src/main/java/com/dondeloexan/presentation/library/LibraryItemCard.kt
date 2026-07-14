@@ -59,6 +59,7 @@ import com.dondeloexan.presentation.theme.UbuntuTypography
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import coil.request.CachePolicy
+import com.dondeloexan.util.AppLogger
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
@@ -79,9 +80,11 @@ fun LibraryItemCard(
     inProduction: Boolean? = null,
     numberOfSeasons: Int? = null,
     releaseDate: String? = null,
-    isLiked: Boolean,
+    isLiked: Boolean = false,
     isWatched: Boolean,
-    onLikeClick: () -> Unit,
+    watchedAt: Long? = null,
+    onLikeClick: () -> Unit = {},
+    onDeleteClick: (() -> Unit)? = null,
     onWatchedClick: () -> Unit,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -247,23 +250,39 @@ fun LibraryItemCard(
                 .padding(6.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            IconButton(
-                onClick = onLikeClick,
-                modifier = Modifier
-                    .size(48.dp)
-                    .background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
-            ) {
-                val isSeries = totalEpisodes != null
-                Icon(
-                    if (isLiked) {
-                        if (isSeries) Icons.Filled.Close else Icons.Filled.Add
-                    } else {
-                        if (isSeries) Icons.Outlined.Close else Icons.Outlined.Add
-                    },
-                    contentDescription = if (isSeries) "Quitar" else "Favorito",
-                    tint = if (isLiked) EleganteRose else TextPrimary,
-                    modifier = Modifier.size(24.dp)
-                )
+            if (onDeleteClick != null) {
+                IconButton(
+                    onClick = onDeleteClick,
+                    modifier = Modifier
+                        .size(48.dp)
+                        .background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                ) {
+                    Icon(
+                        Icons.Outlined.Close,
+                        contentDescription = "Eliminar",
+                        tint = EleganteRose,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            } else {
+                IconButton(
+                    onClick = onLikeClick,
+                    modifier = Modifier
+                        .size(48.dp)
+                        .background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                ) {
+                    val isSeries = totalEpisodes != null
+                    Icon(
+                        if (isLiked) {
+                            if (isSeries) Icons.Filled.Close else Icons.Filled.Add
+                        } else {
+                            if (isSeries) Icons.Outlined.Close else Icons.Outlined.Add
+                        },
+                        contentDescription = if (isSeries) "Quitar" else "Favorito",
+                        tint = if (isLiked) EleganteRose else TextPrimary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
             }
 
             IconButton(
@@ -277,6 +296,33 @@ fun LibraryItemCard(
                     contentDescription = "Visto",
                     tint = if (isWatched) EleganteRose else TextPrimary,
                     modifier = Modifier.size(24.dp)
+                )
+            }
+        }
+
+        if (isWatched && watchedAt != null) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(6.dp)
+                    .background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(4.dp))
+                    .padding(horizontal = 6.dp, vertical = 2.dp)
+            ) {
+                val dateStr = remember(watchedAt) {
+                    try {
+                        val sdf = java.text.SimpleDateFormat("dd/MM/yy", java.util.Locale.getDefault())
+                        sdf.format(java.util.Date(watchedAt))
+                    } catch (e: Exception) {
+                        AppLogger.e("LibraryItemCard", "dateStr format: $watchedAt", e)
+                        ""
+                    }
+                }
+                Text(
+                    text = dateStr,
+                    style = UbuntuTypography.labelSmall,
+                    color = EleganteRose,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold
                 )
             }
         }
@@ -334,7 +380,10 @@ private fun MovieOverlayBadge(
                 }
                 else -> null
             }
-        } catch (_: Exception) { null }
+        } catch (e: Exception) {
+            AppLogger.e("LibraryItemCard", "cinemaInfo: $releaseDate", e)
+            null
+        }
     }
 
     if (cinemaInfo != null) {
@@ -533,7 +582,10 @@ private fun NextEpisodeLabel(
                 days <= 7 -> "Próximo en $days días"
                 else -> "Próximo: ${date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}"
             }
-        } catch (_: Exception) { null }
+        } catch (e: Exception) {
+            AppLogger.e("LibraryItemCard", "nextEpisodeLabel: $airDate", e)
+            null
+        }
     }
     val seasonEpisode = if (season != null && episode != null) "T${season}E$episode" else null
 

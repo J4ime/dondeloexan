@@ -86,6 +86,7 @@ import com.dondeloexan.presentation.theme.RatingMedium
 import com.dondeloexan.presentation.theme.TextPrimary
 import com.dondeloexan.presentation.theme.TextSecondary
 import com.dondeloexan.presentation.theme.UbuntuTypography
+import com.dondeloexan.util.AppLogger
 import org.koin.androidx.compose.koinViewModel
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -278,7 +279,10 @@ private fun parseAirDate(airDate: String?): AirDateInfo? {
             daysUntil = days,
             formattedDate = date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
         )
-    } catch (_: Exception) { null }
+    } catch (e: Exception) {
+        AppLogger.e("MediaDetailScreen", "parseAirDate: $airDate", e)
+        null
+    }
 }
 
 @Composable
@@ -609,7 +613,10 @@ private fun appendCinemaPlatform(
             daysUntilRelease > 0 -> "Estreno: ${date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}"
             else -> null
         }
-    } catch (_: Exception) { null }
+    } catch (e: Exception) {
+        AppLogger.e("MediaDetailScreen", "cinemaPlatform: $releaseDate", e)
+        null
+    }
 
     return if (cinemaLabel != null) {
         val cinemaPlatform = StreamingAvailability(

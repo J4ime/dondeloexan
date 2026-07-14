@@ -179,7 +179,10 @@ class DiscoverViewModel(
                 tmdbApi.getMovieWatchProviders(tmdbId)
             }
             providers.results["ES"]?.toStreamingAvailability().orEmpty()
-        } catch (_: Exception) { emptyList() }
+        } catch (e: Exception) {
+            AppLogger.e("DiscoverVM", "fetchPlatformsIfEmpty for ${preview.title}", e)
+            emptyList()
+        }
     }
 
     fun onToggleFavorite(preview: ContentPreview) {
@@ -188,7 +191,7 @@ class DiscoverViewModel(
                 val info = resolveContentForSave(preview)
                 val platforms = fetchPlatformsIfEmpty(preview)
                 val platformsStr = platforms.toPlatformsString()
-                AppLogger.d("DiscoverVM", "toggleFavorite ${preview.title}: platforms.size=${platforms.size}, platformsStr=${platformsStr != null}")
+                AppLogger.d("DiscoverVM", "toggleFavorite ${preview.title}: platforms.size=${platforms.size}, platformsStr=${platformsStr != null}, preview=${platformsStr?.take(120)}")
                 when (preview.type) {
                     com.dondeloexan.domain.model.ContentType.MOVIE -> {
                         val existing = movieDao.getByContentId(info.contentId)

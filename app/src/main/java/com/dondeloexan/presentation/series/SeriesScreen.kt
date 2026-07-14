@@ -51,6 +51,7 @@ import com.dondeloexan.presentation.theme.EleganteRoseDark
 import com.dondeloexan.presentation.theme.TextPrimary
 import com.dondeloexan.presentation.theme.TextSecondary
 import com.dondeloexan.presentation.theme.UbuntuTypography
+import com.dondeloexan.util.AppLogger
 import org.koin.androidx.compose.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -400,7 +401,10 @@ private fun AgendaTab(
                             days == 1L -> "Mañana"
                             else -> date.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"))
                         }
-                    } catch (_: Exception) { airDate }
+                    } catch (e: Exception) {
+                        AppLogger.e("SeriesScreen", "airDate parse: $airDate", e)
+                        airDate
+                    }
                 } else "Fecha por confirmar"
 
                 com.dondeloexan.presentation.library.LibraryItemCard(

@@ -11,6 +11,7 @@ import com.dondeloexan.data.local.entity.UserPlatformEntity
 import com.dondeloexan.data.local.entity.WatchStatus
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import com.dondeloexan.util.AppLogger
 import kotlinx.serialization.json.Json
 import java.io.IOException
 
@@ -95,7 +96,10 @@ class BackupManager(
         tmdbId = tmdbId, title = title,
         posterUrl = posterUrl, ratingTmdb = ratingTmdb,
         ratingImdb = ratingImdb,
-        status = try { WatchStatus.valueOf(status) } catch (_: Exception) { WatchStatus.POR_VER },
+        status = try { WatchStatus.valueOf(status) } catch (e: Exception) {
+            AppLogger.e("BackupManager", "Unknown movie status: $status", e)
+            WatchStatus.POR_VER
+        },
         liked = liked, addedAt = addedAt
     )
 
@@ -103,7 +107,10 @@ class BackupManager(
         tmdbId = tmdbId, title = title,
         posterUrl = posterUrl, ratingTmdb = ratingTmdb,
         ratingImdb = ratingImdb,
-        status = try { WatchStatus.valueOf(status) } catch (_: Exception) { WatchStatus.POR_VER },
+        status = try { WatchStatus.valueOf(status) } catch (e: Exception) {
+            AppLogger.e("BackupManager", "Unknown tv status: $status", e)
+            WatchStatus.POR_VER
+        },
         totalEpisodes = totalEpisodes, addedAt = addedAt
     )
 }

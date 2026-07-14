@@ -21,6 +21,7 @@ import com.dondeloexan.domain.model.DataResult
 import com.dondeloexan.domain.model.ExternalLinks
 import com.dondeloexan.domain.model.StreamingAvailability
 import com.dondeloexan.domain.repository.DiscoverRepository
+import com.dondeloexan.util.AppLogger
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
@@ -82,7 +83,10 @@ class DiscoverRepositoryImpl(
                 ContentType.SERIES -> imdbApi.getTvExternalIds(imdbId)
             }
             externalIds.tmdbId
-        } catch (_: Exception) { null }
+        } catch (_: Exception) {
+            AppLogger.e("DiscoverRepo", "resolveTmdbId failed for $imdbId")
+            null
+        }
     }
 
     override suspend fun getDetail(contentId: String, contentType: ContentType): Flow<DataResult<Content>> = flow {
@@ -146,7 +150,10 @@ class DiscoverRepositoryImpl(
                 ContentType.SERIES -> imdbApi.getTvExternalIds(imdbId)
             }
             externalIds.tmdbId
-        } catch (_: Exception) { null }
+        } catch (e: Exception) {
+            AppLogger.e("DiscoverRepo", "fetchImdbDetail tmdbId for $id", e)
+            null
+        }
 
         if (tmdbId != null) {
             return fetchTmdbDetail("tmdb-$tmdbId", contentType)
@@ -162,7 +169,10 @@ class DiscoverRepositoryImpl(
         }
         val platforms = providers.results?.get("ES")?.imdbToStreaming().orEmpty()
 
-        val omdbRating = try { omdbApi.getByImdbId(imdbId) } catch (_: Exception) { null }
+        val omdbRating = try { omdbApi.getByImdbId(imdbId) } catch (e: Exception) {
+            AppLogger.e("DiscoverRepo", "OMDB rating for $imdbId", e)
+            null
+        }
 
         val externalLinks = try {
             val social = when (contentType) {
@@ -178,7 +188,10 @@ class DiscoverRepositoryImpl(
                 youtubeId = social.youtubeId,
                 homepage = social.homepage
             )
-        } catch (_: Exception) { null }
+        } catch (e: Exception) {
+            AppLogger.e("DiscoverRepo", "externalLinks for imdb $imdbId", e)
+            null
+        }
 
         return when (contentType) {
             ContentType.MOVIE -> imdbApi.getMovieDetail(imdbId).toDomain(omdbRating, platforms, externalLinks)
@@ -265,7 +278,10 @@ class DiscoverRepositoryImpl(
                         homepage = social.homepage
                     )
                 }
-            } catch (_: Exception) { null }
+            } catch (e: Exception) {
+                AppLogger.e("DiscoverRepo", "externalLinks for tmdb $tmdbId", e)
+                null
+            }
 
             tv.toDomain(null, platforms, credits, externalLinks)
         } else {
@@ -275,7 +291,10 @@ class DiscoverRepositoryImpl(
             val platforms = providers.results?.get("ES")?.toStreamingAvailability().orEmpty()
 
             val omdbRatings = movie.imdbId?.let { imdbId ->
-                try { omdbApi.getByImdbId(imdbId) } catch (_: Exception) { null }
+                try { omdbApi.getByImdbId(imdbId) } catch (e: Exception) {
+                    AppLogger.e("DiscoverRepo", "OMDB ratings for movie $imdbId", e)
+                    null
+                }
             }
 
             val externalLinks = try {
@@ -291,7 +310,10 @@ class DiscoverRepositoryImpl(
                         homepage = social.homepage
                     )
                 }
-            } catch (_: Exception) { null }
+            } catch (e: Exception) {
+                AppLogger.e("DiscoverRepo", "externalLinks for movie ${movie.imdbId}", e)
+                null
+            }
 
             val content = movie.toDomain(omdbRatings, platforms, credits, externalLinks)
             if (movie.imdbId != null) {
@@ -303,7 +325,10 @@ class DiscoverRepositoryImpl(
                             ?.value?.removeSuffix("%")?.toIntOrNull(),
                         ratingMetacritic = omdb.metascore?.toIntOrNull()
                     )
-                } catch (_: Exception) { content }
+                } catch (e: Exception) {
+                    AppLogger.e("DiscoverRepo", "OMDB override for ${movie.imdbId}", e)
+                    content
+                }
             } else content
         }
     }
@@ -335,7 +360,8 @@ class DiscoverRepositoryImpl(
                             imdbApi.getMovieWatchProviders(imdbId)
                         }
                         providerResponse.results?.get("ES")?.imdbToStreaming().orEmpty()
-                    } catch (_: Exception) {
+                    } catch (e: Exception) {
+                        AppLogger.e("DiscoverRepo", "IMDB platforms for ${preview.id}, fallback to TMDB", e)
                         tryFetchTmbdPlatforms(preview)
                     }
                     preview.copy(streamingPlatforms = platforms)
@@ -356,7 +382,10 @@ class DiscoverRepositoryImpl(
                             tmdbApi.getMovieWatchProviders(tmdbId)
                         }
                         providerResponse.results?.get("ES")?.toStreamingAvailability().orEmpty()
-                    } catch (_: Exception) { emptyList<StreamingAvailability>() }
+                    } catch (e: Exception) {
+                        AppLogger.e("DiscoverRepo", "TMDB platforms for ${preview.id}", e)
+                        emptyList<StreamingAvailability>()
+                    }
                     preview.copy(streamingPlatforms = platforms)
                 }
             }.map { it.await() }
@@ -377,7 +406,10 @@ class DiscoverRepositoryImpl(
                 }
                 providerResponse.results?.get("ES")?.toStreamingAvailability().orEmpty()
             } else emptyList()
-        } catch (_: Exception) { emptyList() }
+        } catch (e: Exception) {
+            AppLogger.e("DiscoverRepo", "TMDB fallback platforms for ${preview.title}", e)
+            emptyList()
+        }
     }
 
     override suspend fun fetchTrendingPage(page: Int, filterByPlatforms: Boolean): List<ContentPreview> {

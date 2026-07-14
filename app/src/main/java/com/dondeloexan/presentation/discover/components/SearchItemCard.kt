@@ -55,6 +55,7 @@ import com.dondeloexan.presentation.theme.UbuntuTypography
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import coil.request.CachePolicy
+import com.dondeloexan.util.AppLogger
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -196,7 +197,10 @@ fun SearchItemCard(
                             daysSince in 0..90 -> "En cines → Fin: ${cinemaEnd.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM"))}" to true
                             else -> if (nonCinemaPlatforms.isEmpty()) null else "Fin de cartelera" to false
                         }
-                    } catch (_: Exception) { null }
+                    } catch (e: Exception) {
+                        AppLogger.e("SearchItemCard", "cinemaInfo: ${content.releaseDate}", e)
+                        null
+                    }
                 }
                 if (cinemaInfo != null) {
                     val (label, isActive) = cinemaInfo
@@ -232,7 +236,10 @@ fun SearchItemCard(
                                 val date = java.time.LocalDate.parse(content.releaseDate)
                                 val now = java.time.LocalDate.now()
                                 java.time.temporal.ChronoUnit.DAYS.between(now, date) > 0
-                            } catch (_: Exception) { false }
+                            } catch (e: Exception) {
+                                AppLogger.e("SearchItemCard", "isFuture: ${content.releaseDate}", e)
+                                false
+                            }
                         }
                         if (isFuture) {
                             Text(

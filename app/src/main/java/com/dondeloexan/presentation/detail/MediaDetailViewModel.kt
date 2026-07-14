@@ -280,7 +280,9 @@ class MediaDetailViewModel(
                 status = WatchStatus.YA_VISTA,
                 finishedAt = System.currentTimeMillis()
             ))
-        } catch (_: Exception) { }
+        } catch (e: Exception) {
+            AppLogger.e("DetailVM", "checkAndMarkFinale for ${content.id}", e)
+        }
     }
 
     fun markSeasonWatched() {

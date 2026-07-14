@@ -109,7 +109,10 @@ class SeriesViewModel(
                                     val providers = tmdbApi.getTvWatchProviders(tmdbId)
                                     val platforms = providers.results.get("ES")?.toStreamingAvailability().orEmpty()
                                     platforms.toPlatformsString()
-                                } catch (_: Exception) { null }
+                                } catch (e: Exception) {
+                                    AppLogger.e("SeriesVM", "platforms for show ${show.id}", e)
+                                    null
+                                }
                             } else existing.streamingPlatforms
 
                             tvShowDao.update(
@@ -166,7 +169,9 @@ class SeriesViewModel(
                             if (totalEp != null && totalEp > 0) {
                                 tvShowDao.update(show.copy(totalEpisodes = totalEp))
                             }
-                        } catch (_: Exception) { }
+                        } catch (e: Exception) {
+                            AppLogger.e("SeriesVM", "totalEpisodes for show ${show.id}", e)
+                        }
                     }
                 }
                 if (totalEp != null && totalEp > 0) {
@@ -174,7 +179,9 @@ class SeriesViewModel(
                         try {
                             val detail = tmdbApi.getTvDetail(show.tmdbId)
                             seasons = detail.seasons.orEmpty().filter { it.seasonNumber > 0 }
-                        } catch (_: Exception) { }
+                        } catch (e: Exception) {
+                            AppLogger.e("SeriesVM", "seasons detail for show ${show.id}", e)
+                        }
                     }
                     val allProgress = if (seasons.isNotEmpty()) {
                         seasons.flatMap { s ->
