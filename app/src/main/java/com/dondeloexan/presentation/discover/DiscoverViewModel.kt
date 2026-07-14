@@ -21,7 +21,6 @@ import com.dondeloexan.domain.model.StreamingAvailability
 import com.dondeloexan.domain.repository.DiscoverRepository
 import com.dondeloexan.presentation.feedback.FeedbackManager
 import com.dondeloexan.util.AppLogger
-import java.util.UUID
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -129,38 +128,36 @@ class DiscoverViewModel(
     }
 
     private suspend fun resolveContentForSave(preview: ContentPreview): SaveContentInfo {
-        val uuid = UUID.randomUUID().toString()
-
         if (preview.type == com.dondeloexan.domain.model.ContentType.MOVIE) {
             val byTmdb = preview.tmdbId?.let { movieDao.getByTmdbId(it) }
             if (byTmdb != null) return SaveContentInfo(
-                byTmdb.contentId ?: uuid, byTmdb.tmdbId, byTmdb.imdbId
+                byTmdb.contentId ?: preview.id, byTmdb.tmdbId, byTmdb.imdbId
             )
             val byImdb = preview.imdbId?.let { movieDao.getByImdbId(it) }
             if (byImdb != null) return SaveContentInfo(
-                byImdb.contentId ?: uuid, byImdb.tmdbId, byImdb.imdbId
+                byImdb.contentId ?: preview.id, byImdb.tmdbId, byImdb.imdbId
             )
             if (preview.tmdbId != null || preview.source != ContentSource.IMDB) {
-                return SaveContentInfo(uuid, preview.tmdbId, preview.imdbId)
+                return SaveContentInfo(preview.id, preview.tmdbId, preview.imdbId)
             }
             val rawImdbId = preview.id.removePrefix("imdb-")
             val resolvedTmdbId = discoverRepository.resolveTmdbId(rawImdbId, preview.type)
-            return SaveContentInfo(uuid, resolvedTmdbId, rawImdbId)
+            return SaveContentInfo(preview.id, resolvedTmdbId, rawImdbId)
         } else {
             val byTmdb = preview.tmdbId?.let { tvShowDao.getByTmdbId(it) }
             if (byTmdb != null) return SaveContentInfo(
-                byTmdb.contentId ?: uuid, byTmdb.tmdbId, byTmdb.imdbId
+                byTmdb.contentId ?: preview.id, byTmdb.tmdbId, byTmdb.imdbId
             )
             val byImdb = preview.imdbId?.let { tvShowDao.getByImdbId(it) }
             if (byImdb != null) return SaveContentInfo(
-                byImdb.contentId ?: uuid, byImdb.tmdbId, byImdb.imdbId
+                byImdb.contentId ?: preview.id, byImdb.tmdbId, byImdb.imdbId
             )
             if (preview.tmdbId != null || preview.source != ContentSource.IMDB) {
-                return SaveContentInfo(uuid, preview.tmdbId, preview.imdbId)
+                return SaveContentInfo(preview.id, preview.tmdbId, preview.imdbId)
             }
             val rawImdbId = preview.id.removePrefix("imdb-")
             val resolvedTmdbId = discoverRepository.resolveTmdbId(rawImdbId, preview.type)
-            return SaveContentInfo(uuid, resolvedTmdbId, rawImdbId)
+            return SaveContentInfo(preview.id, resolvedTmdbId, rawImdbId)
         }
     }
 
@@ -460,12 +457,24 @@ class DiscoverViewModel(
     }
 
     private suspend fun fillUntil(targetCount: Int, query: String = "") {
-        val liked = likedIds.value.takeIf { it.isNotEmpty() }
-            ?: movieDao.getLiked().first().mapNotNull { it.contentId }.toSet() +
-                tvShowDao.getLiked().first().mapNotNull { it.contentId }.toSet()
-        val watched = watchedIds.value.takeIf { it.isNotEmpty() }
-            ?: movieDao.getByStatus(WatchStatus.YA_VISTA).first().mapNotNull { it.contentId }.toSet() +
-                tvShowDao.getByStatus(WatchStatus.YA_VISTA).first().mapNotNull { it.contentId }.toSet()
+        val liked = buildSet {
+            addAll(likedIds.value)
+            movieDao.getLiked().first().forEach { m ->
+                m.tmdbId?.let { add("tmdb-$it") }
+            }
+            tvShowDao.getLiked().first().forEach { s ->
+                s.tmdbId?.let { add("tmdb-$it") }
+            }
+        }
+        val watched = buildSet {
+            addAll(watchedIds.value)
+            movieDao.getByStatus(WatchStatus.YA_VISTA).first().forEach { m ->
+                m.tmdbId?.let { add("tmdb-$it") }
+            }
+            tvShowDao.getByStatus(WatchStatus.YA_VISTA).first().forEach { s ->
+                s.tmdbId?.let { add("tmdb-$it") }
+            }
+        }
         while (accumulatedResults.size < targetCount && hasMoreApiPages) {
             val pageResults = if (query.isBlank()) {
                 try {

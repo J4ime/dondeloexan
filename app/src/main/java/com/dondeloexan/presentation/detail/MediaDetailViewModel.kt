@@ -21,6 +21,8 @@ import com.dondeloexan.util.AppLogger
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
 data class DetailUiState(
@@ -52,6 +54,8 @@ class MediaDetailViewModel(
 
     private val _uiState = MutableStateFlow(DetailUiState())
     val uiState: StateFlow<DetailUiState> = _uiState.asStateFlow()
+
+    private var seasonJob: Job? = null
 
     fun loadContent(contentId: String, contentType: ContentType = ContentType.MOVIE) {
         viewModelScope.launch {
@@ -140,7 +144,8 @@ class MediaDetailViewModel(
     }
 
     fun selectSeason(seasonNumber: Int) {
-        viewModelScope.launch {
+        seasonJob?.cancel()
+        seasonJob = viewModelScope.launch {
             _uiState.value = _uiState.value.copy(selectedSeason = seasonNumber, cascadeProposal = null)
 
             val content = _uiState.value.content ?: return@launch
@@ -158,6 +163,7 @@ class MediaDetailViewModel(
                     }
                 }
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 AppLogger.e("DetailVM", "Error loading season $seasonNumber", e)
             }
         }

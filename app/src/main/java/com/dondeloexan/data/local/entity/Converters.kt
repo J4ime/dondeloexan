@@ -40,7 +40,7 @@ fun String?.toStreamingPlatforms(): List<StreamingAvailability> {
         AppLogger.d("Converters", "toStreamingPlatforms: parsed ${result.size} platforms, len=${this.length}, preview=${this.take(120)}")
         result
     } catch (e: Exception) {
-        AppLogger.e("Converters", "toStreamingPlatforms error, trying fallback: ${this?.take(200)}", e)
+        AppLogger.w("Converters", "toStreamingPlatforms fallback for: ${this?.take(200)}")
         tryFallbackParse(this) ?: emptyList()
     }
 }
