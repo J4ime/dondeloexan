@@ -85,10 +85,23 @@ class SeriesCheckWorker(
 
     private suspend fun updateFromTmdb(showId: Long, tmdbId: Int) {
         try {
-            val tv = tmdbApi.getTvDetail(tmdbId)
+            val tv = tmdbApi.getTvDetailLight(tmdbId)
+            val releasedEpisodes = if (tv.lastEpisodeToAir != null && tv.seasons != null) {
+                val last = tv.lastEpisodeToAir
+                tv.seasons
+                    .filter { it.seasonNumber > 0 }
+                    .sumOf { season ->
+                        when {
+                            season.seasonNumber < last.seasonNumber -> season.episodeCount
+                            season.seasonNumber == last.seasonNumber -> last.episodeNumber
+                            else -> 0
+                        }
+                    }
+            } else tv.numberOfEpisodes
             tvShowDao.updateById(
                 id = showId,
                 totalEpisodes = tv.numberOfEpisodes,
+                releasedEpisodes = releasedEpisodes,
                 nextEpisodeAirDate = tv.nextEpisodeToAir?.airDate,
                 nextEpisodeNumber = tv.nextEpisodeToAir?.episodeNumber,
                 nextEpisodeSeasonNumber = tv.nextEpisodeToAir?.seasonNumber,

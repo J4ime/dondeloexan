@@ -170,9 +170,9 @@ fun LibraryItemCard(
                 )
             }
 
-            val hasFutureEpisodes = nextEpisodeAirDate != null
-                    && (inProduction == true || seriesStatus in listOf("Returning Series", "In Production"))
-            val isFinished = totalEpisodes != null && totalEpisodes > 0 && watchedCount >= totalEpisodes && !hasFutureEpisodes
+            val hasFutureSeasons = seriesStatus !in listOf("Ended", "Canceled") && inProduction != false
+            val isCaughtUp = totalEpisodes != null && totalEpisodes > 0 && watchedCount >= totalEpisodes
+            val isFinished = totalEpisodes != null && totalEpisodes > 0 && watchedCount >= totalEpisodes && !hasFutureSeasons
             val isFinalEpisode = totalEpisodes != null && totalEpisodes > 0 &&
                     nextEpisodeAirDate != null && inProduction == false &&
                     !isFinished
@@ -221,9 +221,8 @@ fun LibraryItemCard(
                 }
             }
 
-            if (nextEpisodeAirDate != null && seriesStatus != "Ended" && seriesStatus != "Canceled") {
+            if (nextEpisodeAirDate != null || (hasFutureSeasons && isCaughtUp)) {
                 Spacer(Modifier.height(4.dp))
-                val isCaughtUp = totalEpisodes != null && totalEpisodes > 0 && watchedCount >= totalEpisodes
                 NextEpisodeLabel(
                     airDate = nextEpisodeAirDate,
                     season = nextEpisodeSeasonNumber,
@@ -565,11 +564,35 @@ private fun PlatformBadgeRow(platforms: List<StreamingAvailability>, maxVisible:
 
 @Composable
 private fun NextEpisodeLabel(
-    airDate: String,
+    airDate: String?,
     season: Int?,
     episode: Int?,
     isCaughtUp: Boolean = false
 ) {
+    if (airDate == null && isCaughtUp) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Icon(
+                Icons.Outlined.Notifications,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+                tint = TextSecondary
+            )
+            Text(
+                "Pendiente de confirmar",
+                style = UbuntuTypography.labelSmall,
+                color = TextSecondary,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+        return
+    }
+
+    if (airDate == null) return
+
     val label = remember(airDate) {
         try {
             val date = LocalDate.parse(airDate)

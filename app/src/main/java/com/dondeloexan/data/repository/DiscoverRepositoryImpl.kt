@@ -41,6 +41,7 @@ class DiscoverRepositoryImpl(
 ) : DiscoverRepository {
 
     private val platformSemaphore = Semaphore(4)
+    private val platformSearchSemaphore = Semaphore(10)
 
     private data class CachedPlatforms(
         val platforms: List<StreamingAvailability>,
@@ -394,32 +395,34 @@ class DiscoverRepositoryImpl(
         return coroutineScope {
             previews.map { preview ->
                 async {
-                    val platforms = try {
-                        val tmdbId = preview.tmdbId ?: return@async preview
-                        val cacheKey = "tmdb-$tmdbId-${preview.type}"
-                        val cached = platformsCache[cacheKey]
-                        if (cached != null && (System.currentTimeMillis() - cached.timestamp) < CACHE_TTL_MS) {
-                            cached.platforms
-                        } else {
-                            val providerResponse = if (preview.type == ContentType.SERIES) {
-                                tmdbApi.getTvWatchProviders(tmdbId)
+                    platformSearchSemaphore.withPermit {
+                        val platforms = try {
+                            val tmdbId = preview.tmdbId ?: return@withPermit preview
+                            val cacheKey = "tmdb-$tmdbId-${preview.type}"
+                            val cached = platformsCache[cacheKey]
+                            if (cached != null && (System.currentTimeMillis() - cached.timestamp) < CACHE_TTL_MS) {
+                                cached.platforms
                             } else {
-                                tmdbApi.getMovieWatchProviders(tmdbId)
+                                val providerResponse = if (preview.type == ContentType.SERIES) {
+                                    tmdbApi.getTvWatchProviders(tmdbId)
+                                } else {
+                                    tmdbApi.getMovieWatchProviders(tmdbId)
+                                }
+                                val platforms = providerResponse.results?.get("ES")?.toStreamingAvailability().orEmpty()
+                                platformsCache[cacheKey] = CachedPlatforms(platforms, System.currentTimeMillis())
+                                platforms
                             }
-                            val platforms = providerResponse.results?.get("ES")?.toStreamingAvailability().orEmpty()
-                            platformsCache[cacheKey] = CachedPlatforms(platforms, System.currentTimeMillis())
-                            platforms
+                        } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+                            AppLogger.w("DiscoverRepo", "TMDB platforms for ${preview.id} (timeout): ${e.message}")
+                            emptyList<StreamingAvailability>()
+                        } catch (e: kotlinx.coroutines.CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            AppLogger.e("DiscoverRepo", "TMDB platforms for ${preview.id}", e)
+                            emptyList<StreamingAvailability>()
                         }
-                    } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
-                        AppLogger.w("DiscoverRepo", "TMDB platforms for ${preview.id} (timeout): ${e.message}")
-                        emptyList<StreamingAvailability>()
-                    } catch (e: kotlinx.coroutines.CancellationException) {
-                        throw e
-                    } catch (e: Exception) {
-                        AppLogger.e("DiscoverRepo", "TMDB platforms for ${preview.id}", e)
-                        emptyList<StreamingAvailability>()
+                        preview.copy(streamingPlatforms = platforms)
                     }
-                    preview.copy(streamingPlatforms = platforms)
                 }
             }.map { it.await() }
         }

@@ -13,14 +13,12 @@ import com.dondeloexan.data.remote.dto.TmdbSeasonDto
 import com.dondeloexan.data.remote.mapper.toStreamingAvailability
 import com.dondeloexan.presentation.feedback.FeedbackManager
 import com.dondeloexan.util.AppLogger
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import java.time.LocalDate
 
 data class SeriesWithProgress(
     val show: TvShowEntity,
@@ -56,26 +54,21 @@ class SeriesViewModel(
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    private fun SeriesWithProgress.hasFutureEpisodes(): Boolean {
-        return show.nextEpisodeAirDate != null
-                && show.seriesStatus !in listOf("Ended", "Canceled")
+    private fun SeriesWithProgress.hasFutureSeasons(): Boolean {
+        return show.seriesStatus !in listOf("Ended", "Canceled")
+                && show.inProduction != false
     }
 
     private fun SeriesWithProgress.isCaughtUp(): Boolean {
         val aired = show.releasedEpisodes ?: totalEpisodes ?: return false
-        return aired > 0 && watchedCount >= aired && hasFutureEpisodes()
+        return aired > 0 && watchedCount >= aired
     }
 
     private fun SeriesWithProgress.isFinished(): Boolean {
-        if (show.finishedAt != null && !hasFutureEpisodes()) return true
-        if (show.status == com.dondeloexan.data.local.entity.WatchStatus.YA_VISTA && !hasFutureEpisodes()) return true
-        val total = totalEpisodes ?: return false
-        if (total <= 0) return false
-        val target = show.releasedEpisodes ?: total
-        if (watchedCount < target) return false
-        if (show.inProduction == true) return false
-        if (show.seriesStatus in listOf("Returning Series", "In Production")) return false
-        return true
+        if (show.finishedAt != null) return true
+        if (show.status == com.dondeloexan.data.local.entity.WatchStatus.YA_VISTA && !hasFutureSeasons()) return true
+        if (!isCaughtUp()) return false
+        return !hasFutureSeasons()
     }
 
     val pending: StateFlow<List<SeriesWithProgress>> = seriesWithProgress.map { list ->
@@ -91,9 +84,8 @@ class SeriesViewModel(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val upcomingAgenda: StateFlow<List<SeriesWithProgress>> = seriesWithProgress.map { list ->
-        val today = LocalDate.now().toString()
         list.filter { s ->
-            s.show.liked && s.isCaughtUp() && s.show.nextEpisodeAirDate != null && s.show.nextEpisodeAirDate >= today
+            s.show.liked && s.isCaughtUp() && s.hasFutureSeasons()
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -103,60 +95,57 @@ class SeriesViewModel(
 
     private fun refreshSeriesData() {
         viewModelScope.launch {
-            while (true) {
-                try {
-                    val liked = tvShowDao.getAll().filter { it.liked }
-                    for (show in liked) {
-                        val tmdbId = show.tmdbId ?: continue
-                        try {
-                            val tvDetail = tmdbApi.getTvDetailLight(tmdbId)
-                            val existing = tvShowDao.getByContentId(show.contentId ?: continue) ?: continue
+            try {
+                val liked = tvShowDao.getAll().filter { it.liked }
+                for (show in liked) {
+                    val tmdbId = show.tmdbId ?: continue
+                    try {
+                        val tvDetail = tmdbApi.getTvDetailLight(tmdbId)
+                        val existing = tvShowDao.getByContentId(show.contentId ?: continue) ?: continue
 
-                            val releasedEpisodes = if (tvDetail.lastEpisodeToAir != null && tvDetail.seasons != null) {
-                                val last = tvDetail.lastEpisodeToAir!!
-                                tvDetail.seasons!!
-                                    .filter { it.seasonNumber > 0 }
-                                    .sumOf { season ->
-                                        when {
-                                            season.seasonNumber < last.seasonNumber -> season.episodeCount
-                                            season.seasonNumber == last.seasonNumber -> last.episodeNumber
-                                            else -> 0
-                                        }
+                        val releasedEpisodes = if (tvDetail.lastEpisodeToAir != null && tvDetail.seasons != null) {
+                            val last = tvDetail.lastEpisodeToAir!!
+                            tvDetail.seasons!!
+                                .filter { it.seasonNumber > 0 }
+                                .sumOf { season ->
+                                    when {
+                                        season.seasonNumber < last.seasonNumber -> season.episodeCount
+                                        season.seasonNumber == last.seasonNumber -> last.episodeNumber
+                                        else -> 0
                                     }
-                            } else tvDetail.numberOfEpisodes
-
-                            val platformsStr = if (existing.streamingPlatforms.isNullOrEmpty()) {
-                                try {
-                                    val providers = tmdbApi.getTvWatchProviders(tmdbId)
-                                    val platforms = providers.results.get("ES")?.toStreamingAvailability().orEmpty()
-                                    platforms.toPlatformsString()
-                                } catch (e: Exception) {
-                                    AppLogger.e("SeriesVM", "platforms for show ${show.id}", e)
-                                    null
                                 }
-                            } else existing.streamingPlatforms
+                        } else tvDetail.numberOfEpisodes
 
-                            tvShowDao.update(
-                                existing.copy(
-                                    totalEpisodes = tvDetail.numberOfEpisodes ?: existing.totalEpisodes,
-                                    releasedEpisodes = releasedEpisodes,
-                                    nextEpisodeAirDate = tvDetail.nextEpisodeToAir?.airDate,
-                                    nextEpisodeNumber = tvDetail.nextEpisodeToAir?.episodeNumber,
-                                    nextEpisodeSeasonNumber = tvDetail.nextEpisodeToAir?.seasonNumber,
-                                    seriesStatus = tvDetail.status,
-                                    inProduction = tvDetail.inProduction ?: existing.inProduction,
-                                    numberOfSeasons = tvDetail.numberOfSeasons ?: existing.numberOfSeasons,
-                                    streamingPlatforms = platformsStr
-                                )
+                        val platformsStr = if (existing.streamingPlatforms.isNullOrEmpty()) {
+                            try {
+                                val providers = tmdbApi.getTvWatchProviders(tmdbId)
+                                val platforms = providers.results.get("ES")?.toStreamingAvailability().orEmpty()
+                                platforms.toPlatformsString()
+                            } catch (e: Exception) {
+                                AppLogger.e("SeriesVM", "platforms for show ${show.id}", e)
+                                null
+                            }
+                        } else existing.streamingPlatforms
+
+                        tvShowDao.update(
+                            existing.copy(
+                                totalEpisodes = tvDetail.numberOfEpisodes ?: existing.totalEpisodes,
+                                releasedEpisodes = releasedEpisodes,
+                                nextEpisodeAirDate = tvDetail.nextEpisodeToAir?.airDate,
+                                nextEpisodeNumber = tvDetail.nextEpisodeToAir?.episodeNumber,
+                                nextEpisodeSeasonNumber = tvDetail.nextEpisodeToAir?.seasonNumber,
+                                seriesStatus = tvDetail.status,
+                                inProduction = tvDetail.inProduction ?: existing.inProduction,
+                                numberOfSeasons = tvDetail.numberOfSeasons ?: existing.numberOfSeasons,
+                                streamingPlatforms = platformsStr
                             )
-                        } catch (e: Exception) {
-                            AppLogger.e("SeriesVM", "Refresh series detail error", e)
-                        }
+                        )
+                    } catch (e: Exception) {
+                        AppLogger.e("SeriesVM", "Refresh series detail error", e)
                     }
-                } catch (e: Exception) {
-                    AppLogger.e("SeriesVM", "Refresh series data error", e)
                 }
-                delay(3_600_000)
+            } catch (e: Exception) {
+                AppLogger.e("SeriesVM", "Refresh series data error", e)
             }
         }
     }

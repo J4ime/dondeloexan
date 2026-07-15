@@ -58,6 +58,7 @@ interface TvShowDao {
     @Query("""
         UPDATE tv_shows SET 
             total_episodes = :totalEpisodes,
+            released_episodes = :releasedEpisodes,
             next_episode_air_date = :nextEpisodeAirDate,
             next_episode_number = :nextEpisodeNumber,
             next_episode_season = :nextEpisodeSeasonNumber,
@@ -68,6 +69,7 @@ interface TvShowDao {
     suspend fun updateById(
         id: Long,
         totalEpisodes: Int?,
+        releasedEpisodes: Int?,
         nextEpisodeAirDate: String?,
         nextEpisodeNumber: Int?,
         nextEpisodeSeasonNumber: Int?,

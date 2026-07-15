@@ -62,7 +62,7 @@ fun DondeLoExanNavGraph(navController: NavHostController) {
     val currentRoute = navBackStackEntry?.destination?.route
 
     val pagerState = rememberPagerState(
-        initialPage = 2,
+        initialPage = 0,
         pageCount = { Route.bottomNavItems.size }
     )
     val scope = rememberCoroutineScope()
