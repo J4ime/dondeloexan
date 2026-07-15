@@ -5,6 +5,8 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dondeloexan.BuildConfig
+import com.dondeloexan.data.local.dao.TvShowDao
+import com.dondeloexan.data.remote.api.TmdbApi
 import com.dondeloexan.data.update.SilentUpdateManager
 import com.dondeloexan.domain.model.BackupState
 import com.dondeloexan.domain.model.GitHubRelease
@@ -19,7 +21,9 @@ import kotlinx.coroutines.launch
 class SettingsViewModel(
     private val settingsRepository: SettingsRepository,
     private val backupRepository: BackupRepository,
-    private val silentUpdateManager: SilentUpdateManager
+    private val silentUpdateManager: SilentUpdateManager,
+    private val tvShowDao: TvShowDao,
+    private val tmdbApi: TmdbApi
 ) : ViewModel() {
 
     private val _updateState = MutableStateFlow<UpdateCheckState>(UpdateCheckState.Idle)
@@ -27,6 +31,9 @@ class SettingsViewModel(
 
     private val _backupState = MutableStateFlow<BackupState>(BackupState.Idle)
     val backupState: StateFlow<BackupState> = _backupState.asStateFlow()
+
+    private val _seriesRefreshState = MutableStateFlow<SeriesRefreshState>(SeriesRefreshState.Idle)
+    val seriesRefreshState: StateFlow<SeriesRefreshState> = _seriesRefreshState.asStateFlow()
 
     val currentVersion: String = BuildConfig.VERSION_NAME
 
@@ -116,6 +123,58 @@ class SettingsViewModel(
     fun onBackupMessageShown() {
         _backupState.value = BackupState.Idle
     }
+
+    fun refreshSeries() {
+        if (_seriesRefreshState.value is SeriesRefreshState.Refreshing) return
+        _seriesRefreshState.value = SeriesRefreshState.Refreshing
+        viewModelScope.launch {
+            try {
+                val liked = tvShowDao.getAllLiked()
+                var count = 0
+                for (show in liked) {
+                    val tmdbId = show.tmdbId ?: continue
+                    try {
+                        val tvDetail = tmdbApi.getTvDetailLight(tmdbId)
+                        val lastEp = tvDetail.lastEpisodeToAir
+                        val seasons = tvDetail.seasons
+                        val releasedEpisodes = if (lastEp != null && seasons != null) {
+                            seasons.filter { it.seasonNumber > 0 }
+                                .sumOf { season ->
+                                    when {
+                                        season.seasonNumber < lastEp.seasonNumber -> season.episodeCount
+                                        season.seasonNumber == lastEp.seasonNumber -> lastEp.episodeNumber
+                                        else -> 0
+                                    }
+                                }
+                        } else tvDetail.numberOfEpisodes
+                        tvShowDao.updateById(
+                            id = show.id,
+                            totalEpisodes = tvDetail.numberOfEpisodes,
+                            releasedEpisodes = releasedEpisodes,
+                            nextEpisodeAirDate = tvDetail.nextEpisodeToAir?.airDate,
+                            nextEpisodeNumber = tvDetail.nextEpisodeToAir?.episodeNumber,
+                            nextEpisodeSeasonNumber = tvDetail.nextEpisodeToAir?.seasonNumber,
+                            seriesStatus = tvDetail.status,
+                            inProduction = tvDetail.inProduction
+                        )
+                        count++
+                    } catch (e: Exception) {
+                        AppLogger.e("SettingsVM", "Refresh series ${show.id}", e)
+                    }
+                }
+                _seriesRefreshState.value = SeriesRefreshState.Done(count)
+            } catch (e: Exception) {
+                AppLogger.e("SettingsVM", "Refresh series error", e)
+                _seriesRefreshState.value = SeriesRefreshState.Error(
+                    e.message ?: "Error al actualizar series"
+                )
+            }
+        }
+    }
+
+    fun onSeriesRefreshMessageShown() {
+        _seriesRefreshState.value = SeriesRefreshState.Idle
+    }
 }
 
 sealed interface UpdateCheckState {
@@ -127,4 +186,11 @@ sealed interface UpdateCheckState {
     data class NeedsInstallPermission(val downloadUrl: String) : UpdateCheckState
     data object InstallLaunched : UpdateCheckState
     data class Error(val message: String) : UpdateCheckState
+}
+
+sealed interface SeriesRefreshState {
+    data object Idle : SeriesRefreshState
+    data object Refreshing : SeriesRefreshState
+    data class Done(val count: Int) : SeriesRefreshState
+    data class Error(val message: String) : SeriesRefreshState
 }

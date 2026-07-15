@@ -493,6 +493,8 @@ class DiscoverRepositoryImpl(
         }
     }
 
+    enum class TrendingVariant { POPULAR, TOP_RATED, RECENT, RANDOM_YEAR }
+
     override suspend fun fetchTrendingPage(page: Int, filterByPlatforms: Boolean): List<ContentPreview> {
         val activePlatforms = userPlatformDao.getActiveNames().toSet()
         val providerFilter = if (filterByPlatforms) {
@@ -500,13 +502,47 @@ class DiscoverRepositoryImpl(
         } else null
 
         val postFilterByPlatforms = filterByPlatforms && providerFilter == null
+        val variant = TrendingVariant.values().random()
+
+        val movieSort: String?
+        val tvSort: String?
+        val movieYearGte: String?
+        val tvYearGte: String?
+
+        when (variant) {
+            TrendingVariant.POPULAR -> {
+                movieSort = "popularity.desc"
+                tvSort = "popularity.desc"
+                movieYearGte = "2024-01-01"
+                tvYearGte = "2024-01-01"
+            }
+            TrendingVariant.TOP_RATED -> {
+                movieSort = "vote_average.desc"
+                tvSort = "vote_average.desc"
+                movieYearGte = null
+                tvYearGte = null
+            }
+            TrendingVariant.RECENT -> {
+                movieSort = "primary_release_date.desc"
+                tvSort = "first_air_date.desc"
+                movieYearGte = "2025-01-01"
+                tvYearGte = "2025-01-01"
+            }
+            TrendingVariant.RANDOM_YEAR -> {
+                val year = (2020..2025).random()
+                movieSort = "popularity.desc"
+                tvSort = "popularity.desc"
+                movieYearGte = "$year-01-01"
+                tvYearGte = "$year-01-01"
+            }
+        }
 
         return coroutineScope {
             val movieDeferred = async {
-                tmdbApi.discoverMovie(page = page, watchProviders = providerFilter)
+                tmdbApi.discoverMovie(page = page, watchProviders = providerFilter, releaseDateGte = movieYearGte, sortBy = movieSort)
             }
             val tvDeferred = async {
-                tmdbApi.discoverTv(page = page, watchProviders = providerFilter)
+                tmdbApi.discoverTv(page = page, watchProviders = providerFilter, firstAirDateGte = tvYearGte, sortBy = tvSort)
             }
 
             val movieResults = movieDeferred.await()

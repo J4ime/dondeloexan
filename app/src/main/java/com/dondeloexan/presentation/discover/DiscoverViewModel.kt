@@ -45,6 +45,39 @@ class DiscoverViewModel(
     private val feedbackManager: FeedbackManager
 ) : ViewModel() {
 
+    private suspend fun enrichTvShowFromTmdb(entity: TvShowEntity) {
+        val tmdbId = entity.tmdbId ?: return
+        try {
+            val tvDetail = tmdbApi.getTvDetailLight(tmdbId)
+            val lastEp = tvDetail.lastEpisodeToAir
+            val seasons = tvDetail.seasons
+            val releasedEpisodes = if (lastEp != null && seasons != null) {
+                seasons.filter { it.seasonNumber > 0 }
+                    .sumOf { season ->
+                        when {
+                            season.seasonNumber < lastEp.seasonNumber -> season.episodeCount
+                            season.seasonNumber == lastEp.seasonNumber -> lastEp.episodeNumber
+                            else -> 0
+                        }
+                    }
+            } else tvDetail.numberOfEpisodes
+            tvShowDao.update(
+                entity.copy(
+                    totalEpisodes = tvDetail.numberOfEpisodes ?: entity.totalEpisodes,
+                    releasedEpisodes = releasedEpisodes,
+                    nextEpisodeAirDate = tvDetail.nextEpisodeToAir?.airDate,
+                    nextEpisodeNumber = tvDetail.nextEpisodeToAir?.episodeNumber,
+                    nextEpisodeSeasonNumber = tvDetail.nextEpisodeToAir?.seasonNumber,
+                    seriesStatus = tvDetail.status,
+                    inProduction = tvDetail.inProduction ?: entity.inProduction,
+                    numberOfSeasons = tvDetail.numberOfSeasons ?: entity.numberOfSeasons
+                )
+            )
+        } catch (e: Exception) {
+            AppLogger.e("DiscoverVM", "enrichTvShowFromTmdb error for ${entity.title}", e)
+        }
+    }
+
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
@@ -258,6 +291,7 @@ class DiscoverViewModel(
                             )
                             feedbackManager.emit("Serie añadida")
                             removeAndEmit(preview.id)
+                            tvShowDao.getByContentId(info.contentId)?.let { enrichTvShowFromTmdb(it) }
                         }
                     }
                 }
@@ -494,6 +528,7 @@ class DiscoverViewModel(
                     val results = discoverRepository.fetchTrendingPage(apiPage, filterByPlatforms)
                     val blacklisted = blacklistedIds.value
                     results.filter { it.id !in liked && it.id !in blacklisted && it.id !in watched }
+                        .filter { it.ratingImdb != null && it.ratingImdb >= 6.0f }
                 } catch (e: kotlinx.coroutines.CancellationException) {
                     throw e
                 } catch (e: Exception) {
@@ -503,6 +538,7 @@ class DiscoverViewModel(
             } else {
                 try {
                     discoverRepository.fetchSearchPage(query, apiPage)
+                        .filter { it.ratingImdb != null && it.ratingImdb >= 6.0f }
                 } catch (e: kotlinx.coroutines.CancellationException) {
                     throw e
                 } catch (e: Exception) {

@@ -12,21 +12,25 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.ui.Alignment
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.BugReport
+import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material.icons.outlined.FileUpload
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.LiveTv
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.SystemUpdate
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -65,6 +69,7 @@ fun SettingsScreen(
 ) {
     val updateState by viewModel.updateState.collectAsState()
     val backupState by viewModel.backupState.collectAsState()
+    val seriesRefreshState by viewModel.seriesRefreshState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
     val exportLauncher = rememberLauncherForActivityResult(
@@ -110,6 +115,20 @@ fun SettingsScreen(
             is BackupState.Error -> {
                 snackbarHostState.showSnackbar("Error: ${state.message}")
                 viewModel.onBackupMessageShown()
+            }
+            else -> {}
+        }
+    }
+
+    LaunchedEffect(seriesRefreshState) {
+        when (val state = seriesRefreshState) {
+            is SeriesRefreshState.Done -> {
+                snackbarHostState.showSnackbar("${state.count} series actualizadas correctamente")
+                viewModel.onSeriesRefreshMessageShown()
+            }
+            is SeriesRefreshState.Error -> {
+                snackbarHostState.showSnackbar("Error: ${state.message}")
+                viewModel.onSeriesRefreshMessageShown()
             }
             else -> {}
         }
@@ -262,6 +281,34 @@ fun SettingsScreen(
                         title = "Contenidos ocultos",
                         subtitle = "Gestiona tu lista negra",
                         onClick = { navController.navigate(Route.SettingsBlacklist.route) }
+                    )
+                }
+                item {
+                    SettingsItem(
+                        icon = Icons.Outlined.Refresh,
+                        title = "Actualizar series",
+                        subtitle = "Actualiza fechas de estreno desde TMDB",
+                        trailing = {
+                            when (seriesRefreshState) {
+                                is SeriesRefreshState.Refreshing -> {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(20.dp),
+                                        strokeWidth = 2.dp,
+                                        color = EleganteRose
+                                    )
+                                }
+                                is SeriesRefreshState.Done -> {
+                                    Icon(
+                                        Icons.Outlined.CheckCircle,
+                                        contentDescription = null,
+                                        tint = EleganteRose,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                                else -> {}
+                            }
+                        },
+                        onClick = { viewModel.refreshSeries() }
                     )
                 }
 
