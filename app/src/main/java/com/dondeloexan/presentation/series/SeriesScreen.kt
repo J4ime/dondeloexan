@@ -81,72 +81,59 @@ fun SeriesScreen(
             modifier = Modifier.padding(horizontal = 16.dp)
         )
 
-        Box(modifier = Modifier.fillMaxWidth()) {
-            TabRow(
-                selectedTabIndex = selectedTab,
-                containerColor = DarkBackground,
-                contentColor = EleganteRose
-            ) {
-                Tab(
-                    selected = selectedTab == 0,
-                    onClick = { selectedTab = 0 },
-                    icon = {
-                        Icon(
-                            Icons.Outlined.Schedule,
-                            contentDescription = "Pendientes",
-                            tint = if (selectedTab == 0) EleganteRose else TextSecondary
-                        )
-                    }
-                )
-                Tab(
-                    selected = selectedTab == 1,
-                    onClick = { selectedTab = 1 },
-                    icon = {
-                        Icon(
-                            Icons.Outlined.PlayCircle,
-                            contentDescription = "En curso",
-                            tint = if (selectedTab == 1) EleganteRose else TextSecondary
-                        )
-                    }
-                )
-                Tab(
-                    selected = selectedTab == 2,
-                    onClick = { selectedTab = 2 },
-                    icon = {
-                        Icon(
-                            Icons.Outlined.CalendarMonth,
-                            contentDescription = "Agenda",
-                            tint = if (selectedTab == 2) EleganteRose else TextSecondary
-                        )
-                    }
-                )
-                Tab(
-                    selected = selectedTab == 3,
-                    onClick = { selectedTab = 3 },
-                    icon = {
-                        Icon(
-                            Icons.Outlined.CheckCircle,
-                            contentDescription = "Terminadas",
-                            tint = if (selectedTab == 3) EleganteRose else TextSecondary
-                        )
-                    }
-                )
-            }
-
-            IconButton(
-                modifier = Modifier.align(Alignment.TopEnd).padding(top = 4.dp, end = 4.dp).size(32.dp),
-                onClick = { isGridView = !isGridView }
-            ) {
-                Icon(
-                    if (isGridView) Icons.AutoMirrored.Outlined.ViewList else Icons.Outlined.Apps,
-                    contentDescription = if (isGridView) "Vista lista" else "Vista cuadrícula",
-                    tint = if (isGridView) EleganteRose else TextSecondary,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
+        TabRow(
+            selectedTabIndex = selectedTab,
+            containerColor = DarkBackground,
+            contentColor = EleganteRose
+        ) {
+            Tab(
+                selected = selectedTab == 0,
+                onClick = { selectedTab = 0 },
+                icon = {
+                    Icon(
+                        Icons.Outlined.Schedule,
+                        contentDescription = "Pendientes",
+                        tint = if (selectedTab == 0) EleganteRose else TextSecondary
+                    )
+                }
+            )
+            Tab(
+                selected = selectedTab == 1,
+                onClick = { selectedTab = 1 },
+                icon = {
+                    Icon(
+                        Icons.Outlined.PlayCircle,
+                        contentDescription = "En curso",
+                        tint = if (selectedTab == 1) EleganteRose else TextSecondary
+                    )
+                }
+            )
+            Tab(
+                selected = selectedTab == 2,
+                onClick = { selectedTab = 2 },
+                icon = {
+                    Icon(
+                        Icons.Outlined.CalendarMonth,
+                        contentDescription = "Agenda",
+                        tint = if (selectedTab == 2) EleganteRose else TextSecondary
+                    )
+                }
+            )
+            Tab(
+                selected = selectedTab == 3,
+                onClick = { selectedTab = 3 },
+                icon = {
+                    Icon(
+                        Icons.Outlined.CheckCircle,
+                        contentDescription = "Terminadas",
+                        tint = if (selectedTab == 3) EleganteRose else TextSecondary
+                    )
+                }
+            )
         }
 
-        when (selectedTab) {
+        Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+            when (selectedTab) {
             0 -> PendingTab(
                 series = pending,
                 navController = navController,
@@ -169,6 +156,22 @@ fun SeriesScreen(
                 navController = navController,
                 viewModel = viewModel
             )
+        }
+
+        IconButton(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(start = 8.dp, top = 8.dp)
+                .size(48.dp),
+            onClick = { isGridView = !isGridView }
+        ) {
+            Icon(
+                if (isGridView) Icons.AutoMirrored.Outlined.ViewList else Icons.Outlined.Apps,
+                contentDescription = if (isGridView) "Vista lista" else "Vista cuadrícula",
+                tint = if (isGridView) EleganteRose else TextSecondary,
+                modifier = Modifier.size(28.dp)
+            )
+        }
         }
     }
 }

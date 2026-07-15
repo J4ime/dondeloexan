@@ -26,6 +26,7 @@ data class TvShowEntity(
     @ColumnInfo(name = "series_status") val seriesStatus: String? = null,
     @ColumnInfo(name = "in_production") val inProduction: Boolean? = null,
     @ColumnInfo(name = "num_seasons") val numberOfSeasons: Int? = null,
+    @ColumnInfo(name = "released_episodes") val releasedEpisodes: Int? = null,
     @ColumnInfo(name = "last_watched_at") val lastWatchedAt: Long? = null,
     @ColumnInfo(name = "finished_at") val finishedAt: Long? = null
 )

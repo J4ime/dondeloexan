@@ -62,8 +62,8 @@ class SeriesViewModel(
     }
 
     private fun SeriesWithProgress.isCaughtUp(): Boolean {
-        val total = totalEpisodes ?: return false
-        return total > 0 && watchedCount >= total && hasFutureEpisodes()
+        val aired = show.releasedEpisodes ?: totalEpisodes ?: return false
+        return aired > 0 && watchedCount >= aired && hasFutureEpisodes()
     }
 
     private fun SeriesWithProgress.isFinished(): Boolean {
@@ -71,7 +71,8 @@ class SeriesViewModel(
         if (show.status == com.dondeloexan.data.local.entity.WatchStatus.YA_VISTA && !hasFutureEpisodes()) return true
         val total = totalEpisodes ?: return false
         if (total <= 0) return false
-        if (watchedCount < total) return false
+        val target = show.releasedEpisodes ?: total
+        if (watchedCount < target) return false
         if (show.inProduction == true) return false
         if (show.seriesStatus in listOf("Returning Series", "In Production")) return false
         return true
@@ -108,8 +109,21 @@ class SeriesViewModel(
                     for (show in liked) {
                         val tmdbId = show.tmdbId ?: continue
                         try {
-                            val tvDetail = tmdbApi.getTvDetail(tmdbId)
+                            val tvDetail = tmdbApi.getTvDetailLight(tmdbId)
                             val existing = tvShowDao.getByContentId(show.contentId ?: continue) ?: continue
+
+                            val releasedEpisodes = if (tvDetail.lastEpisodeToAir != null && tvDetail.seasons != null) {
+                                val last = tvDetail.lastEpisodeToAir!!
+                                tvDetail.seasons!!
+                                    .filter { it.seasonNumber > 0 }
+                                    .sumOf { season ->
+                                        when {
+                                            season.seasonNumber < last.seasonNumber -> season.episodeCount
+                                            season.seasonNumber == last.seasonNumber -> last.episodeNumber
+                                            else -> 0
+                                        }
+                                    }
+                            } else tvDetail.numberOfEpisodes
 
                             val platformsStr = if (existing.streamingPlatforms.isNullOrEmpty()) {
                                 try {
@@ -125,11 +139,13 @@ class SeriesViewModel(
                             tvShowDao.update(
                                 existing.copy(
                                     totalEpisodes = tvDetail.numberOfEpisodes ?: existing.totalEpisodes,
+                                    releasedEpisodes = releasedEpisodes,
                                     nextEpisodeAirDate = tvDetail.nextEpisodeToAir?.airDate,
                                     nextEpisodeNumber = tvDetail.nextEpisodeToAir?.episodeNumber,
                                     nextEpisodeSeasonNumber = tvDetail.nextEpisodeToAir?.seasonNumber,
                                     seriesStatus = tvDetail.status,
                                     inProduction = tvDetail.inProduction ?: existing.inProduction,
+                                    numberOfSeasons = tvDetail.numberOfSeasons ?: existing.numberOfSeasons,
                                     streamingPlatforms = platformsStr
                                 )
                             )
@@ -170,7 +186,7 @@ class SeriesViewModel(
                     val tmdbId = show.tmdbId
                     if (tmdbId != null) {
                         try {
-                            val detail = tmdbApi.getTvDetail(tmdbId)
+                            val detail = tmdbApi.getTvDetailLight(tmdbId)
                             totalEp = detail.numberOfEpisodes
                             seasons = detail.seasons.orEmpty().filter { it.seasonNumber > 0 }
                             if (totalEp != null && totalEp > 0) {
@@ -184,7 +200,7 @@ class SeriesViewModel(
                 if (totalEp != null && totalEp > 0) {
                     if (seasons.isEmpty() && show.tmdbId != null) {
                         try {
-                            val detail = tmdbApi.getTvDetail(show.tmdbId)
+                            val detail = tmdbApi.getTvDetailLight(show.tmdbId)
                             seasons = detail.seasons.orEmpty().filter { it.seasonNumber > 0 }
                         } catch (e: Exception) {
                             AppLogger.e("SeriesVM", "seasons detail for show ${show.id}", e)

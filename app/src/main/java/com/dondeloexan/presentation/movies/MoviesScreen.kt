@@ -77,137 +77,135 @@ fun MoviesScreen(
             modifier = Modifier.padding(horizontal = 16.dp)
         )
 
-        Box(modifier = Modifier.fillMaxWidth()) {
-            TabRow(
-                selectedTabIndex = selectedTab,
-                containerColor = DarkBackground,
-                contentColor = EleganteRose
-            ) {
-                Tab(
-                    selected = selectedTab == 0,
-                    onClick = { selectedTab = 0 },
-                    icon = {
+        TabRow(
+            selectedTabIndex = selectedTab,
+            containerColor = DarkBackground,
+            contentColor = EleganteRose
+        ) {
+            Tab(
+                selected = selectedTab == 0,
+                onClick = { selectedTab = 0 },
+                icon = {
+                    Icon(
+                        Icons.Outlined.StarBorder,
+                        contentDescription = "Pendientes",
+                        tint = if (selectedTab == 0) EleganteRose else TextSecondary
+                    )
+                }
+            )
+            Tab(
+                selected = selectedTab == 1,
+                onClick = { selectedTab = 1 },
+                icon = {
+                    Icon(
+                        Icons.Outlined.CheckCircle,
+                        contentDescription = "Vistas",
+                        tint = if (selectedTab == 1) EleganteRose else TextSecondary
+                    )
+                }
+            )
+        }
+
+        Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+            val movies = if (selectedTab == 0) pendingMovies else watchedMovies
+
+            if (movies.isEmpty()) {
+                Box(
+                    Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Icon(
-                            Icons.Outlined.StarBorder,
-                            contentDescription = "Pendientes",
-                            tint = if (selectedTab == 0) EleganteRose else TextSecondary
+                            painter = painterResource(com.dondeloexan.R.drawable.ic_popcorn),
+                            contentDescription = null,
+                            modifier = Modifier.size(80.dp),
+                            tint = EleganteRoseDark.copy(alpha = 0.2f)
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        Text(
+                            if (selectedTab == 0) "No tienes películas pendientes"
+                            else "No has visto ninguna película",
+                            style = UbuntuTypography.titleMedium,
+                            color = TextSecondary
+                        )
+                        Text(
+                            "Busca y guarda desde la pestaña Descubrir",
+                            style = UbuntuTypography.bodySmall,
+                            color = TextSecondary.copy(alpha = 0.6f)
                         )
                     }
-                )
-                Tab(
-                    selected = selectedTab == 1,
-                    onClick = { selectedTab = 1 },
-                    icon = {
-                        Icon(
-                            Icons.Outlined.CheckCircle,
-                            contentDescription = "Vistas",
-                            tint = if (selectedTab == 1) EleganteRose else TextSecondary
+                }
+            } else if (isGridView) {
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    items(movies, key = { it.id }) { movie ->
+                        LibraryItemCard(
+                            posterUrl = movie.posterUrl,
+                            title = movie.title,
+                        year = movie.year,
+                        streamingPlatforms = movie.streamingPlatforms.toStreamingPlatforms(),
+                            releaseDate = movie.releaseDate,
+                            isWatched = movie.status.name == "YA_VISTA",
+                            watchedAt = movie.watchedAt,
+                            onDeleteClick = { viewModel.deleteMovie(movie) },
+                            onWatchedClick = { viewModel.toggleWatched(movie) },
+                                onClick = {
+                                    navController.navigate("detail/${movie.contentId ?: ""}/movie")
+                                },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .aspectRatio(0.65f)
                         )
                     }
-                )
-            }
+                }
+            } else {
+                LazyColumn(
+                    contentPadding = PaddingValues(
+                        start = 12.dp, end = 12.dp, top = 8.dp, bottom = 8.dp
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                items(movies, key = { it.id }) { movie ->
+                    LibraryItemCard(
+                                posterUrl = movie.posterUrl,
+                                title = movie.title,
+                                year = movie.year,
+                                streamingPlatforms = movie.streamingPlatforms.toStreamingPlatforms(),
+                                releaseDate = movie.releaseDate,
+                                isWatched = movie.status.name == "YA_VISTA",
+                                watchedAt = movie.watchedAt,
+                                onDeleteClick = { viewModel.deleteMovie(movie) },
+                                onWatchedClick = { viewModel.toggleWatched(movie) },
+                                onClick = {
+                                    navController.navigate("detail/${movie.contentId ?: ""}/movie")
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(180.dp)
+                            )
+                        }
+                    }
+                }
 
             IconButton(
-                modifier = Modifier.align(Alignment.TopEnd).padding(top = 4.dp, end = 4.dp).size(32.dp),
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(start = 8.dp, top = 8.dp)
+                    .size(48.dp),
                 onClick = { isGridView = !isGridView }
             ) {
                 Icon(
                     if (isGridView) Icons.AutoMirrored.Outlined.ViewList else Icons.Outlined.Apps,
                     contentDescription = if (isGridView) "Vista lista" else "Vista cuadrícula",
                     tint = if (isGridView) EleganteRose else TextSecondary,
-                    modifier = Modifier.size(18.dp)
+                    modifier = Modifier.size(28.dp)
                 )
-            }
-        }
-
-        val movies = if (selectedTab == 0) pendingMovies else watchedMovies
-
-        if (movies.isEmpty()) {
-            Box(
-                Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(
-                        painter = painterResource(com.dondeloexan.R.drawable.ic_popcorn),
-                        contentDescription = null,
-                        modifier = Modifier.size(80.dp),
-                        tint = EleganteRoseDark.copy(alpha = 0.2f)
-                    )
-                    Spacer(Modifier.height(12.dp))
-                    Text(
-                        if (selectedTab == 0) "No tienes películas pendientes"
-                        else "No has visto ninguna película",
-                        style = UbuntuTypography.titleMedium,
-                        color = TextSecondary
-                    )
-                    Text(
-                        "Busca y guarda desde la pestaña Descubrir",
-                        style = UbuntuTypography.bodySmall,
-                        color = TextSecondary.copy(alpha = 0.6f)
-                    )
-                }
-            }
-        } else if (isGridView) {
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxSize()
-            ) {
-                items(movies, key = { it.id }) { movie ->
-                    LibraryItemCard(
-                        posterUrl = movie.posterUrl,
-                        title = movie.title,
-                    year = movie.year,
-                    streamingPlatforms = movie.streamingPlatforms.toStreamingPlatforms(),
-                        releaseDate = movie.releaseDate,
-                        isWatched = movie.status.name == "YA_VISTA",
-                        watchedAt = movie.watchedAt,
-                        onDeleteClick = { viewModel.deleteMovie(movie) },
-                        onWatchedClick = { viewModel.toggleWatched(movie) },
-                            onClick = {
-                                navController.navigate("detail/${movie.contentId ?: ""}/movie")
-                            },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .aspectRatio(0.65f)
-                    )
-                }
-            }
-        } else {
-            LazyColumn(
-                contentPadding = PaddingValues(
-                    start = 12.dp, end = 12.dp, top = 8.dp, bottom = 8.dp
-                ),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxSize()
-            ) {
-                items(movies, key = { it.id }) { movie ->
-                    AnimatedVisibility(
-                        visible = true,
-                        enter = fadeIn() + slideInVertically { it / 2 }
-                    ) {
-                        LibraryItemCard(
-                            posterUrl = movie.posterUrl,
-                            title = movie.title,
-                            year = movie.year,
-                            streamingPlatforms = movie.streamingPlatforms.toStreamingPlatforms(),
-                            releaseDate = movie.releaseDate,
-                            isWatched = movie.status.name == "YA_VISTA",
-                            watchedAt = movie.watchedAt,
-                            onDeleteClick = { viewModel.deleteMovie(movie) },
-                            onWatchedClick = { viewModel.toggleWatched(movie) },
-                            onClick = {
-                                navController.navigate("detail/${movie.contentId ?: ""}/movie")
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(180.dp)
-                        )
-                    }
-                }
             }
         }
     }

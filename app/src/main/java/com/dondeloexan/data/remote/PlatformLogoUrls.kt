@@ -13,7 +13,6 @@ object PlatformLogoUrls {
         "SkyShowtime" to "/jXRL3vWibhRcBXKjH2mYDdKj0zA.jpg",
         "Filmin" to "/wEFvMF4NvsR46xGCjggNhs7hybm.jpg",
         "Atresplayer" to "/aPTcfHyI8n2hHBJB8dd2MSMuvgE.jpg",
-        "Mitele" to "/3J5qy5jH6ZOH9WbFg3XsOJ7HW3k.jpg",
         "RTVE Play" to "/owJGNEtfhIXN5YbPaYhKS6sHstN.jpg"
     )
 

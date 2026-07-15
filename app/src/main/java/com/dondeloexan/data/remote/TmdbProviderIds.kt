@@ -30,6 +30,10 @@ object TmdbProviderIds {
         return ids.joinToString("|")
     }
 
+    val allValidPlatforms: List<String> = platformToProviderId.keys.toList()
+
+    fun isValidPlatform(name: String): Boolean = name in platformToProviderId
+
     fun hasNoDiscoverIds(platformNames: Set<String>): Boolean {
         return platformNames.isNotEmpty() && platformNames.all { it !in platformToProviderId }
     }

@@ -43,6 +43,7 @@ import coil.compose.rememberAsyncImagePainter
 import coil.request.CachePolicy
 import coil.request.ImageRequest
 import com.dondeloexan.data.remote.PlatformLogoUrls
+import com.dondeloexan.data.remote.TmdbProviderIds
 import com.dondeloexan.presentation.theme.DarkBackground
 import com.dondeloexan.presentation.theme.DarkSurfaceVariant
 import com.dondeloexan.presentation.theme.EleganteRose
@@ -51,11 +52,7 @@ import com.dondeloexan.presentation.theme.TextSecondary
 import com.dondeloexan.presentation.theme.UbuntuTypography
 import org.koin.androidx.compose.koinViewModel
 
-private val allPlatforms = listOf(
-    "Netflix", "Prime Video", "Disney+", "HBO Max",
-    "Movistar+", "Apple TV+", "Paramount+", "SkyShowtime",
-    "Filmin", "Atresplayer", "Mitele", "RTVE Play", "Cine"
-)
+private val allPlatforms = TmdbProviderIds.allValidPlatforms
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -117,9 +114,7 @@ fun PlatformToggle(name: String, isActive: Boolean, onToggle: (Boolean) -> Unit)
         "SkyShowtime" to "#000000",
         "Filmin" to "#E30613",
         "Atresplayer" to "#1E8C45",
-        "Mitele" to "#00BFFF",
-        "RTVE Play" to "#E1251B",
-        "Cine" to "#FF8F00"
+        "RTVE Play" to "#E1251B"
     )
 
     val accentColor = platformColors[name]?.let {

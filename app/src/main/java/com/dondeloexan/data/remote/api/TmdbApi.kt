@@ -57,6 +57,13 @@ class TmdbApi(private val client: HttpClient) {
         return response.body()
     }
 
+    suspend fun getTvDetailLight(tvId: Int, language: String = "es-ES"): TmdbTvDetailDto {
+        val response = client.get("tv/$tvId") {
+            parameter("language", language)
+        }
+        return response.body()
+    }
+
     suspend fun getMovieWatchProviders(movieId: Int): TmdbWatchProvidersResponse {
         val response = client.get("movie/$movieId/watch/providers")
         return response.body()

@@ -13,9 +13,9 @@ android {
         applicationId = "com.dondeloexan"
         minSdk = 26
         targetSdk = 34
-        versionCode = 46
+        versionCode = 47
 
-        versionName = "2.0.14"
+        versionName = "2.0.15"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
             useSupportLibrary = true
