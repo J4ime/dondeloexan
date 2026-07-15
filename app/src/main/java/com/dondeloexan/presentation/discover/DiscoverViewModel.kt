@@ -21,6 +21,7 @@ import com.dondeloexan.domain.model.StreamingAvailability
 import com.dondeloexan.domain.repository.DiscoverRepository
 import com.dondeloexan.presentation.feedback.FeedbackManager
 import com.dondeloexan.util.AppLogger
+import java.time.LocalDate
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -352,31 +353,70 @@ class DiscoverViewModel(
                         val platformsStrFinal = platformsStr ?: existing?.streamingPlatforms
                         if (existing != null) {
                             val wasWatched = existing.status == WatchStatus.YA_VISTA
-                            val newStatus = if (wasWatched) WatchStatus.POR_VER else WatchStatus.YA_VISTA
-                            if (!wasWatched) {
-                                // Mark all available episodes as watched
-                                val totalEp = existing.totalEpisodes ?: preview.totalEpisodes ?: 0
-                                if (totalEp > 0) {
-                                    tvShowProgressDao.deleteByTvShowId(existing.id)
-                                    val allEpisodes = (1..totalEp).map { epNum ->
-                                        TvShowProgressEntity(
-                                            tvShowId = existing.id,
-                                            season = 1,
-                                            episode = epNum
-                                        )
-                                    }
-                                    tvShowProgressDao.insertAll(allEpisodes)
-                                    tvShowDao.updateLastWatchedAt(existing.id, System.currentTimeMillis())
-                                }
+                            if (wasWatched) {
+                                tvShowProgressDao.deleteByTvShowId(existing.id)
+                                tvShowDao.update(existing.copy(status = WatchStatus.POR_VER))
+                                feedbackManager.emit("Serie quitada de vistos")
                             } else {
                                 tvShowProgressDao.deleteByTvShowId(existing.id)
+                                val tmdbId = existing.tmdbId ?: info.tmdbId
+                                if (tmdbId != null) {
+                                    try {
+                                        val detail = tmdbApi.getTvDetailLight(tmdbId)
+                                        val seasons = detail.seasons.orEmpty().filter { it.seasonNumber > 0 }
+                                        if (detail.numberOfEpisodes != null && detail.numberOfEpisodes > 0) {
+                                            tvShowDao.update(existing.copy(totalEpisodes = detail.numberOfEpisodes))
+                                        }
+                                        val progressToInsert = mutableListOf<TvShowProgressEntity>()
+                                        val today = LocalDate.now()
+                                        for (season in seasons) {
+                                            try {
+                                                val seasonDetail = tmdbApi.getTvSeason(tmdbId, season.seasonNumber)
+                                                for (ep in seasonDetail.episodes) {
+                                                    val isAired = ep.airDate == null ||
+                                                            try { !LocalDate.parse(ep.airDate).isAfter(today) } catch (_: Exception) { true }
+                                                    if (isAired) {
+                                                        progressToInsert.add(
+                                                            TvShowProgressEntity(
+                                                                tvShowId = existing.id,
+                                                                season = season.seasonNumber,
+                                                                episode = ep.episodeNumber
+                                                            )
+                                                        )
+                                                    }
+                                                }
+                                            } catch (e: Exception) {
+                                                AppLogger.e("DiscoverVM", "season ${season.seasonNumber} for ${existing.id}", e)
+                                                for (epNum in 1..season.episodeCount) {
+                                                    progressToInsert.add(
+                                                        TvShowProgressEntity(
+                                                            tvShowId = existing.id,
+                                                            season = season.seasonNumber,
+                                                            episode = epNum
+                                                        )
+                                                    )
+                                                }
+                                            }
+                                        }
+                                        tvShowProgressDao.insertAll(progressToInsert)
+                                        tvShowDao.update(existing.copy(status = WatchStatus.YA_VISTA, lastWatchedAt = System.currentTimeMillis()))
+                                        feedbackManager.emit("Serie marcada como vista")
+                                    } catch (e: Exception) {
+                                        AppLogger.e("DiscoverVM", "mark watched error for ${existing.id}", e)
+                                    }
+                                } else {
+                                    val totalEp = existing.totalEpisodes ?: preview.totalEpisodes ?: 0
+                                    if (totalEp > 0) {
+                                        val allEpisodes = (1..totalEp).map { epNum ->
+                                            TvShowProgressEntity(tvShowId = existing.id, season = 1, episode = epNum)
+                                        }
+                                        tvShowProgressDao.insertAll(allEpisodes)
+                                    }
+                                    tvShowDao.update(existing.copy(status = WatchStatus.YA_VISTA, lastWatchedAt = System.currentTimeMillis()))
+                                    feedbackManager.emit("Serie marcada como vista")
+                                }
+                                removeAndEmit(preview.id)
                             }
-                            tvShowDao.update(existing.copy(status = newStatus))
-                            feedbackManager.emit(
-                                if (!wasWatched) "Serie marcada como vista"
-                                else "Serie quitada de vistos"
-                            )
-                            if (!wasWatched) removeAndEmit(preview.id)
                         } else {
                             val newShowId = tvShowDao.insert(
                                 TvShowEntity(
@@ -391,17 +431,56 @@ class DiscoverViewModel(
                                     status = WatchStatus.YA_VISTA
                                 )
                             )
-                            val totalEp = preview.totalEpisodes ?: 0
-                            if (totalEp > 0) {
-                                val allEpisodes = (1..totalEp).map { epNum ->
-                                    TvShowProgressEntity(
-                                        tvShowId = newShowId,
-                                        season = 1,
-                                        episode = epNum
-                                    )
+                            val tmdbId = info.tmdbId
+                            if (tmdbId != null) {
+                                try {
+                                    val detail = tmdbApi.getTvDetailLight(tmdbId)
+                                    val seasons = detail.seasons.orEmpty().filter { it.seasonNumber > 0 }
+                                    val progressToInsert = mutableListOf<TvShowProgressEntity>()
+                                    val today = LocalDate.now()
+                                    for (season in seasons) {
+                                        try {
+                                            val seasonDetail = tmdbApi.getTvSeason(tmdbId, season.seasonNumber)
+                                            for (ep in seasonDetail.episodes) {
+                                                val isAired = ep.airDate == null ||
+                                                        try { !LocalDate.parse(ep.airDate).isAfter(today) } catch (_: Exception) { true }
+                                                if (isAired) {
+                                                    progressToInsert.add(
+                                                        TvShowProgressEntity(
+                                                            tvShowId = newShowId,
+                                                            season = season.seasonNumber,
+                                                            episode = ep.episodeNumber
+                                                        )
+                                                    )
+                                                }
+                                            }
+                                        } catch (e: Exception) {
+                                            AppLogger.e("DiscoverVM", "season ${season.seasonNumber} for $newShowId", e)
+                                            for (epNum in 1..season.episodeCount) {
+                                                progressToInsert.add(
+                                                    TvShowProgressEntity(
+                                                        tvShowId = newShowId,
+                                                        season = season.seasonNumber,
+                                                        episode = epNum
+                                                    )
+                                                )
+                                            }
+                                        }
+                                    }
+                                    tvShowProgressDao.insertAll(progressToInsert)
+                                    tvShowDao.updateLastWatchedAt(newShowId, System.currentTimeMillis())
+                                } catch (e: Exception) {
+                                    AppLogger.e("DiscoverVM", "mark watched error for $newShowId", e)
                                 }
-                                tvShowProgressDao.insertAll(allEpisodes)
-                                tvShowDao.updateLastWatchedAt(newShowId, System.currentTimeMillis())
+                            } else {
+                                val totalEp = preview.totalEpisodes ?: 0
+                                if (totalEp > 0) {
+                                    val allEpisodes = (1..totalEp).map { epNum ->
+                                        TvShowProgressEntity(tvShowId = newShowId, season = 1, episode = epNum)
+                                    }
+                                    tvShowProgressDao.insertAll(allEpisodes)
+                                    tvShowDao.updateLastWatchedAt(newShowId, System.currentTimeMillis())
+                                }
                             }
                             feedbackManager.emit("Serie marcada como vista")
                             removeAndEmit(preview.id)

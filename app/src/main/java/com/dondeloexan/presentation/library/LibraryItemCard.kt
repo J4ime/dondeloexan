@@ -73,6 +73,7 @@ fun LibraryItemCard(
     streamingPlatforms: List<StreamingAvailability>,
     watchedCount: Int = 0,
     totalEpisodes: Int? = null,
+    releasedEpisodes: Int? = null,
     nextEpisodeAirDate: String? = null,
     nextEpisodeNumber: Int? = null,
     nextEpisodeSeasonNumber: Int? = null,
@@ -83,6 +84,7 @@ fun LibraryItemCard(
     isLiked: Boolean = false,
     isWatched: Boolean,
     watchedAt: Long? = null,
+    showLikeButton: Boolean = true,
     onLikeClick: () -> Unit = {},
     onDeleteClick: (() -> Unit)? = null,
     onWatchedClick: () -> Unit,
@@ -170,10 +172,11 @@ fun LibraryItemCard(
                 )
             }
 
+            val airedEpisodes = releasedEpisodes ?: totalEpisodes
             val hasFutureSeasons = seriesStatus !in listOf("Ended", "Canceled") && inProduction != false
-            val isCaughtUp = totalEpisodes != null && totalEpisodes > 0 && watchedCount >= totalEpisodes
-            val isFinished = totalEpisodes != null && totalEpisodes > 0 && watchedCount >= totalEpisodes && !hasFutureSeasons
-            val isFinalEpisode = totalEpisodes != null && totalEpisodes > 0 &&
+            val isCaughtUp = airedEpisodes != null && airedEpisodes > 0 && watchedCount >= airedEpisodes
+            val isFinished = airedEpisodes != null && airedEpisodes > 0 && watchedCount >= airedEpisodes && !hasFutureSeasons
+            val isFinalEpisode = airedEpisodes != null && airedEpisodes > 0 &&
                     nextEpisodeAirDate != null && inProduction == false &&
                     !isFinished
 
@@ -185,9 +188,10 @@ fun LibraryItemCard(
                 }
             }
 
-            if (totalEpisodes != null && totalEpisodes > 0) {
+            val displayEpisodes = releasedEpisodes ?: totalEpisodes
+            if (displayEpisodes != null && displayEpisodes > 0) {
                 Spacer(Modifier.height(6.dp))
-                val progress = (watchedCount.toFloat() / totalEpisodes).coerceIn(0f, 1f)
+                val progress = (watchedCount.toFloat() / displayEpisodes).coerceIn(0f, 1f)
                 Column {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -195,7 +199,7 @@ fun LibraryItemCard(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "$watchedCount/$totalEpisodes episodios",
+                            text = "$watchedCount/$displayEpisodes episodios",
                             style = UbuntuTypography.labelSmall,
                             color = TextSecondary,
                             fontSize = 10.sp
@@ -253,38 +257,40 @@ fun LibraryItemCard(
                 .padding(6.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            if (onDeleteClick != null) {
-                IconButton(
-                    onClick = onDeleteClick,
-                    modifier = Modifier
-                        .size(48.dp)
-                        .background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
-                ) {
-                    Icon(
-                        Icons.Outlined.Close,
-                        contentDescription = "Eliminar",
-                        tint = EleganteRose,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-            } else {
-                IconButton(
-                    onClick = onLikeClick,
-                    modifier = Modifier
-                        .size(48.dp)
-                        .background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
-                ) {
-                    val isSeries = totalEpisodes != null
-                    Icon(
-                        if (isLiked) {
-                            if (isSeries) Icons.Filled.Close else Icons.Filled.Add
-                        } else {
-                            if (isSeries) Icons.Outlined.Close else Icons.Outlined.Add
-                        },
-                        contentDescription = if (isSeries) "Quitar" else "Favorito",
-                        tint = if (isLiked) EleganteRose else TextPrimary,
-                        modifier = Modifier.size(24.dp)
-                    )
+            if (showLikeButton) {
+                if (onDeleteClick != null) {
+                    IconButton(
+                        onClick = onDeleteClick,
+                        modifier = Modifier
+                            .size(48.dp)
+                            .background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                    ) {
+                        Icon(
+                            Icons.Outlined.Close,
+                            contentDescription = "Eliminar",
+                            tint = EleganteRose,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                } else {
+                    IconButton(
+                        onClick = onLikeClick,
+                        modifier = Modifier
+                            .size(48.dp)
+                            .background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                    ) {
+                        val isSeries = totalEpisodes != null
+                        Icon(
+                            if (isLiked) {
+                                if (isSeries) Icons.Filled.Close else Icons.Filled.Add
+                            } else {
+                                if (isSeries) Icons.Outlined.Close else Icons.Outlined.Add
+                            },
+                            contentDescription = if (isSeries) "Quitar" else "Favorito",
+                            tint = if (isLiked) EleganteRose else TextPrimary,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
                 }
             }
 
