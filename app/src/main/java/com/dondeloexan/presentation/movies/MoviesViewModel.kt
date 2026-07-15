@@ -10,17 +10,22 @@ import com.dondeloexan.data.remote.api.TmdbApi
 import com.dondeloexan.data.remote.mapper.toStreamingAvailability
 import com.dondeloexan.presentation.feedback.FeedbackManager
 import com.dondeloexan.util.AppLogger
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 
 class MoviesViewModel(
     private val movieDao: MovieDao,
     private val tmdbApi: TmdbApi,
     private val feedbackManager: FeedbackManager
 ) : ViewModel() {
+
+    private val platformSemaphore = Semaphore(4)
 
     val pendingMovies: StateFlow<List<MovieEntity>> = movieDao.getPendingFlow()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -29,38 +34,41 @@ class MoviesViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     init {
-        refreshMoviePlatforms()
+        viewModelScope.launch {
+            refreshMoviePlatforms()
+        }
     }
 
-    private fun refreshMoviePlatforms() {
-        viewModelScope.launch {
-            while (true) {
-                try {
-                    val liked = movieDao.getAll().filter { it.liked }
-                    for (movie in liked) {
-                        val tmdbId = movie.tmdbId ?: continue
-                        try {
-                            val providers = tmdbApi.getMovieWatchProviders(tmdbId)
-                            val platforms = providers.results.get("ES")?.toStreamingAvailability().orEmpty()
-                            val platformsStr = platforms.toPlatformsString()
-                            val existing = if (!movie.contentId.isNullOrBlank()) {
-                                movieDao.getByContentId(movie.contentId) ?: movieDao.getByTmdbId(tmdbId)
-                            } else {
-                                movieDao.getByTmdbId(tmdbId)
-                            } ?: continue
-                            if (platformsStr != null) {
-                                movieDao.update(existing.copy(streamingPlatforms = platformsStr))
+    private suspend fun refreshMoviePlatforms() {
+        try {
+            val liked = movieDao.getAll().filter { it.liked }
+            coroutineScope {
+                liked.map { movie ->
+                    async {
+                        platformSemaphore.withPermit {
+                            val tmdbId = movie.tmdbId ?: return@withPermit
+                            try {
+                                val providers = tmdbApi.getMovieWatchProviders(tmdbId)
+                                val platforms = providers.results.get("ES")?.toStreamingAvailability().orEmpty()
+                                val platformsStr = platforms.toPlatformsString()
+                                val existing = if (!movie.contentId.isNullOrBlank()) {
+                                    movieDao.getByContentId(movie.contentId) ?: movieDao.getByTmdbId(tmdbId)
+                                } else {
+                                    movieDao.getByTmdbId(tmdbId)
+                                } ?: return@withPermit
+                                if (platformsStr != null) {
+                                    movieDao.update(existing.copy(streamingPlatforms = platformsStr))
+                                }
+                                AppLogger.d("MoviesVM", "Refreshed platforms for ${movie.title}: ${platforms.size} platforms, saved=${platformsStr != null}, preview=${platformsStr?.take(120)}")
+                            } catch (e: Exception) {
+                                AppLogger.e("MoviesVM", "Refresh movie platforms error for ${movie.title}", e)
                             }
-                            AppLogger.d("MoviesVM", "Refreshed platforms for ${movie.title}: ${platforms.size} platforms, saved=${platformsStr != null}, preview=${platformsStr?.take(120)}")
-                        } catch (e: Exception) {
-                            AppLogger.e("MoviesVM", "Refresh movie platforms error", e)
                         }
                     }
-                } catch (e: Exception) {
-                    AppLogger.e("MoviesVM", "Refresh movie platforms error", e)
                 }
-                delay(300_000)
             }
+        } catch (e: Exception) {
+            AppLogger.e("MoviesVM", "Refresh movie platforms error", e)
         }
     }
 

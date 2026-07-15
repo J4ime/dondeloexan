@@ -33,9 +33,8 @@ class SeriesViewModel(
     private val feedbackManager: FeedbackManager
 ) : ViewModel() {
 
-    private fun deriveTotalEpisodes(storedTotal: Int?, watchedCount: Int): Int? {
+    private fun deriveTotalEpisodes(storedTotal: Int?): Int? {
         if (storedTotal != null && storedTotal > 0) return storedTotal
-        if (watchedCount > 0) return watchedCount
         return null
     }
 
@@ -49,7 +48,7 @@ class SeriesViewModel(
             SeriesWithProgress(
                 show = show,
                 watchedCount = watchedCount,
-                totalEpisodes = deriveTotalEpisodes(show.totalEpisodes, watchedCount)
+                totalEpisodes = deriveTotalEpisodes(show.totalEpisodes)
             )
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -60,7 +59,7 @@ class SeriesViewModel(
     }
 
     private fun SeriesWithProgress.isCaughtUp(): Boolean {
-        val aired = show.releasedEpisodes ?: totalEpisodes ?: return false
+        val aired = show.releasedEpisodes ?: show.totalEpisodes ?: return false
         return aired > 0 && watchedCount >= aired
     }
 
@@ -103,14 +102,14 @@ class SeriesViewModel(
                         val tvDetail = tmdbApi.getTvDetailLight(tmdbId)
                         val existing = tvShowDao.getByContentId(show.contentId ?: continue) ?: continue
 
-                        val releasedEpisodes = if (tvDetail.lastEpisodeToAir != null && tvDetail.seasons != null) {
-                            val last = tvDetail.lastEpisodeToAir!!
-                            tvDetail.seasons!!
-                                .filter { it.seasonNumber > 0 }
+                        val lastEp = tvDetail.lastEpisodeToAir
+                        val seasons = tvDetail.seasons
+                        val releasedEpisodes = if (lastEp != null && seasons != null) {
+                            seasons.filter { it.seasonNumber > 0 }
                                 .sumOf { season ->
                                     when {
-                                        season.seasonNumber < last.seasonNumber -> season.episodeCount
-                                        season.seasonNumber == last.seasonNumber -> last.episodeNumber
+                                        season.seasonNumber < lastEp.seasonNumber -> season.episodeCount
+                                        season.seasonNumber == lastEp.seasonNumber -> lastEp.episodeNumber
                                         else -> 0
                                     }
                                 }
