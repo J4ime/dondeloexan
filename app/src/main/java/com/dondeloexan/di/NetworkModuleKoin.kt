@@ -6,6 +6,7 @@ import com.dondeloexan.data.remote.api.GitHubApi
 import com.dondeloexan.data.remote.api.OmdbApi
 import com.dondeloexan.data.remote.api.TmdbApi
 import io.ktor.client.HttpClient
+import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.defaultRequest
@@ -16,7 +17,9 @@ import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
+import okhttp3.ConnectionPool
 import org.koin.dsl.module
+import java.util.concurrent.TimeUnit
 
 val networkModule = module {
 
@@ -30,7 +33,12 @@ val networkModule = module {
 
     // ── Balloonerismm (IMDb) ──
     single {
-        val client = HttpClient {
+        val client = HttpClient(OkHttp) {
+            engine {
+                config {
+                    connectionPool(ConnectionPool(0, 1, TimeUnit.SECONDS))
+                }
+            }
             install(ContentNegotiation) { json(get()) }
             install(HttpTimeout) {
                 requestTimeoutMillis = 5_000
@@ -47,7 +55,12 @@ val networkModule = module {
 
     // ── TMDB ──
     single {
-        val client = HttpClient {
+        val client = HttpClient(OkHttp) {
+            engine {
+                config {
+                    connectionPool(ConnectionPool(0, 1, TimeUnit.SECONDS))
+                }
+            }
             install(ContentNegotiation) { json(get()) }
             install(HttpTimeout) {
                 requestTimeoutMillis = 15_000
@@ -65,7 +78,12 @@ val networkModule = module {
 
     // ── OMDb ──
     single {
-        val client = HttpClient {
+        val client = HttpClient(OkHttp) {
+            engine {
+                config {
+                    connectionPool(ConnectionPool(0, 1, TimeUnit.SECONDS))
+                }
+            }
             install(ContentNegotiation) { json(get()) }
             install(HttpTimeout) {
                 requestTimeoutMillis = 5_000

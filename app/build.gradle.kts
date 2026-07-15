@@ -13,9 +13,9 @@ android {
         applicationId = "com.dondeloexan"
         minSdk = 26
         targetSdk = 34
-        versionCode = 51
+        versionCode = 52
 
-        versionName = "2.0.19"
+        versionName = "2.0.20"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
             useSupportLibrary = true
@@ -99,6 +99,7 @@ dependencies {
     // Ktor Client
     implementation("io.ktor:ktor-client-core:2.3.10")
     implementation("io.ktor:ktor-client-cio:2.3.10")
+    implementation("io.ktor:ktor-client-okhttp:2.3.10")
     implementation("io.ktor:ktor-client-content-negotiation:2.3.10")
     implementation("io.ktor:ktor-serialization-kotlinx-json:2.3.10")
     implementation("io.ktor:ktor-client-logging:2.3.10")
