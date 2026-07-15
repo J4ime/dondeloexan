@@ -390,6 +390,41 @@ class DiscoverRepositoryImpl(
         }
     }
 
+    private suspend fun fetchPlatforms(previews: List<ContentPreview>): List<ContentPreview> {
+        return coroutineScope {
+            previews.map { preview ->
+                async {
+                    val platforms = try {
+                        val tmdbId = preview.tmdbId ?: return@async preview
+                        val cacheKey = "tmdb-$tmdbId-${preview.type}"
+                        val cached = platformsCache[cacheKey]
+                        if (cached != null && (System.currentTimeMillis() - cached.timestamp) < CACHE_TTL_MS) {
+                            cached.platforms
+                        } else {
+                            val providerResponse = if (preview.type == ContentType.SERIES) {
+                                tmdbApi.getTvWatchProviders(tmdbId)
+                            } else {
+                                tmdbApi.getMovieWatchProviders(tmdbId)
+                            }
+                            val platforms = providerResponse.results?.get("ES")?.toStreamingAvailability().orEmpty()
+                            platformsCache[cacheKey] = CachedPlatforms(platforms, System.currentTimeMillis())
+                            platforms
+                        }
+                    } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+                        AppLogger.w("DiscoverRepo", "TMDB platforms for ${preview.id} (timeout): ${e.message}")
+                        emptyList<StreamingAvailability>()
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        AppLogger.e("DiscoverRepo", "TMDB platforms for ${preview.id}", e)
+                        emptyList<StreamingAvailability>()
+                    }
+                    preview.copy(streamingPlatforms = platforms)
+                }
+            }.map { it.await() }
+        }
+    }
+
     private suspend fun attachTmbdPlatforms(previews: List<ContentPreview>): List<ContentPreview> {
         return coroutineScope {
             previews.map { preview ->
@@ -505,21 +540,13 @@ class DiscoverRepositoryImpl(
     }
 
     override suspend fun fetchSearchPage(query: String, page: Int): List<ContentPreview> {
-        val imdbResult = imdbApi.searchMulti(query, page = page)
-        val previews = imdbResult.results
-            .filter { it.mediaType in listOf("movie", "tv") && !it.adult }
-            .map { it.toContentPreview() }
-            .take(20)
-        if (previews.isNotEmpty()) {
-            return attachImdbPlatforms(previews)
-        }
         val tmdbResult = tmdbApi.searchMulti(query, page = page)
         val tmdbPreviews = tmdbResult.results
             .filter { it.mediaType in listOf("movie", "tv") && !it.adult }
             .map { it.toContentPreview() }
             .take(20)
         return if (tmdbPreviews.isNotEmpty()) {
-            attachTmbdPlatforms(tmdbPreviews)
+            fetchPlatforms(tmdbPreviews)
         } else {
             emptyList()
         }

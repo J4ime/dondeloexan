@@ -468,34 +468,32 @@ class DiscoverViewModel(
         }
     }
 
-    private fun platformMatches(platformName: String, userPlatform: String): Boolean {
-        return platformName.contains(userPlatform, ignoreCase = true) ||
-                userPlatform.contains(platformName, ignoreCase = true)
-    }
-
     private suspend fun fillUntil(targetCount: Int, query: String = "") {
-        val liked = buildSet {
-            addAll(likedIds.value)
-            movieDao.getLiked().first().forEach { m ->
-                m.tmdbId?.let { add("tmdb-$it") }
-            }
-            tvShowDao.getLiked().first().forEach { s ->
-                s.tmdbId?.let { add("tmdb-$it") }
-            }
-        }
-        val watched = buildSet {
-            addAll(watchedIds.value)
-            movieDao.getByStatus(WatchStatus.YA_VISTA).first().forEach { m ->
-                m.tmdbId?.let { add("tmdb-$it") }
-            }
-            tvShowDao.getByStatus(WatchStatus.YA_VISTA).first().forEach { s ->
-                s.tmdbId?.let { add("tmdb-$it") }
-            }
-        }
         while (accumulatedResults.size < targetCount && hasMoreApiPages) {
             val pageResults = if (query.isBlank()) {
+                val liked = buildSet {
+                    addAll(likedIds.value)
+                    movieDao.getLiked().first().forEach { m ->
+                        m.tmdbId?.let { add("tmdb-$it") }
+                    }
+                    tvShowDao.getLiked().first().forEach { s ->
+                        s.tmdbId?.let { add("tmdb-$it") }
+                    }
+                }
+                val watched = buildSet {
+                    addAll(watchedIds.value)
+                    movieDao.getByStatus(WatchStatus.YA_VISTA).first().forEach { m ->
+                        m.tmdbId?.let { add("tmdb-$it") }
+                    }
+                    tvShowDao.getByStatus(WatchStatus.YA_VISTA).first().forEach { s ->
+                        s.tmdbId?.let { add("tmdb-$it") }
+                    }
+                }
+                val filterByPlatforms = _filterByPlatforms.value
                 try {
-                    discoverRepository.fetchTrendingPage(apiPage, _filterByPlatforms.value)
+                    val results = discoverRepository.fetchTrendingPage(apiPage, filterByPlatforms)
+                    val blacklisted = blacklistedIds.value
+                    results.filter { it.id !in liked && it.id !in blacklisted && it.id !in watched }
                 } catch (e: kotlinx.coroutines.CancellationException) {
                     throw e
                 } catch (e: Exception) {
@@ -519,25 +517,7 @@ class DiscoverViewModel(
             }
 
             apiPage++
-
-            val blacklisted = blacklistedIds.value
-            val filterByPlatforms = _filterByPlatforms.value
-            val activePlatformsSet = activePlatforms.value
-
-            val filtered = if (query.isBlank()) {
-                pageResults.filter { it.id !in liked && it.id !in blacklisted && it.id !in watched }
-            } else if (filterByPlatforms && activePlatformsSet.isNotEmpty()) {
-                pageResults.filter { preview ->
-                    preview.id !in blacklisted && preview.id !in liked && preview.id !in watched &&
-                            preview.streamingPlatforms.any { platform ->
-                                activePlatformsSet.any { active -> platformMatches(platform.platformName, active) }
-                            }
-                }
-            } else {
-                pageResults.filter { it.id !in blacklisted && it.id !in liked && it.id !in watched }
-            }
-
-            accumulatedResults.addAll(filtered)
+            accumulatedResults.addAll(pageResults)
         }
 
         accumulatedResults.distinctBy { it.id }.let { dedup ->

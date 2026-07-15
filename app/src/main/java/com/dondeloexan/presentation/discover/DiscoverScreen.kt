@@ -81,6 +81,7 @@ fun DiscoverScreen(
     val searchQuery by viewModel.searchQuery.collectAsState()
     val likedIds by viewModel.likedIds.collectAsState()
     val watchedIds by viewModel.watchedIds.collectAsState()
+    val blacklistedIds by viewModel.blacklistedIds.collectAsState()
     val filterByPlatforms by viewModel.filterByPlatforms.collectAsState()
 
     var isSearchFocused by remember { mutableStateOf(false) }
@@ -180,6 +181,7 @@ fun DiscoverScreen(
             searchQuery = searchQuery,
             likedIds = likedIds,
             watchedIds = watchedIds,
+            blacklistedIds = blacklistedIds,
             onItemClick = { contentId, contentType ->
                 navController.navigate("detail/$contentId/$contentType")
             },
@@ -199,6 +201,7 @@ fun DiscoverContent(
     searchQuery: String,
     likedIds: Set<String>,
     watchedIds: Set<String>,
+    blacklistedIds: Set<String>,
     onItemClick: (String, String) -> Unit,
     onFavoriteClick: (ContentPreview) -> Unit,
     onWatchedClick: (ContentPreview) -> Unit,
@@ -252,6 +255,7 @@ fun DiscoverContent(
                                 content = content,
                                 isLiked = likedIds.contains(content.id),
                                 isWatched = watchedIds.contains(content.id),
+                                isBlacklisted = blacklistedIds.contains(content.id),
                                 onFavoriteClick = { onFavoriteClick(content) },
                                 onWatchedClick = { onWatchedClick(content) },
                                 onBlacklistClick = { onBlacklistClick(content) },

@@ -64,6 +64,7 @@ fun SearchItemCard(
     content: ContentPreview,
     isLiked: Boolean = false,
     isWatched: Boolean = false,
+    isBlacklisted: Boolean = false,
     watchedCount: Int = 0,
     totalEpisodes: Int? = null,
     nextEpisodeAirDate: String? = null,
@@ -268,7 +269,7 @@ fun SearchItemCard(
             Icon(
                 Icons.Outlined.Block,
                 contentDescription = "Ocultar",
-                tint = TextSecondary,
+                tint = if (isBlacklisted) EleganteRose else TextSecondary,
                 modifier = Modifier.size(18.dp)
             )
         }
