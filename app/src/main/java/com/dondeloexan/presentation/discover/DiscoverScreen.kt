@@ -95,7 +95,7 @@ fun DiscoverScreen(
 
     var isSearchFocused by remember { mutableStateOf(false) }
 
-    LaunchedEffect(Unit) { viewModel.loadTrending() }
+    val isLoadingMore by viewModel.isLoadingMore.collectAsState()
 
     val feedbackManager: FeedbackManager = koinInject()
     var feedbackMessage by remember { mutableStateOf<String?>(null) }
@@ -206,6 +206,7 @@ fun DiscoverScreen(
 
         DiscoverContent(
             uiState = uiState,
+            isLoadingMore = isLoadingMore,
             searchQuery = searchQuery,
             likedIds = likedIds,
             watchedIds = watchedIds,
@@ -227,6 +228,7 @@ fun DiscoverScreen(
 @Composable
 fun DiscoverContent(
     uiState: DiscoverUiState,
+    isLoadingMore: Boolean = false,
     searchQuery: String,
     likedIds: Set<String>,
     watchedIds: Set<String>,
@@ -296,6 +298,13 @@ fun DiscoverContent(
                                 )
                             }
                         }
+                        if (isLoadingMore) {
+                            item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxCurrentLineSpan) }) {
+                                Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                                    BouncingDotsSpinner()
+                                }
+                            }
+                        }
                     }
                 } else {
                     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
@@ -330,6 +339,13 @@ fun DiscoverContent(
                                     onBlacklistClick = { onBlacklistClick(content) },
                                     onClick = { onItemClick(content.id, content.type.name.lowercase()) }
                                 )
+                            }
+                        }
+                        if (isLoadingMore) {
+                            item(key = "__loading_more__") {
+                                Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                                    BouncingDotsSpinner()
+                                }
                             }
                         }
                     }

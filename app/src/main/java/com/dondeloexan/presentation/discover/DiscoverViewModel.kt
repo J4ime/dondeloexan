@@ -119,7 +119,11 @@ class DiscoverViewModel(
     private var searchJob: Job? = null
     private var trendingJob: Job? = null
 
+    private val _isLoadingMore = MutableStateFlow(false)
+    val isLoadingMore: StateFlow<Boolean> = _isLoadingMore.asStateFlow()
+
     init {
+        loadTrending()
         viewModelScope.launch {
             activePlatforms.drop(1).collect {
                 if (_searchQuery.value.isBlank()) {
@@ -145,7 +149,7 @@ class DiscoverViewModel(
 
         searchJob?.cancel()
         searchJob = viewModelScope.launch {
-            delay(400)
+            delay(2000)
             trendingJob?.cancel()
             currentPage = 1
             hasMorePages = true
@@ -527,10 +531,12 @@ class DiscoverViewModel(
     fun loadNextPage() {
         if (isFilling) return
         isFilling = true
+        _isLoadingMore.value = true
         viewModelScope.launch {
             val target = cachedResults.size + 10
             fillPagesUntil(target)
             isFilling = false
+            _isLoadingMore.value = false
             _uiState.value = if (cachedResults.isEmpty()) {
                 DiscoverUiState.Empty(_searchQuery.value)
             } else {
