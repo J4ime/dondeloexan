@@ -265,7 +265,7 @@ fun DiscoverContent(
                         derivedStateOf {
                             val lastVisible = gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
                             val totalItems = gridState.layoutInfo.totalItemsCount
-                            lastVisible >= totalItems - 3 && totalItems > 3
+                            lastVisible >= totalItems - 1 && totalItems > 1
                         }
                     }
                     LaunchedEffect(shouldLoadMore) {
@@ -303,7 +303,7 @@ fun DiscoverContent(
                         derivedStateOf {
                             val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
                             val totalItems = listState.layoutInfo.totalItemsCount
-                            lastVisible >= totalItems - 3 && totalItems > 3
+                            lastVisible >= totalItems - 1 && totalItems > 1
                         }
                     }
                     LaunchedEffect(shouldLoadMore) {

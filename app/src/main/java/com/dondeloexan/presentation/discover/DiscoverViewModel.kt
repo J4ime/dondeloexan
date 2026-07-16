@@ -111,11 +111,11 @@ class DiscoverViewModel(
         .distinctUntilChanged()
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
 
-    private var apiPage = 1
-    private var hasMoreApiPages = true
+    private var currentPage = 1
+    private var hasMorePages = true
     private var isFilling = false
     private var hasError = false
-    private val accumulatedResults = mutableListOf<ContentPreview>()
+    private var cachedResults = listOf<ContentPreview>()
     private var searchJob: Job? = null
     private var trendingJob: Job? = null
 
@@ -147,26 +147,32 @@ class DiscoverViewModel(
         searchJob = viewModelScope.launch {
             delay(400)
             trendingJob?.cancel()
-            apiPage = 1
-            hasMoreApiPages = true
-            accumulatedResults.clear()
+            currentPage = 1
+            hasMorePages = true
+            cachedResults = emptyList()
             _uiState.value = DiscoverUiState.Loading
 
-            fillUntil(targetCount = 20, query = query)
-            isFilling = false
+            val page = try {
+                discoverRepository.fetchSearchPage(query, 1)
+                    .filter { it.ratingImdb != null && it.ratingImdb >= 6.0f }
+            } catch (e: Exception) {
+                hasError = true
+                emptyList()
+            }
 
-            _uiState.value = if (accumulatedResults.isEmpty()) {
+            cachedResults = page
+            _uiState.value = if (cachedResults.isEmpty()) {
                 DiscoverUiState.Empty(query)
             } else {
-                DiscoverUiState.Success(accumulatedResults.toList())
+                DiscoverUiState.Success(cachedResults)
             }
         }
     }
 
     private fun removeAndEmit(contentId: String) {
-        accumulatedResults.removeAll { it.id == contentId }
+        cachedResults = cachedResults.filter { it.id != contentId }
         if (_uiState.value is DiscoverUiState.Success) {
-            _uiState.value = DiscoverUiState.Success(accumulatedResults.toList())
+            _uiState.value = DiscoverUiState.Success(cachedResults)
         }
     }
 
@@ -519,35 +525,47 @@ class DiscoverViewModel(
     }
 
     fun loadNextPage() {
-        if (isFilling) return
-        val query = _searchQuery.value
+        if (isFilling || !hasMorePages) return
+        isFilling = true
         viewModelScope.launch {
-            isFilling = true
-
-            fillUntil(targetCount = accumulatedResults.size + 10, query = query)
-            isFilling = false
-
-            _uiState.value = if (accumulatedResults.isEmpty()) {
-                DiscoverUiState.Empty(query)
+            val page = fetchTrendingSinglePage(currentPage + 1)
+            if (page.isNotEmpty()) {
+                currentPage++
+                cachedResults = cachedResults + page
+                _uiState.value = DiscoverUiState.Success(cachedResults)
             } else {
-                DiscoverUiState.Success(accumulatedResults.toList())
+                hasMorePages = false
             }
+            isFilling = false
         }
     }
 
     fun onClearSearch() {
         _searchQuery.value = ""
         searchJob?.cancel()
-        apiPage = 1
-        hasMoreApiPages = true
-        accumulatedResults.clear()
+        currentPage = 1
+        hasMorePages = true
+        cachedResults = emptyList()
         loadTrending()
     }
 
     fun onRetry() {
         val query = _searchQuery.value
         if (query.isBlank()) {
-            loadTrending()
+            if (!hasMorePages) { loadTrending(); return }
+            trendingJob?.cancel()
+            trendingJob = viewModelScope.launch {
+                val nextPage = currentPage + 1
+                _uiState.value = DiscoverUiState.Loading
+                val page = fetchTrendingSinglePage(nextPage)
+                if (page.isNotEmpty()) {
+                    currentPage = nextPage
+                    cachedResults = page
+                    _uiState.value = DiscoverUiState.Success(cachedResults)
+                } else {
+                    onClearSearch()
+                }
+            }
         } else {
             onSearchQueryChanged(query)
         }
@@ -573,23 +591,25 @@ class DiscoverViewModel(
         trendingJob?.cancel()
         hasError = false
         trendingJob = viewModelScope.launch {
-            apiPage = 1
-            hasMoreApiPages = true
-            accumulatedResults.clear()
+            currentPage = 1
+            hasMorePages = true
+            cachedResults = emptyList()
             _uiState.value = DiscoverUiState.Loading
 
-            fillUntil(targetCount = 10)
-            isFilling = false
+            val page = fetchTrendingSinglePage(1)
+            cachedResults = page
+            hasMorePages = page.isNotEmpty()
 
             _uiState.value = when {
-                accumulatedResults.isNotEmpty() -> DiscoverUiState.Success(accumulatedResults.toList())
+                cachedResults.isNotEmpty() -> DiscoverUiState.Success(cachedResults)
                 hasError -> DiscoverUiState.Error("No se pudo conectar con el servidor, prueba a deslizar para reintentar")
                 else -> DiscoverUiState.Empty("")
             }
         }
     }
 
-    private suspend fun fillUntil(targetCount: Int, query: String = "") {
+    private suspend fun fetchTrendingSinglePage(page: Int): List<ContentPreview> {
+        val filterByPlatforms = _filterByPlatforms.value
         val liked = buildSet {
             addAll(likedIds.value)
             movieDao.getLiked().first().forEach { m ->
@@ -608,47 +628,17 @@ class DiscoverViewModel(
                 s.tmdbId?.let { add("tmdb-$it") }
             }
         }
-        val filterByPlatforms = _filterByPlatforms.value
-
-        while (accumulatedResults.size < targetCount && hasMoreApiPages) {
-            val pageResults = if (query.isBlank()) {
-                try {
-                    val results = discoverRepository.fetchTrendingPage(apiPage, filterByPlatforms)
-                    val blacklisted = blacklistedIds.value
-                    results.filter { it.id !in liked && it.id !in blacklisted && it.id !in watched }
-                        .filter { it.ratingImdb != null && it.ratingImdb >= 6.0f }
-                } catch (e: kotlinx.coroutines.CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    AppLogger.e("DiscoverVM", "fetchTrendingPage error", e)
-                    hasError = true
-                    emptyList()
-                }
-            } else {
-                try {
-                    discoverRepository.fetchSearchPage(query, apiPage)
-                        .filter { it.ratingImdb != null && it.ratingImdb >= 6.0f }
-                } catch (e: kotlinx.coroutines.CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    AppLogger.e("DiscoverVM", "fetchSearchPage error", e)
-                    hasError = true
-                    emptyList()
-                }
-            }
-
-            if (pageResults.isEmpty()) {
-                hasMoreApiPages = false
-                break
-            }
-
-            apiPage++
-            accumulatedResults.addAll(pageResults)
-        }
-
-        accumulatedResults.distinctBy { it.id }.let { dedup ->
-            accumulatedResults.clear()
-            accumulatedResults.addAll(dedup)
+        return try {
+            val results = discoverRepository.fetchTrendingPage(page, filterByPlatforms)
+            val blacklisted = blacklistedIds.value
+            results.filter { it.id !in liked && it.id !in blacklisted && it.id !in watched }
+                .filter { it.ratingImdb != null && it.ratingImdb >= 6.0f }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            AppLogger.e("DiscoverVM", "fetchTrendingPage error page=$page", e)
+            hasError = true
+            emptyList()
         }
     }
 }
