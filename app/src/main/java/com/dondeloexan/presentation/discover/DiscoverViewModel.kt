@@ -528,15 +528,14 @@ class DiscoverViewModel(
         if (isFilling || !hasMorePages) return
         isFilling = true
         viewModelScope.launch {
-            val page = fetchTrendingSinglePage(currentPage + 1)
-            if (page.isNotEmpty()) {
-                currentPage++
-                cachedResults = cachedResults + page
-                _uiState.value = DiscoverUiState.Success(cachedResults)
-            } else {
-                hasMorePages = false
-            }
+            val target = cachedResults.size + 10
+            fillPagesUntil(target)
             isFilling = false
+            _uiState.value = if (cachedResults.isEmpty()) {
+                DiscoverUiState.Empty(_searchQuery.value)
+            } else {
+                DiscoverUiState.Success(cachedResults)
+            }
         }
     }
 
@@ -552,18 +551,17 @@ class DiscoverViewModel(
     fun onRetry() {
         val query = _searchQuery.value
         if (query.isBlank()) {
-            if (!hasMorePages) { loadTrending(); return }
             trendingJob?.cancel()
             trendingJob = viewModelScope.launch {
-                val nextPage = currentPage + 1
                 _uiState.value = DiscoverUiState.Loading
-                val page = fetchTrendingSinglePage(nextPage)
-                if (page.isNotEmpty()) {
-                    currentPage = nextPage
-                    cachedResults = page
-                    _uiState.value = DiscoverUiState.Success(cachedResults)
-                } else {
-                    onClearSearch()
+                cachedResults = emptyList()
+                if (hasMorePages) currentPage++
+                fillPagesUntil(10)
+                if (cachedResults.isEmpty()) currentPage = 1
+                _uiState.value = when {
+                    cachedResults.isNotEmpty() -> DiscoverUiState.Success(cachedResults)
+                    hasError -> DiscoverUiState.Error("No se pudo conectar con el servidor, prueba a deslizar para reintentar")
+                    else -> DiscoverUiState.Empty("")
                 }
             }
         } else {
@@ -596,14 +594,25 @@ class DiscoverViewModel(
             cachedResults = emptyList()
             _uiState.value = DiscoverUiState.Loading
 
-            val page = fetchTrendingSinglePage(1)
-            cachedResults = page
-            hasMorePages = page.isNotEmpty()
+            fillPagesUntil(10)
 
             _uiState.value = when {
                 cachedResults.isNotEmpty() -> DiscoverUiState.Success(cachedResults)
                 hasError -> DiscoverUiState.Error("No se pudo conectar con el servidor, prueba a deslizar para reintentar")
                 else -> DiscoverUiState.Empty("")
+            }
+        }
+    }
+
+    private suspend fun fillPagesUntil(minItems: Int) {
+        while (cachedResults.size < minItems && hasMorePages) {
+            val next = if (currentPage == 1 && cachedResults.isEmpty()) 1 else currentPage + 1
+            val page = fetchTrendingSinglePage(next)
+            if (page.isNotEmpty()) {
+                currentPage = next
+                cachedResults = cachedResults + page
+            } else {
+                hasMorePages = false
             }
         }
     }

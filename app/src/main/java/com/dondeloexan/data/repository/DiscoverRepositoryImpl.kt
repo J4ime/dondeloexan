@@ -530,6 +530,7 @@ class DiscoverRepositoryImpl(
             var combined = (moviePreviews + tvPreviews).shuffled()
 
             if (postFilterByPlatforms) {
+                val before = combined.size
                 combined = combined.filter { preview ->
                     preview.streamingPlatforms.any { platform ->
                         activePlatforms.any { active ->
@@ -537,6 +538,7 @@ class DiscoverRepositoryImpl(
                         }
                     }
                 }
+                AppLogger.d("DiscoverRepo", "platform filter: $before -> ${combined.size}")
             }
 
             combined
