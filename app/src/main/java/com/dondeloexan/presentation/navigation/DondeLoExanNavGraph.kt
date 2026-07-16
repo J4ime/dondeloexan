@@ -8,6 +8,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -17,6 +18,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -37,6 +39,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
@@ -74,11 +77,13 @@ import com.dondeloexan.presentation.series.SeriesViewModel
 import com.dondeloexan.presentation.settings.LogViewerScreen
 import com.dondeloexan.presentation.settings.SettingsScreen
 import com.dondeloexan.presentation.theme.DarkBackground
+import com.dondeloexan.presentation.theme.DarkSurface
 import com.dondeloexan.presentation.theme.EleganteRose
 import com.dondeloexan.presentation.theme.EleganteRoseDark
 import com.dondeloexan.presentation.theme.TextPrimary
 import com.dondeloexan.presentation.theme.TextSecondary
 import com.dondeloexan.presentation.theme.UbuntuTypography
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
@@ -124,6 +129,12 @@ fun DondeLoExanNavGraph(navController: NavHostController) {
     var feedbackMessage by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) {
         feedbackManager.events.collect { message -> feedbackMessage = message }
+    }
+    LaunchedEffect(feedbackMessage) {
+        if (feedbackMessage != null) {
+            delay(2200)
+            feedbackMessage = null
+        }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -317,6 +328,32 @@ private fun MainPagerContent(
             }
         }
 
+        if (currentPage in 0..5) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.Start
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = DarkSurface
+                ) {
+                    IconButton(
+                        modifier = Modifier.size(52.dp),
+                        onClick = onToggleGrid
+                    ) {
+                        Icon(
+                            if (isGridView) Icons.AutoMirrored.Outlined.ViewList else Icons.Outlined.Apps,
+                            contentDescription = if (isGridView) "Vista lista" else "Vista cuadrícula",
+                            tint = if (isGridView) EleganteRose else TextPrimary,
+                            modifier = Modifier.size(30.dp)
+                        )
+                    }
+                }
+            }
+        }
+
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             HorizontalPager(
                 state = pagerState
@@ -357,25 +394,12 @@ private fun MainPagerContent(
                         navController = navController,
                         viewModel = moviesViewModel
                     )
-                    6 -> DiscoverScreen(navController = navController)
-                    7 -> SettingsScreen(navController = navController)
-                }
-            }
-
-            if (currentPage <= 5) {
-                IconButton(
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(end = 16.dp, bottom = 16.dp)
-                        .size(56.dp),
-                    onClick = onToggleGrid
-                ) {
-                    Icon(
-                        if (isGridView) Icons.AutoMirrored.Outlined.ViewList else Icons.Outlined.Apps,
-                        contentDescription = if (isGridView) "Vista lista" else "Vista cuadrícula",
-                        tint = if (isGridView) EleganteRose else TextSecondary,
-                        modifier = Modifier.size(32.dp)
+                    6 -> DiscoverScreen(
+                        navController = navController,
+                        isGridView = isGridView,
+                        onToggleGrid = onToggleGrid
                     )
+                    7 -> SettingsScreen(navController = navController)
                 }
             }
         }

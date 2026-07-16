@@ -20,7 +20,11 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -29,6 +33,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.pullrefresh.PullRefreshIndicator
 import androidx.compose.material.pullrefresh.pullRefresh
 import androidx.compose.material.pullrefresh.rememberPullRefreshState
+import androidx.compose.material.icons.automirrored.outlined.ViewList
+import androidx.compose.material.icons.outlined.Apps
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.FilterList
@@ -39,6 +45,7 @@ import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.material3.Text
@@ -75,7 +82,9 @@ import org.koin.compose.koinInject
 @Composable
 fun DiscoverScreen(
     navController: NavController,
-    viewModel: DiscoverViewModel = koinViewModel()
+    viewModel: DiscoverViewModel = koinViewModel(),
+    isGridView: Boolean = false,
+    onToggleGrid: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
@@ -169,6 +178,23 @@ fun DiscoverScreen(
                     selectedLabelColor = EleganteRose
                 )
             )
+
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = DarkSurface
+            ) {
+                IconButton(
+                    modifier = Modifier.size(36.dp),
+                    onClick = onToggleGrid
+                ) {
+                    Icon(
+                        if (isGridView) Icons.AutoMirrored.Outlined.ViewList else Icons.Outlined.Apps,
+                        contentDescription = if (isGridView) "Vista lista" else "Vista cuadrícula",
+                        tint = if (isGridView) EleganteRose else TextPrimary,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
         }
 
         FeedbackBanner(
@@ -182,6 +208,7 @@ fun DiscoverScreen(
             likedIds = likedIds,
             watchedIds = watchedIds,
             blacklistedIds = blacklistedIds,
+            isGridView = isGridView,
             onItemClick = { contentId, contentType ->
                 navController.navigate("detail/$contentId/$contentType")
             },
@@ -202,6 +229,7 @@ fun DiscoverContent(
     likedIds: Set<String>,
     watchedIds: Set<String>,
     blacklistedIds: Set<String>,
+    isGridView: Boolean = false,
     onItemClick: (String, String) -> Unit,
     onFavoriteClick: (ContentPreview) -> Unit,
     onWatchedClick: (ContentPreview) -> Unit,
@@ -229,38 +257,78 @@ fun DiscoverContent(
             is DiscoverUiState.Empty -> EmptyState(query = searchQuery)
             is DiscoverUiState.Error -> ErrorState(message = uiState.message, onRetry = onRetry)
             is DiscoverUiState.Success -> {
-                val listState = androidx.compose.foundation.lazy.rememberLazyListState()
-                val shouldLoadMore by remember {
-                    derivedStateOf {
-                        val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-                        val totalItems = listState.layoutInfo.totalItemsCount
-                        lastVisible >= totalItems - 3 && totalItems > 3
+                if (isGridView) {
+                    val gridState = androidx.compose.foundation.lazy.grid.rememberLazyGridState()
+                    val shouldLoadMore by remember {
+                        derivedStateOf {
+                            val lastVisible = gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+                            val totalItems = gridState.layoutInfo.totalItemsCount
+                            lastVisible >= totalItems - 3 && totalItems > 3
+                        }
                     }
-                }
-                LaunchedEffect(shouldLoadMore) {
-                    if (shouldLoadMore) onLoadNextPage()
-                }
+                    LaunchedEffect(shouldLoadMore) {
+                        if (shouldLoadMore) onLoadNextPage()
+                    }
 
-                LazyColumn(
-                    state = listState,
-                    contentPadding = PaddingValues(vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    items(uiState.results, key = { it.id }) { content ->
-                        AnimatedVisibility(
-                            visible = true,
-                            enter = fadeIn() + slideInVertically { it / 2 }
-                        ) {
-                            SearchItemCard(
-                                content = content,
-                                isLiked = likedIds.contains(content.id),
-                                isWatched = watchedIds.contains(content.id),
-                                isBlacklisted = blacklistedIds.contains(content.id),
-                                onFavoriteClick = { onFavoriteClick(content) },
-                                onWatchedClick = { onWatchedClick(content) },
-                                onBlacklistClick = { onBlacklistClick(content) },
-                                onClick = { onItemClick(content.id, content.type.name.lowercase()) }
-                            )
+                    LazyVerticalGrid(
+                        columns = GridCells.Adaptive(140.dp),
+                        state = gridState,
+                        contentPadding = PaddingValues(vertical = 8.dp, horizontal = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        items(uiState.results, key = { it.id }) { content ->
+                            AnimatedVisibility(
+                                visible = true,
+                                enter = fadeIn()
+                            ) {
+                                SearchItemCard(
+                                    content = content,
+                                    isLiked = likedIds.contains(content.id),
+                                    isWatched = watchedIds.contains(content.id),
+                                    isBlacklisted = blacklistedIds.contains(content.id),
+                                    onFavoriteClick = { onFavoriteClick(content) },
+                                    onWatchedClick = { onWatchedClick(content) },
+                                    onBlacklistClick = { onBlacklistClick(content) },
+                                    onClick = { onItemClick(content.id, content.type.name.lowercase()) }
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+                    val shouldLoadMore by remember {
+                        derivedStateOf {
+                            val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+                            val totalItems = listState.layoutInfo.totalItemsCount
+                            lastVisible >= totalItems - 3 && totalItems > 3
+                        }
+                    }
+                    LaunchedEffect(shouldLoadMore) {
+                        if (shouldLoadMore) onLoadNextPage()
+                    }
+
+                    LazyColumn(
+                        state = listState,
+                        contentPadding = PaddingValues(vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        items(uiState.results, key = { it.id }) { content ->
+                            AnimatedVisibility(
+                                visible = true,
+                                enter = fadeIn() + slideInVertically { it / 2 }
+                            ) {
+                                SearchItemCard(
+                                    content = content,
+                                    isLiked = likedIds.contains(content.id),
+                                    isWatched = watchedIds.contains(content.id),
+                                    isBlacklisted = blacklistedIds.contains(content.id),
+                                    onFavoriteClick = { onFavoriteClick(content) },
+                                    onWatchedClick = { onWatchedClick(content) },
+                                    onBlacklistClick = { onBlacklistClick(content) },
+                                    onClick = { onItemClick(content.id, content.type.name.lowercase()) }
+                                )
+                            }
                         }
                     }
                 }

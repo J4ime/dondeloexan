@@ -1,5 +1,6 @@
 package com.dondeloexan.presentation.detail
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -107,6 +108,8 @@ fun MediaDetailScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val scope = rememberCoroutineScope()
+
+    BackHandler { onBack() }
 
     LaunchedEffect(contentId, contentType) {
         viewModel.loadContent(contentId, contentType)

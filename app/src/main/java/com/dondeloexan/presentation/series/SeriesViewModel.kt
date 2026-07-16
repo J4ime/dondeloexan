@@ -55,8 +55,11 @@ class SeriesViewModel(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private fun SeriesWithProgress.hasFutureSeasons(): Boolean {
-        return show.seriesStatus !in listOf("Ended", "Canceled")
-                && show.inProduction != false
+        return when (show.seriesStatus) {
+            "Ended", "Canceled" -> false
+            null -> show.inProduction != false
+            else -> true
+        }
     }
 
     private fun SeriesWithProgress.isCaughtUp(): Boolean {
