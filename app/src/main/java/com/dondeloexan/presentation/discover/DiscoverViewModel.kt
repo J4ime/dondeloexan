@@ -119,7 +119,10 @@ class DiscoverViewModel(
         viewModelScope.launch {
             activePlatforms.drop(1).collect {
                 if (_searchQuery.value.isBlank()) {
-                    loadTrending()
+                    val currentState = _uiState.value
+                    if (currentState !is DiscoverUiState.Success || currentState.results.isEmpty()) {
+                        loadTrending()
+                    }
                 }
             }
         }
@@ -517,7 +520,7 @@ class DiscoverViewModel(
         viewModelScope.launch {
             isFilling = true
 
-            fillUntil(targetCount = accumulatedResults.size + 20, query = query)
+            fillUntil(targetCount = accumulatedResults.size + 10, query = query)
             isFilling = false
 
             _uiState.value = if (accumulatedResults.isEmpty()) {
@@ -570,7 +573,7 @@ class DiscoverViewModel(
             accumulatedResults.clear()
             _uiState.value = DiscoverUiState.Loading
 
-            fillUntil(targetCount = 20)
+            fillUntil(targetCount = 10)
             isFilling = false
 
             _uiState.value = if (accumulatedResults.isEmpty()) {

@@ -68,7 +68,7 @@ class SeriesViewModel(
     }
 
     private fun SeriesWithProgress.isFinished(): Boolean {
-        if (show.finishedAt != null) return true
+        if (show.finishedAt != null && isCaughtUp() && !hasFutureSeasons()) return true
         if (!isCaughtUp()) return false
         return !hasFutureSeasons()
     }

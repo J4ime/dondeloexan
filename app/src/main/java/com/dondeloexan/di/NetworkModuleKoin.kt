@@ -38,16 +38,16 @@ val networkModule = module {
             engine {
                 config {
                     dispatcher(Dispatcher().apply {
-                        maxRequestsPerHost = 5
-                        maxRequests = 15
+                        maxRequestsPerHost = 15
+                        maxRequests = 30
                     })
-                    connectionPool(ConnectionPool(5, 30, TimeUnit.SECONDS))
+                    connectionPool(ConnectionPool(10, 30, TimeUnit.SECONDS))
                     retryOnConnectionFailure(true)
                 }
             }
             install(ContentNegotiation) { json(get()) }
             install(HttpTimeout) {
-                requestTimeoutMillis = 5_000
+                requestTimeoutMillis = 15_000
                 connectTimeoutMillis = 5_000
                 socketTimeoutMillis = 5_000
             }
@@ -66,16 +66,16 @@ val networkModule = module {
             engine {
                 config {
                     dispatcher(Dispatcher().apply {
-                        maxRequestsPerHost = 5
-                        maxRequests = 15
+                        maxRequestsPerHost = 15
+                        maxRequests = 30
                     })
-                    connectionPool(ConnectionPool(5, 30, TimeUnit.SECONDS))
+                    connectionPool(ConnectionPool(10, 30, TimeUnit.SECONDS))
                     retryOnConnectionFailure(true)
                 }
             }
             install(ContentNegotiation) { json(get()) }
             install(HttpTimeout) {
-                requestTimeoutMillis = 5_000
+                requestTimeoutMillis = 15_000
                 connectTimeoutMillis = 5_000
                 socketTimeoutMillis = 5_000
             }
@@ -99,7 +99,7 @@ val networkModule = module {
             }
             install(ContentNegotiation) { json(get()) }
             install(HttpTimeout) {
-                requestTimeoutMillis = 5_000
+                requestTimeoutMillis = 10_000
                 connectTimeoutMillis = 5_000
             }
             defaultRequest {

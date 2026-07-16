@@ -549,14 +549,14 @@ class DiscoverRepositoryImpl(
                 movieResults.results
                     .filter { !it.adult }
                     .map { it.toContentPreview() }
-                    .take(10)
+                    .take(5)
             )
 
             val tvPreviews = attachTmbdPlatforms(
                 tvResults.results
                     .filter { !it.adult }
                     .map { it.copy(mediaType = "tv").toContentPreview() }
-                    .take(10)
+                    .take(5)
             )
 
             var combined = (moviePreviews + tvPreviews).shuffled()
