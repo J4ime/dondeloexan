@@ -30,6 +30,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -100,12 +101,14 @@ class DiscoverViewModel(
         movieDao.getLiked().map { list -> list.mapNotNull { it.contentId }.toSet() },
         tvShowDao.getLiked().map { list -> list.mapNotNull { it.contentId }.toSet() }
     ) { movieLiked, tvLiked -> movieLiked + tvLiked }
+        .distinctUntilChanged()
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
 
     val watchedIds: StateFlow<Set<String>> = combine(
         movieDao.getByStatus(WatchStatus.YA_VISTA).map { list -> list.mapNotNull { it.contentId }.toSet() },
         tvShowDao.getByStatus(WatchStatus.YA_VISTA).map { list -> list.mapNotNull { it.contentId }.toSet() }
     ) { movieWatched, tvWatched -> movieWatched + tvWatched }
+        .distinctUntilChanged()
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
 
     private var apiPage = 1
@@ -566,7 +569,7 @@ class DiscoverViewModel(
         trendingJob?.cancel()
     }
 
-    private fun loadTrending() {
+    fun loadTrending() {
         trendingJob?.cancel()
         hasError = false
         trendingJob = viewModelScope.launch {
@@ -587,27 +590,28 @@ class DiscoverViewModel(
     }
 
     private suspend fun fillUntil(targetCount: Int, query: String = "") {
+        val liked = buildSet {
+            addAll(likedIds.value)
+            movieDao.getLiked().first().forEach { m ->
+                m.tmdbId?.let { add("tmdb-$it") }
+            }
+            tvShowDao.getLiked().first().forEach { s ->
+                s.tmdbId?.let { add("tmdb-$it") }
+            }
+        }
+        val watched = buildSet {
+            addAll(watchedIds.value)
+            movieDao.getByStatus(WatchStatus.YA_VISTA).first().forEach { m ->
+                m.tmdbId?.let { add("tmdb-$it") }
+            }
+            tvShowDao.getByStatus(WatchStatus.YA_VISTA).first().forEach { s ->
+                s.tmdbId?.let { add("tmdb-$it") }
+            }
+        }
+        val filterByPlatforms = _filterByPlatforms.value
+
         while (accumulatedResults.size < targetCount && hasMoreApiPages) {
             val pageResults = if (query.isBlank()) {
-                val liked = buildSet {
-                    addAll(likedIds.value)
-                    movieDao.getLiked().first().forEach { m ->
-                        m.tmdbId?.let { add("tmdb-$it") }
-                    }
-                    tvShowDao.getLiked().first().forEach { s ->
-                        s.tmdbId?.let { add("tmdb-$it") }
-                    }
-                }
-                val watched = buildSet {
-                    addAll(watchedIds.value)
-                    movieDao.getByStatus(WatchStatus.YA_VISTA).first().forEach { m ->
-                        m.tmdbId?.let { add("tmdb-$it") }
-                    }
-                    tvShowDao.getByStatus(WatchStatus.YA_VISTA).first().forEach { s ->
-                        s.tmdbId?.let { add("tmdb-$it") }
-                    }
-                }
-                val filterByPlatforms = _filterByPlatforms.value
                 try {
                     val results = discoverRepository.fetchTrendingPage(apiPage, filterByPlatforms)
                     val blacklisted = blacklistedIds.value

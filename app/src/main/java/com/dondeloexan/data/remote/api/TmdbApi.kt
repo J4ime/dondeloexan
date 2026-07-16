@@ -82,7 +82,8 @@ class TmdbApi(private val client: HttpClient) {
         watchRegion: String? = "ES",
         releaseDateGte: String? = "2024-01-01",
         releaseDateLte: String? = null,
-        sortBy: String? = "popularity.desc"
+        sortBy: String? = "popularity.desc",
+        voteCountGte: Int? = null
     ): TmdbTrendingResponse {
         val response = client.get("discover/movie") {
             timeout {
@@ -96,6 +97,7 @@ class TmdbApi(private val client: HttpClient) {
             if (!watchRegion.isNullOrBlank()) parameter("watch_region", watchRegion)
             if (!releaseDateGte.isNullOrBlank()) parameter("primary_release_date.gte", releaseDateGte)
             if (!releaseDateLte.isNullOrBlank()) parameter("primary_release_date.lte", releaseDateLte)
+            if (voteCountGte != null) parameter("vote_count.gte", voteCountGte)
         }
         return response.body()
     }
@@ -107,7 +109,8 @@ class TmdbApi(private val client: HttpClient) {
         watchRegion: String? = "ES",
         firstAirDateGte: String? = "2024-01-01",
         firstAirDateLte: String? = null,
-        sortBy: String? = "popularity.desc"
+        sortBy: String? = "popularity.desc",
+        voteCountGte: Int? = null
     ): TmdbTrendingResponse {
         val response = client.get("discover/tv") {
             timeout {
@@ -121,6 +124,7 @@ class TmdbApi(private val client: HttpClient) {
             if (!watchRegion.isNullOrBlank()) parameter("watch_region", watchRegion)
             if (!firstAirDateGte.isNullOrBlank()) parameter("first_air_date.gte", firstAirDateGte)
             if (!firstAirDateLte.isNullOrBlank()) parameter("first_air_date.lte", firstAirDateLte)
+            if (voteCountGte != null) parameter("vote_count.gte", voteCountGte)
         }
         return response.body()
     }

@@ -95,6 +95,8 @@ fun DiscoverScreen(
 
     var isSearchFocused by remember { mutableStateOf(false) }
 
+    LaunchedEffect(Unit) { viewModel.loadTrending() }
+
     val feedbackManager: FeedbackManager = koinInject()
     var feedbackMessage by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) {
