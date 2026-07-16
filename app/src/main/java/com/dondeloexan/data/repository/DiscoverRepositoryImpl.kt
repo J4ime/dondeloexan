@@ -513,18 +513,20 @@ class DiscoverRepositoryImpl(
             val movieResults = movieDeferred.await()
             val tvResults = tvDeferred.await()
 
+            val takePerType = if (postFilterByPlatforms) 30 else 5
+
             val moviePreviews = attachTmbdPlatforms(
                 movieResults.results
                     .filter { !it.adult }
                     .map { it.toContentPreview() }
-                    .take(5)
+                    .take(takePerType)
             )
 
             val tvPreviews = attachTmbdPlatforms(
                 tvResults.results
                     .filter { !it.adult }
                     .map { it.copy(mediaType = "tv").toContentPreview() }
-                    .take(5)
+                    .take(takePerType)
             )
 
             var combined = (moviePreviews + tvPreviews).shuffled()

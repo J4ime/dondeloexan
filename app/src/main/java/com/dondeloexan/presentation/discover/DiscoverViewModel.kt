@@ -525,7 +525,7 @@ class DiscoverViewModel(
     }
 
     fun loadNextPage() {
-        if (isFilling || !hasMorePages) return
+        if (isFilling) return
         isFilling = true
         viewModelScope.launch {
             val target = cachedResults.size + 10
@@ -605,14 +605,18 @@ class DiscoverViewModel(
     }
 
     private suspend fun fillPagesUntil(minItems: Int) {
+        var emptyPageCount = 0
         while (cachedResults.size < minItems && hasMorePages) {
             val next = if (currentPage == 1 && cachedResults.isEmpty()) 1 else currentPage + 1
             val page = fetchTrendingSinglePage(next)
             if (page.isNotEmpty()) {
                 currentPage = next
                 cachedResults = cachedResults + page
+                emptyPageCount = 0
             } else {
-                hasMorePages = false
+                currentPage = next
+                emptyPageCount++
+                if (emptyPageCount >= 3) hasMorePages = false
             }
         }
     }
