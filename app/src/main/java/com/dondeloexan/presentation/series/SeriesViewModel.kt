@@ -9,10 +9,15 @@ import com.dondeloexan.data.local.entity.TvShowProgressEntity
 import com.dondeloexan.data.local.entity.WatchStatus
 import com.dondeloexan.data.local.entity.toPlatformsString
 import com.dondeloexan.data.remote.api.TmdbApi
-import com.dondeloexan.data.remote.dto.TmdbSeasonDto
 import com.dondeloexan.data.remote.mapper.toStreamingAvailability
 import com.dondeloexan.presentation.feedback.FeedbackManager
 import com.dondeloexan.util.AppLogger
+import com.dondeloexan.util.BatchCancelledException
+import com.dondeloexan.util.RefreshCoordinator
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -31,6 +36,7 @@ class SeriesViewModel(
     private val tvShowDao: TvShowDao,
     private val tvShowProgressDao: TvShowProgressDao,
     private val tmdbApi: TmdbApi,
+    private val refreshCoordinator: RefreshCoordinator,
     private val feedbackManager: FeedbackManager
 ) : ViewModel() {
 
@@ -91,19 +97,25 @@ class SeriesViewModel(
         }.sortedWith(compareBy(nullsLast<String>()) { it.show.nextEpisodeAirDate })
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    init {
-        refreshSeriesData()
-    }
+    private val refreshJob = SupervisorJob()
+    private val refreshScope = CoroutineScope(Dispatchers.IO + refreshJob)
 
-    private fun refreshSeriesData() {
-        viewModelScope.launch {
-            try {
-                val liked = tvShowDao.getAll().filter { it.liked }
-                for (show in liked) {
-                    val tmdbId = show.tmdbId ?: continue
+    fun refreshSeriesData() {
+        refreshScope.launch {
+            refreshCoordinator.resetBatch()
+            val liked = tvShowDao.getAll().filter { it.liked }
+            val now = System.currentTimeMillis()
+            val cutoff = now - 86_400_000L
+            val stale = liked.filter { it.lastRefreshedAt == null || it.lastRefreshedAt < cutoff }
+
+            stale.map { show ->
+                async {
+                    val tmdbId = show.tmdbId ?: return@async
                     try {
-                        val tvDetail = tmdbApi.getTvDetailLight(tmdbId)
-                        val existing = tvShowDao.getByContentId(show.contentId ?: continue) ?: continue
+                        val tvDetail = refreshCoordinator.execute(coroutineContext, tmdbId) {
+                            tmdbApi.getTvDetailLight(tmdbId)
+                        }
+                        val existing = tvShowDao.getById(show.id) ?: return@async
 
                         val lastEp = tvDetail.lastEpisodeToAir
                         val seasons = tvDetail.seasons
@@ -120,11 +132,11 @@ class SeriesViewModel(
 
                         val platformsStr = if (existing.streamingPlatforms.isNullOrEmpty()) {
                             try {
-                                val providers = tmdbApi.getTvWatchProviders(tmdbId)
-                                val platforms = providers.results.get("ES")?.toStreamingAvailability().orEmpty()
-                                platforms.toPlatformsString()
+                                val providers = refreshCoordinator.execute(coroutineContext, tmdbId) {
+                                    tmdbApi.getTvWatchProviders(tmdbId)
+                                }
+                                providers.results.get("ES")?.toStreamingAvailability().orEmpty().toPlatformsString()
                             } catch (e: Exception) {
-                                AppLogger.e("SeriesVM", "platforms for show ${show.id}", e)
                                 null
                             }
                         } else existing.streamingPlatforms
@@ -139,16 +151,17 @@ class SeriesViewModel(
                                 seriesStatus = tvDetail.status,
                                 inProduction = tvDetail.inProduction ?: existing.inProduction,
                                 numberOfSeasons = tvDetail.numberOfSeasons ?: existing.numberOfSeasons,
-                                streamingPlatforms = platformsStr
+                                streamingPlatforms = platformsStr ?: existing.streamingPlatforms,
+                                lastRefreshedAt = System.currentTimeMillis()
                             )
                         )
+                    } catch (e: BatchCancelledException) {
+                        AppLogger.w("SeriesVM", "Batch cancelled after 3 timeouts")
                     } catch (e: Exception) {
-                        AppLogger.e("SeriesVM", "Refresh series detail error", e)
+                        AppLogger.e("SeriesVM", "Refresh error -> tv/$tmdbId", e)
                     }
                 }
-            } catch (e: Exception) {
-                AppLogger.e("SeriesVM", "Refresh series data error", e)
-            }
+            }.forEach { it.await() }
         }
     }
 

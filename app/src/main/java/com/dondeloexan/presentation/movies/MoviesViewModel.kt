@@ -10,8 +10,12 @@ import com.dondeloexan.data.remote.api.TmdbApi
 import com.dondeloexan.data.remote.mapper.toStreamingAvailability
 import com.dondeloexan.presentation.feedback.FeedbackManager
 import com.dondeloexan.util.AppLogger
+import com.dondeloexan.util.BatchCancelledException
+import com.dondeloexan.util.RefreshCoordinator
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -20,6 +24,7 @@ import kotlinx.coroutines.launch
 class MoviesViewModel(
     private val movieDao: MovieDao,
     private val tmdbApi: TmdbApi,
+    private val refreshCoordinator: RefreshCoordinator,
     private val feedbackManager: FeedbackManager
 ) : ViewModel() {
 
@@ -29,40 +34,40 @@ class MoviesViewModel(
     val watchedMovies: StateFlow<List<MovieEntity>> = movieDao.getWatchedMoviesFlow()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    init {
-        viewModelScope.launch {
-            refreshMoviePlatforms()
-        }
-    }
+    private val refreshJob = SupervisorJob()
+    private val refreshScope = CoroutineScope(Dispatchers.IO + refreshJob)
 
-    private suspend fun refreshMoviePlatforms() {
-        try {
+    fun refreshMoviePlatforms() {
+        refreshScope.launch {
+            refreshCoordinator.resetBatch()
             val liked = movieDao.getAll().filter { it.liked }
-            coroutineScope {
-                liked.map { movie ->
-                    async {
-                        val tmdbId = movie.tmdbId ?: return@async
-                        try {
-                            val providers = tmdbApi.getMovieWatchProviders(tmdbId)
-                            val platforms = providers.results.get("ES")?.toStreamingAvailability().orEmpty()
-                            val platformsStr = platforms.toPlatformsString()
-                            val existing = if (!movie.contentId.isNullOrBlank()) {
-                                movieDao.getByContentId(movie.contentId) ?: movieDao.getByTmdbId(tmdbId)
-                            } else {
-                                movieDao.getByTmdbId(tmdbId)
-                            } ?: return@async
-                            if (platformsStr != null) {
-                                movieDao.update(existing.copy(streamingPlatforms = platformsStr))
-                            }
-                            AppLogger.d("MoviesVM", "Refreshed platforms for ${movie.title}: ${platforms.size} platforms, saved=${platformsStr != null}, preview=${platformsStr?.take(120)}")
-                        } catch (e: Exception) {
-                            AppLogger.e("MoviesVM", "Refresh movie platforms error for ${movie.title}", e)
+            val now = System.currentTimeMillis()
+            val cutoff = now - 86_400_000L
+            val stale = liked.filter { it.lastRefreshedAt == null || it.lastRefreshedAt < cutoff }
+
+            stale.map { movie ->
+                async {
+                    val tmdbId = movie.tmdbId ?: return@async
+                    try {
+                        val providers = refreshCoordinator.execute(coroutineContext, tmdbId) {
+                            tmdbApi.getMovieWatchProviders(tmdbId)
                         }
+                        val platforms = providers.results["ES"]?.toStreamingAvailability().orEmpty()
+                        val platformsStr = platforms.toPlatformsString()
+                        val existing = movieDao.getByTmdbId(tmdbId) ?: return@async
+                        if (platformsStr != null) {
+                            movieDao.update(existing.copy(
+                                streamingPlatforms = platformsStr,
+                                lastRefreshedAt = System.currentTimeMillis()
+                            ))
+                        }
+                    } catch (e: BatchCancelledException) {
+                        AppLogger.w("MoviesVM", "Batch cancelled after 3 timeouts")
+                    } catch (e: Exception) {
+                        AppLogger.e("MoviesVM", "Refresh error -> ${movie.title}", e)
                     }
                 }
-            }
-        } catch (e: Exception) {
-            AppLogger.e("MoviesVM", "Refresh movie platforms error", e)
+            }.forEach { it.await() }
         }
     }
 
