@@ -133,6 +133,18 @@ fun MediaDetailScreen(
                     )
                 }
             },
+            actions = {
+                if (uiState.content?.type == com.dondeloexan.domain.model.ContentType.MOVIE) {
+                    val isWatched = uiState.isMovieWatched == true
+                    IconButton(onClick = { viewModel.toggleMovieWatched() }) {
+                        Icon(
+                            if (isWatched) Icons.Filled.Check else Icons.Filled.Check,
+                            contentDescription = if (isWatched) "Quitar de vistos" else "Marcar como vista",
+                            tint = if (isWatched) EleganteRose else TextPrimary
+                        )
+                    }
+                }
+            },
             colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBackground),
             windowInsets = WindowInsets(top = 0)
         )

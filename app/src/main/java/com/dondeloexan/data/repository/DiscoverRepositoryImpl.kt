@@ -504,16 +504,16 @@ class DiscoverRepositoryImpl(
 
         return coroutineScope {
             val movieDeferred = async {
-                tmdbApi.discoverMovie(page = page, watchProviders = providerFilter, watchRegion = watchRegion, releaseDateGte = fiveYearsAgo, releaseDateLte = oneYearFuture, sortBy = null, voteCountGte = 1000)
+                tmdbApi.discoverMovie(page = page, watchProviders = providerFilter, watchRegion = watchRegion, releaseDateGte = fiveYearsAgo, releaseDateLte = oneYearFuture, sortBy = null, voteCountGte = 100)
             }
             val tvDeferred = async {
-                tmdbApi.discoverTv(page = page, watchProviders = providerFilter, watchRegion = watchRegion, firstAirDateGte = fiveYearsAgo, firstAirDateLte = oneYearFuture, sortBy = null, voteCountGte = 1000)
+                tmdbApi.discoverTv(page = page, watchProviders = providerFilter, watchRegion = watchRegion, firstAirDateGte = fiveYearsAgo, firstAirDateLte = oneYearFuture, sortBy = null, voteCountGte = 100)
             }
 
             val movieResults = movieDeferred.await()
             val tvResults = tvDeferred.await()
 
-            val takePerType = if (postFilterByPlatforms) 30 else 5
+            val takePerType = if (postFilterByPlatforms) 30 else 20
 
             val moviePreviews = attachTmbdPlatforms(
                 movieResults.results

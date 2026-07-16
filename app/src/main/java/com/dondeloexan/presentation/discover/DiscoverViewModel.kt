@@ -134,6 +134,22 @@ class DiscoverViewModel(
                 }
             }
         }
+        viewModelScope.launch {
+            watchedIds.drop(1).collect { newWatched ->
+                cachedResults = cachedResults.filter { it.id !in newWatched }
+                if (_uiState.value is DiscoverUiState.Success) {
+                    _uiState.value = DiscoverUiState.Success(cachedResults)
+                }
+            }
+        }
+        viewModelScope.launch {
+            likedIds.drop(1).collect { newLiked ->
+                cachedResults = cachedResults.filter { it.id !in newLiked }
+                if (_uiState.value is DiscoverUiState.Success) {
+                    _uiState.value = DiscoverUiState.Success(cachedResults)
+                }
+            }
+        }
     }
 
     fun onSearchQueryChanged(query: String) {

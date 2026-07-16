@@ -2,8 +2,10 @@ package com.dondeloexan.presentation.detail
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.dondeloexan.data.local.dao.MovieDao
 import com.dondeloexan.data.local.dao.TvShowDao
 import com.dondeloexan.data.local.dao.TvShowProgressDao
+import com.dondeloexan.data.local.entity.MovieEntity
 import com.dondeloexan.data.local.entity.TvShowProgressEntity
 import com.dondeloexan.data.local.entity.WatchStatus
 import com.dondeloexan.data.remote.api.BalloonerismmApi
@@ -35,7 +37,8 @@ data class DetailUiState(
     val watchedEpisodes: Set<String> = emptySet(),
     val cascadeProposal: CascadeProposal? = null,
     val lastWatchedSeason: Int? = null,
-    val lastWatchedEpisode: Int? = null
+    val lastWatchedEpisode: Int? = null,
+    val isMovieWatched: Boolean? = null
 )
 
 data class CascadeProposal(
@@ -48,6 +51,7 @@ class MediaDetailViewModel(
     private val discoverRepository: DiscoverRepository,
     private val tmdbApi: TmdbApi,
     private val imdbApi: BalloonerismmApi,
+    private val movieDao: MovieDao,
     private val tvShowDao: TvShowDao,
     private val tvShowProgressDao: TvShowProgressDao
 ) : ViewModel() {
@@ -75,6 +79,13 @@ class MediaDetailViewModel(
 
                             if (content.type == ContentType.SERIES) {
                                 loadSeasons(content)
+                            } else {
+                                val existing = movieDao.getByContentId(content.id)
+                                    ?: content.tmdbId?.let { movieDao.getByTmdbId(it) }
+                                    ?: content.imdbId?.let { movieDao.getByImdbId(it) }
+                                _uiState.value = _uiState.value.copy(
+                                    isMovieWatched = existing?.status == WatchStatus.YA_VISTA
+                                )
                             }
                         }
                         is DataResult.Error -> {
@@ -92,6 +103,42 @@ class MediaDetailViewModel(
                     error = e.message ?: "Error desconocido"
                 )
             }
+        }
+    }
+
+    fun toggleMovieWatched() {
+        viewModelScope.launch {
+            val content = _uiState.value.content ?: return@launch
+            val wasWatched = _uiState.value.isMovieWatched ?: false
+            val newStatus = if (wasWatched) WatchStatus.POR_VER else WatchStatus.YA_VISTA
+
+            val existing = movieDao.getByContentId(content.id)
+                ?: content.tmdbId?.let { movieDao.getByTmdbId(it) }
+                ?: content.imdbId?.let { movieDao.getByImdbId(it) }
+
+            if (existing != null) {
+                movieDao.update(
+                    existing.copy(
+                        status = newStatus,
+                        watchedAt = if (wasWatched) null else System.currentTimeMillis()
+                    )
+                )
+            } else {
+                movieDao.insert(
+                    MovieEntity(
+                        contentId = content.id,
+                        tmdbId = content.tmdbId,
+                        imdbId = content.imdbId,
+                        title = content.title,
+                        year = content.year,
+                        releaseDate = content.releaseDate,
+                        posterUrl = content.coverUrl,
+                        status = WatchStatus.YA_VISTA,
+                        watchedAt = System.currentTimeMillis()
+                    )
+                )
+            }
+            _uiState.value = _uiState.value.copy(isMovieWatched = !wasWatched)
         }
     }
 
