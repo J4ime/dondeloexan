@@ -17,6 +17,7 @@ import com.dondeloexan.R
 import com.dondeloexan.data.local.dao.MovieDao
 import com.dondeloexan.data.local.dao.TvShowDao
 import com.dondeloexan.data.local.entity.WatchStatus
+import com.dondeloexan.data.remote.api.OmdbApi
 import com.dondeloexan.data.remote.api.TmdbApi
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
@@ -31,6 +32,7 @@ class SeriesCheckWorker(
     private val tvShowDao: TvShowDao by inject()
     private val movieDao: MovieDao by inject()
     private val tmdbApi: TmdbApi by inject()
+    private val omdbApi: OmdbApi by inject()
 
     override suspend fun doWork(): Result {
         return try {
@@ -57,8 +59,21 @@ class SeriesCheckWorker(
                 }
             }
 
-            // Movies pending to watch that premiere today
+            // Update IMDb ratings for pending movies
             val allMovies = movieDao.getAll()
+            for (movie in allMovies.filter { it.imdbId != null }) {
+                try {
+                    val omdb = omdbApi.getByImdbId(movie.imdbId!!)
+                    val newRating = omdb.imdbRating?.toFloatOrNull()
+                    if (newRating != null && newRating != movie.ratingImdb) {
+                        movieDao.update(movie.copy(ratingImdb = newRating))
+                    }
+                } catch (e: Exception) {
+                    AppLogger.e("SeriesCheckWorker", "IMDb rating for movie ${movie.title}", e)
+                }
+            }
+
+            // Movies pending to watch that premiere today
             for (movie in allMovies) {
                 if (movie.status == WatchStatus.POR_VER && movie.releaseDate == today) {
                     todayNotifications.add(

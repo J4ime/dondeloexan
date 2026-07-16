@@ -22,12 +22,12 @@ import com.dondeloexan.domain.model.ExternalLinks
 import com.dondeloexan.domain.model.StreamingAvailability
 import com.dondeloexan.domain.repository.DiscoverRepository
 import com.dondeloexan.util.AppLogger
+import com.dondeloexan.util.retryWithBackoff
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withPermit
+import java.time.LocalDate
 import java.util.concurrent.ConcurrentHashMap
 
 class DiscoverRepositoryImpl(
@@ -39,9 +39,6 @@ class DiscoverRepositoryImpl(
     private val tvShowDao: TvShowDao,
     private val tvShowProgressDao: TvShowProgressDao? = null
 ) : DiscoverRepository {
-
-    private val platformSemaphore = Semaphore(4)
-    private val platformSearchSemaphore = Semaphore(10)
 
     private data class CachedPlatforms(
         val platforms: List<StreamingAvailability>,
@@ -348,6 +345,7 @@ class DiscoverRepositoryImpl(
     }
 
     private fun platformMatches(platformName: String, userPlatform: String): Boolean {
+        if (userPlatform == "Cines" && platformName == "Cine") return true
         return platformName.contains(userPlatform, ignoreCase = true) ||
                 userPlatform.contains(platformName, ignoreCase = true)
     }
@@ -366,26 +364,24 @@ class DiscoverRepositoryImpl(
         return coroutineScope {
             previews.map { preview ->
                 async {
-                    platformSemaphore.withPermit {
-                        val platforms = try {
-                            val imdbId = preview.id.removePrefix("imdb-")
-                            val providerResponse = if (preview.type == ContentType.SERIES) {
-                                imdbApi.getTvWatchProviders(imdbId)
-                            } else {
-                                imdbApi.getMovieWatchProviders(imdbId)
-                            }
-                            providerResponse.results?.get("ES")?.imdbToStreaming().orEmpty()
-                        } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
-                            AppLogger.w("DiscoverRepo", "IMDB platforms for ${preview.id} (timeout): ${e.message}")
-                            emptyList()
-                        } catch (e: kotlinx.coroutines.CancellationException) {
-                            throw e
-                        } catch (e: Exception) {
-                            AppLogger.e("DiscoverRepo", "IMDB platforms for ${preview.id}, fallback to TMDB", e)
-                            tryFetchTmbdPlatforms(preview)
+                    val platforms = try {
+                        val imdbId = preview.id.removePrefix("imdb-")
+                        val providerResponse = if (preview.type == ContentType.SERIES) {
+                            imdbApi.getTvWatchProviders(imdbId)
+                        } else {
+                            imdbApi.getMovieWatchProviders(imdbId)
                         }
-                        preview.copy(streamingPlatforms = platforms)
+                        providerResponse.results?.get("ES")?.imdbToStreaming().orEmpty()
+                    } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+                        AppLogger.w("DiscoverRepo", "IMDB platforms for ${preview.id} (timeout): ${e.message}")
+                        emptyList()
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        AppLogger.e("DiscoverRepo", "IMDB platforms for ${preview.id}, fallback to TMDB", e)
+                        tryFetchTmbdPlatforms(preview)
                     }
+                    preview.copy(streamingPlatforms = platforms)
                 }
             }.map { it.await() }
         }
@@ -395,34 +391,34 @@ class DiscoverRepositoryImpl(
         return coroutineScope {
             previews.map { preview ->
                 async {
-                    platformSearchSemaphore.withPermit {
-                        val platforms = try {
-                            val tmdbId = preview.tmdbId ?: return@withPermit preview
-                            val cacheKey = "tmdb-$tmdbId-${preview.type}"
-                            val cached = platformsCache[cacheKey]
-                            if (cached != null && (System.currentTimeMillis() - cached.timestamp) < CACHE_TTL_MS) {
-                                cached.platforms
-                            } else {
-                                val providerResponse = if (preview.type == ContentType.SERIES) {
+                    val platforms = try {
+                        val tmdbId = preview.tmdbId ?: return@async preview
+                        val cacheKey = "tmdb-$tmdbId-${preview.type}"
+                        val cached = platformsCache[cacheKey]
+                        if (cached != null && (System.currentTimeMillis() - cached.timestamp) < CACHE_TTL_MS) {
+                            cached.platforms
+                        } else {
+                            val providerResponse = retryWithBackoff {
+                                if (preview.type == ContentType.SERIES) {
                                     tmdbApi.getTvWatchProviders(tmdbId)
                                 } else {
                                     tmdbApi.getMovieWatchProviders(tmdbId)
                                 }
-                                val platforms = providerResponse.results?.get("ES")?.toStreamingAvailability().orEmpty()
-                                platformsCache[cacheKey] = CachedPlatforms(platforms, System.currentTimeMillis())
-                                platforms
                             }
-                        } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
-                            AppLogger.w("DiscoverRepo", "TMDB platforms for ${preview.id} (timeout): ${e.message}")
-                            emptyList<StreamingAvailability>()
-                        } catch (e: kotlinx.coroutines.CancellationException) {
-                            throw e
-                        } catch (e: Exception) {
-                            AppLogger.e("DiscoverRepo", "TMDB platforms for ${preview.id}", e)
-                            emptyList<StreamingAvailability>()
+                            val platforms = providerResponse.results?.get("ES")?.toStreamingAvailability().orEmpty()
+                            platformsCache[cacheKey] = CachedPlatforms(platforms, System.currentTimeMillis())
+                            platforms
                         }
-                        preview.copy(streamingPlatforms = platforms)
+                    } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+                        AppLogger.w("DiscoverRepo", "TMDB platforms for ${preview.id} (timeout): ${e.message}")
+                        emptyList<StreamingAvailability>()
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        AppLogger.e("DiscoverRepo", "TMDB platforms for ${preview.id}", e)
+                        emptyList<StreamingAvailability>()
                     }
+                    preview.copy(streamingPlatforms = platforms)
                 }
             }.map { it.await() }
         }
@@ -432,34 +428,34 @@ class DiscoverRepositoryImpl(
         return coroutineScope {
             previews.map { preview ->
                 async {
-                    platformSemaphore.withPermit {
-                        val platforms = try {
-                            val tmdbId = preview.tmdbId ?: return@withPermit preview
-                            val cacheKey = "tmdb-$tmdbId-${preview.type}"
-                            val cached = platformsCache[cacheKey]
-                            if (cached != null && (System.currentTimeMillis() - cached.timestamp) < CACHE_TTL_MS) {
-                                cached.platforms
-                            } else {
-                                val providerResponse = if (preview.type == ContentType.SERIES) {
+                    val platforms = try {
+                        val tmdbId = preview.tmdbId ?: return@async preview
+                        val cacheKey = "tmdb-$tmdbId-${preview.type}"
+                        val cached = platformsCache[cacheKey]
+                        if (cached != null && (System.currentTimeMillis() - cached.timestamp) < CACHE_TTL_MS) {
+                            cached.platforms
+                        } else {
+                            val providerResponse = retryWithBackoff {
+                                if (preview.type == ContentType.SERIES) {
                                     tmdbApi.getTvWatchProviders(tmdbId)
                                 } else {
                                     tmdbApi.getMovieWatchProviders(tmdbId)
                                 }
-                                val platforms = providerResponse.results?.get("ES")?.toStreamingAvailability().orEmpty()
-                                platformsCache[cacheKey] = CachedPlatforms(platforms, System.currentTimeMillis())
-                                platforms
                             }
-                        } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
-                            AppLogger.w("DiscoverRepo", "TMDB platforms for ${preview.id} (timeout): ${e.message}")
-                            emptyList<StreamingAvailability>()
-                        } catch (e: kotlinx.coroutines.CancellationException) {
-                            throw e
-                        } catch (e: Exception) {
-                            AppLogger.e("DiscoverRepo", "TMDB platforms for ${preview.id}", e)
-                            emptyList<StreamingAvailability>()
+                            val platforms = providerResponse.results?.get("ES")?.toStreamingAvailability().orEmpty()
+                            platformsCache[cacheKey] = CachedPlatforms(platforms, System.currentTimeMillis())
+                            platforms
                         }
-                        preview.copy(streamingPlatforms = platforms)
+                    } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+                        AppLogger.w("DiscoverRepo", "TMDB platforms for ${preview.id} (timeout): ${e.message}")
+                        emptyList<StreamingAvailability>()
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        AppLogger.e("DiscoverRepo", "TMDB platforms for ${preview.id}", e)
+                        emptyList<StreamingAvailability>()
                     }
+                    preview.copy(streamingPlatforms = platforms)
                 }
             }.map { it.await() }
         }
@@ -503,6 +499,7 @@ class DiscoverRepositoryImpl(
 
         val postFilterByPlatforms = filterByPlatforms && providerFilter == null
         val variant = TrendingVariant.values().random()
+        val futureDate = LocalDate.now().plusYears(2).toString()
 
         val movieSort: String?
         val tvSort: String?
@@ -539,10 +536,10 @@ class DiscoverRepositoryImpl(
 
         return coroutineScope {
             val movieDeferred = async {
-                tmdbApi.discoverMovie(page = page, watchProviders = providerFilter, releaseDateGte = movieYearGte, sortBy = movieSort)
+                tmdbApi.discoverMovie(page = page, watchProviders = providerFilter, releaseDateGte = movieYearGte, releaseDateLte = futureDate, sortBy = movieSort)
             }
             val tvDeferred = async {
-                tmdbApi.discoverTv(page = page, watchProviders = providerFilter, firstAirDateGte = tvYearGte, sortBy = tvSort)
+                tmdbApi.discoverTv(page = page, watchProviders = providerFilter, firstAirDateGte = tvYearGte, firstAirDateLte = futureDate, sortBy = tvSort)
             }
 
             val movieResults = movieDeferred.await()

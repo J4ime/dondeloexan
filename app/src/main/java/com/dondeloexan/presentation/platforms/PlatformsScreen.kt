@@ -114,7 +114,8 @@ fun PlatformToggle(name: String, isActive: Boolean, onToggle: (Boolean) -> Unit)
         "SkyShowtime" to "#000000",
         "Filmin" to "#E30613",
         "Atresplayer" to "#1E8C45",
-        "RTVE Play" to "#E1251B"
+        "RTVE Play" to "#E1251B",
+        "Cines" to "#FF8F00"
     )
 
     val accentColor = platformColors[name]?.let {

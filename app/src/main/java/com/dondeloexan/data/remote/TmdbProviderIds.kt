@@ -12,7 +12,8 @@ object TmdbProviderIds {
         "Paramount+" to 5315,
         "Filmin" to 63,
         "Atresplayer" to 62,
-        "RTVE Play" to 541
+        "RTVE Play" to 541,
+        "Cines" to 0
     )
 
     val providerIdToName: Map<Int, String> = platformToProviderId.entries.associateBy(
@@ -21,7 +22,9 @@ object TmdbProviderIds {
     )
 
     fun toProviderIds(platformNames: Set<String>): Set<Int> {
-        return platformNames.mapNotNull { platformToProviderId[it] }.toSet()
+        return platformNames.mapNotNull { platformToProviderId[it] }
+            .filter { it > 0 }
+            .toSet()
     }
 
     fun toPipeSeparated(platformNames: Set<String>): String? {
@@ -35,6 +38,9 @@ object TmdbProviderIds {
     fun isValidPlatform(name: String): Boolean = name in platformToProviderId
 
     fun hasNoDiscoverIds(platformNames: Set<String>): Boolean {
-        return platformNames.isNotEmpty() && platformNames.all { it !in platformToProviderId }
+        return platformNames.isNotEmpty() && platformNames.all {
+            val id = platformToProviderId[it]
+            id == null || id <= 0
+        }
     }
 }

@@ -18,6 +18,7 @@ import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
 import okhttp3.ConnectionPool
+import okhttp3.Dispatcher
 import org.koin.dsl.module
 import java.util.concurrent.TimeUnit
 
@@ -36,13 +37,19 @@ val networkModule = module {
         val client = HttpClient(OkHttp) {
             engine {
                 config {
-                    connectionPool(ConnectionPool(0, 1, TimeUnit.SECONDS))
+                    dispatcher(Dispatcher().apply {
+                        maxRequestsPerHost = 5
+                        maxRequests = 15
+                    })
+                    connectionPool(ConnectionPool(5, 30, TimeUnit.SECONDS))
+                    retryOnConnectionFailure(true)
                 }
             }
             install(ContentNegotiation) { json(get()) }
             install(HttpTimeout) {
                 requestTimeoutMillis = 5_000
                 connectTimeoutMillis = 5_000
+                socketTimeoutMillis = 5_000
             }
             install(Logging) { level = LogLevel.HEADERS }
             defaultRequest {
@@ -58,13 +65,19 @@ val networkModule = module {
         val client = HttpClient(OkHttp) {
             engine {
                 config {
-                    connectionPool(ConnectionPool(0, 1, TimeUnit.SECONDS))
+                    dispatcher(Dispatcher().apply {
+                        maxRequestsPerHost = 5
+                        maxRequests = 15
+                    })
+                    connectionPool(ConnectionPool(5, 30, TimeUnit.SECONDS))
+                    retryOnConnectionFailure(true)
                 }
             }
             install(ContentNegotiation) { json(get()) }
             install(HttpTimeout) {
-                requestTimeoutMillis = 15_000
-                connectTimeoutMillis = 15_000
+                requestTimeoutMillis = 5_000
+                connectTimeoutMillis = 5_000
+                socketTimeoutMillis = 5_000
             }
             install(Logging) { level = LogLevel.HEADERS }
             defaultRequest {

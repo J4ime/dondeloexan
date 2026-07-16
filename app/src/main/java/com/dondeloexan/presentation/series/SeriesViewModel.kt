@@ -69,7 +69,6 @@ class SeriesViewModel(
 
     private fun SeriesWithProgress.isFinished(): Boolean {
         if (show.finishedAt != null) return true
-        if (show.status == WatchStatus.YA_VISTA && !hasFutureSeasons()) return true
         if (!isCaughtUp()) return false
         return !hasFutureSeasons()
     }
