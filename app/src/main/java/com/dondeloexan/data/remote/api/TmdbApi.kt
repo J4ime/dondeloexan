@@ -10,6 +10,7 @@ import com.dondeloexan.data.remote.dto.TmdbTvSeasonDetailDto
 import com.dondeloexan.data.remote.dto.TmdbWatchProvidersResponse
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
+import io.ktor.client.plugins.timeout
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
 
@@ -84,6 +85,10 @@ class TmdbApi(private val client: HttpClient) {
         sortBy: String? = "popularity.desc"
     ): TmdbTrendingResponse {
         val response = client.get("discover/movie") {
+            timeout {
+                requestTimeoutMillis = 20_000
+                socketTimeoutMillis = 15_000
+            }
             parameter("language", language)
             parameter("page", page)
             parameter("sort_by", sortBy ?: "popularity.desc")
@@ -105,6 +110,10 @@ class TmdbApi(private val client: HttpClient) {
         sortBy: String? = "popularity.desc"
     ): TmdbTrendingResponse {
         val response = client.get("discover/tv") {
+            timeout {
+                requestTimeoutMillis = 20_000
+                socketTimeoutMillis = 15_000
+            }
             parameter("language", language)
             parameter("page", page)
             parameter("sort_by", sortBy ?: "popularity.desc")

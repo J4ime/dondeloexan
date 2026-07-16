@@ -493,13 +493,14 @@ class DiscoverRepositoryImpl(
 
     override suspend fun fetchTrendingPage(page: Int, filterByPlatforms: Boolean): List<ContentPreview> {
         val activePlatforms = userPlatformDao.getActiveNames().toSet()
-        val providerFilter = if (filterByPlatforms) {
+        val futureDate = LocalDate.now().plusYears(2).toString()
+        val farFuture = LocalDate.parse(futureDate).isAfter(LocalDate.now().plusMonths(3))
+        val providerFilter = if (filterByPlatforms && !farFuture) {
             TmdbProviderIds.toPipeSeparated(activePlatforms)
         } else null
 
         val postFilterByPlatforms = filterByPlatforms && providerFilter == null
         val variant = TrendingVariant.values().random()
-        val futureDate = LocalDate.now().plusYears(2).toString()
 
         val movieSort: String?
         val tvSort: String?
@@ -534,12 +535,13 @@ class DiscoverRepositoryImpl(
             }
         }
 
+        val watchRegion = if (providerFilter == null) null else "ES"
         return coroutineScope {
             val movieDeferred = async {
-                tmdbApi.discoverMovie(page = page, watchProviders = providerFilter, releaseDateGte = movieYearGte, releaseDateLte = futureDate, sortBy = movieSort)
+                tmdbApi.discoverMovie(page = page, watchProviders = providerFilter, watchRegion = watchRegion, releaseDateGte = movieYearGte, releaseDateLte = futureDate, sortBy = movieSort)
             }
             val tvDeferred = async {
-                tmdbApi.discoverTv(page = page, watchProviders = providerFilter, firstAirDateGte = tvYearGte, firstAirDateLte = futureDate, sortBy = tvSort)
+                tmdbApi.discoverTv(page = page, watchProviders = providerFilter, watchRegion = watchRegion, firstAirDateGte = tvYearGte, firstAirDateLte = futureDate, sortBy = tvSort)
             }
 
             val movieResults = movieDeferred.await()

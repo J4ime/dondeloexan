@@ -111,6 +111,7 @@ class DiscoverViewModel(
     private var apiPage = 1
     private var hasMoreApiPages = true
     private var isFilling = false
+    private var hasError = false
     private val accumulatedResults = mutableListOf<ContentPreview>()
     private var searchJob: Job? = null
     private var trendingJob: Job? = null
@@ -567,6 +568,7 @@ class DiscoverViewModel(
 
     private fun loadTrending() {
         trendingJob?.cancel()
+        hasError = false
         trendingJob = viewModelScope.launch {
             apiPage = 1
             hasMoreApiPages = true
@@ -576,10 +578,10 @@ class DiscoverViewModel(
             fillUntil(targetCount = 10)
             isFilling = false
 
-            _uiState.value = if (accumulatedResults.isEmpty()) {
-                DiscoverUiState.Empty("")
-            } else {
-                DiscoverUiState.Success(accumulatedResults.toList())
+            _uiState.value = when {
+                accumulatedResults.isNotEmpty() -> DiscoverUiState.Success(accumulatedResults.toList())
+                hasError -> DiscoverUiState.Error("No se pudo conectar con el servidor, prueba a deslizar para reintentar")
+                else -> DiscoverUiState.Empty("")
             }
         }
     }
@@ -615,6 +617,7 @@ class DiscoverViewModel(
                     throw e
                 } catch (e: Exception) {
                     AppLogger.e("DiscoverVM", "fetchTrendingPage error", e)
+                    hasError = true
                     emptyList()
                 }
             } else {
@@ -625,6 +628,7 @@ class DiscoverViewModel(
                     throw e
                 } catch (e: Exception) {
                     AppLogger.e("DiscoverVM", "fetchSearchPage error", e)
+                    hasError = true
                     emptyList()
                 }
             }
