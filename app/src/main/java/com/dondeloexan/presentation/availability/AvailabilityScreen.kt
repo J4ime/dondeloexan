@@ -26,11 +26,9 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.dondeloexan.domain.model.AvailabilityType
@@ -40,6 +38,7 @@ import com.dondeloexan.presentation.theme.EleganteRose
 import com.dondeloexan.presentation.theme.TextPrimary
 import com.dondeloexan.presentation.theme.TextSecondary
 import com.dondeloexan.presentation.theme.UbuntuTypography
+import org.koin.androidx.compose.koinViewModel
 
 private data class TypeOption(
     val type: AvailabilityType,
@@ -61,8 +60,7 @@ private val availabilityOptions = listOf(
 fun AvailabilityScreen(
     navController: NavController
 ) {
-    val context = LocalContext.current
-    val viewModel = remember { AvailabilityViewModel(context) }
+    val viewModel: AvailabilityViewModel = koinViewModel()
     val selectedTypes by viewModel.selectedTypes.collectAsState()
 
     Column(modifier = Modifier.fillMaxSize()) {

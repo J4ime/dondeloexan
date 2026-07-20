@@ -1,5 +1,6 @@
 package com.dondeloexan.di
 
+import com.dondeloexan.presentation.availability.AvailabilityViewModel
 import com.dondeloexan.presentation.blacklist.BlacklistViewModel
 import com.dondeloexan.presentation.detail.MediaDetailViewModel
 import com.dondeloexan.presentation.discover.DiscoverViewModel
@@ -16,6 +17,7 @@ import org.koin.dsl.module
 val viewModelModule = module {
     singleOf(::RefreshCoordinator)
 
+    viewModelOf(::AvailabilityViewModel)
     viewModelOf(::DiscoverViewModel)
     viewModelOf(::SettingsViewModel)
     viewModelOf(::LogViewerViewModel)

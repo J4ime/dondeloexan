@@ -1,12 +1,10 @@
 package com.dondeloexan.presentation.settings
 
-import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dondeloexan.BuildConfig
-import com.dondeloexan.data.local.dao.TvShowDao
-import com.dondeloexan.data.remote.api.TmdbApi
+import com.dondeloexan.data.local.datastore.UserPreferencesDataStore
 import com.dondeloexan.data.update.SilentUpdateManager
 import com.dondeloexan.domain.model.BackupState
 import com.dondeloexan.domain.model.GitHubRelease
@@ -17,13 +15,16 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class SettingsViewModel(
     private val settingsRepository: SettingsRepository,
     private val backupRepository: BackupRepository,
     private val silentUpdateManager: SilentUpdateManager,
-    private val tvShowDao: TvShowDao,
-    private val tmdbApi: TmdbApi
+    private val libraryRefresher: LibraryRefresher,
+    private val userPreferencesDataStore: UserPreferencesDataStore
 ) : ViewModel() {
 
     private val _updateState = MutableStateFlow<UpdateCheckState>(UpdateCheckState.Idle)
@@ -32,10 +33,21 @@ class SettingsViewModel(
     private val _backupState = MutableStateFlow<BackupState>(BackupState.Idle)
     val backupState: StateFlow<BackupState> = _backupState.asStateFlow()
 
-    private val _seriesRefreshState = MutableStateFlow<SeriesRefreshState>(SeriesRefreshState.Idle)
-    val seriesRefreshState: StateFlow<SeriesRefreshState> = _seriesRefreshState.asStateFlow()
+    private val _libraryRefreshState = MutableStateFlow<LibraryRefreshState>(LibraryRefreshState.Idle)
+    val libraryRefreshState: StateFlow<LibraryRefreshState> = _libraryRefreshState.asStateFlow()
+
+    private val _lastLibraryUpdateDate = MutableStateFlow<String?>(null)
+    val lastLibraryUpdateDate: StateFlow<String?> = _lastLibraryUpdateDate.asStateFlow()
 
     val currentVersion: String = BuildConfig.VERSION_NAME
+
+    init {
+        viewModelScope.launch {
+            userPreferencesDataStore.lastLibraryUpdateTimestamp.collect { timestamp ->
+                _lastLibraryUpdateDate.value = timestamp?.let { formatDateTime(it) }
+            }
+        }
+    }
 
     fun checkForUpdates() {
         if (_updateState.value is UpdateCheckState.Checking) return
@@ -124,56 +136,30 @@ class SettingsViewModel(
         _backupState.value = BackupState.Idle
     }
 
-    fun refreshSeries() {
-        if (_seriesRefreshState.value is SeriesRefreshState.Refreshing) return
-        _seriesRefreshState.value = SeriesRefreshState.Refreshing
+    fun refreshLibrary() {
+        if (_libraryRefreshState.value is LibraryRefreshState.Refreshing) return
+        _libraryRefreshState.value = LibraryRefreshState.Refreshing
         viewModelScope.launch {
             try {
-                val liked = tvShowDao.getAllLiked()
-                var count = 0
-                for (show in liked) {
-                    val tmdbId = show.tmdbId ?: continue
-                    try {
-                        val tvDetail = tmdbApi.getTvDetailLight(tmdbId)
-                        val lastEp = tvDetail.lastEpisodeToAir
-                        val seasons = tvDetail.seasons
-                        val releasedEpisodes = if (lastEp != null && seasons != null) {
-                            seasons.filter { it.seasonNumber > 0 }
-                                .sumOf { season ->
-                                    when {
-                                        season.seasonNumber < lastEp.seasonNumber -> season.episodeCount
-                                        season.seasonNumber == lastEp.seasonNumber -> lastEp.episodeNumber
-                                        else -> 0
-                                    }
-                                }
-                        } else tvDetail.numberOfEpisodes
-                        tvShowDao.updateById(
-                            id = show.id,
-                            totalEpisodes = tvDetail.numberOfEpisodes,
-                            releasedEpisodes = releasedEpisodes,
-                            nextEpisodeAirDate = tvDetail.nextEpisodeToAir?.airDate,
-                            nextEpisodeNumber = tvDetail.nextEpisodeToAir?.episodeNumber,
-                            nextEpisodeSeasonNumber = tvDetail.nextEpisodeToAir?.seasonNumber,
-                            seriesStatus = tvDetail.status,
-                            inProduction = tvDetail.inProduction
-                        )
-                        count++
-                    } catch (e: Exception) {
-                        AppLogger.e("SettingsVM", "Refresh series ${show.id}", e)
-                    }
-                }
-                _seriesRefreshState.value = SeriesRefreshState.Done(count)
+                val result = libraryRefresher.refresh()
+                val total = result.seriesUpdated + result.moviesUpdated
+                _libraryRefreshState.value = LibraryRefreshState.Done(total)
             } catch (e: Exception) {
-                AppLogger.e("SettingsVM", "Refresh series error", e)
-                _seriesRefreshState.value = SeriesRefreshState.Error(
-                    e.message ?: "Error al actualizar series"
+                AppLogger.e("SettingsVM", "Library refresh error", e)
+                _libraryRefreshState.value = LibraryRefreshState.Error(
+                    e.message ?: "Error al actualizar biblioteca"
                 )
             }
         }
     }
 
-    fun onSeriesRefreshMessageShown() {
-        _seriesRefreshState.value = SeriesRefreshState.Idle
+    fun onLibraryRefreshMessageShown() {
+        _libraryRefreshState.value = LibraryRefreshState.Idle
+    }
+
+    private fun formatDateTime(timestamp: Long): String {
+        val sdf = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
+        return sdf.format(Date(timestamp))
     }
 }
 
@@ -188,9 +174,9 @@ sealed interface UpdateCheckState {
     data class Error(val message: String) : UpdateCheckState
 }
 
-sealed interface SeriesRefreshState {
-    data object Idle : SeriesRefreshState
-    data object Refreshing : SeriesRefreshState
-    data class Done(val count: Int) : SeriesRefreshState
-    data class Error(val message: String) : SeriesRefreshState
+sealed interface LibraryRefreshState {
+    data object Idle : LibraryRefreshState
+    data object Refreshing : LibraryRefreshState
+    data class Done(val count: Int) : LibraryRefreshState
+    data class Error(val message: String) : LibraryRefreshState
 }

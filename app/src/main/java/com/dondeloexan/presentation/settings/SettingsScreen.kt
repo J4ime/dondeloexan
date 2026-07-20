@@ -69,7 +69,8 @@ fun SettingsScreen(
 ) {
     val updateState by viewModel.updateState.collectAsState()
     val backupState by viewModel.backupState.collectAsState()
-    val seriesRefreshState by viewModel.seriesRefreshState.collectAsState()
+    val libraryRefreshState by viewModel.libraryRefreshState.collectAsState()
+    val lastLibraryUpdateDate by viewModel.lastLibraryUpdateDate.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
     val exportLauncher = rememberLauncherForActivityResult(
@@ -120,15 +121,19 @@ fun SettingsScreen(
         }
     }
 
-    LaunchedEffect(seriesRefreshState) {
-        when (val state = seriesRefreshState) {
-            is SeriesRefreshState.Done -> {
-                snackbarHostState.showSnackbar("${state.count} series actualizadas correctamente")
-                viewModel.onSeriesRefreshMessageShown()
+    LaunchedEffect(libraryRefreshState) {
+        when (val state = libraryRefreshState) {
+            is LibraryRefreshState.Done -> {
+                if (state.count > 0) {
+                    snackbarHostState.showSnackbar("${state.count} contenidos actualizados")
+                } else {
+                    snackbarHostState.showSnackbar("Biblioteca actualizada")
+                }
+                viewModel.onLibraryRefreshMessageShown()
             }
-            is SeriesRefreshState.Error -> {
+            is LibraryRefreshState.Error -> {
                 snackbarHostState.showSnackbar("Error: ${state.message}")
-                viewModel.onSeriesRefreshMessageShown()
+                viewModel.onLibraryRefreshMessageShown()
             }
             else -> {}
         }
@@ -286,18 +291,20 @@ fun SettingsScreen(
                 item {
                     SettingsItem(
                         icon = Icons.Outlined.Refresh,
-                        title = "Actualizar series",
-                        subtitle = "Actualiza fechas de estreno desde TMDB",
+                        title = "Actualizar biblioteca",
+                        subtitle = lastLibraryUpdateDate
+                            ?.let { "Últ. actualización: $it" }
+                            ?: "Nunca actualizada",
                         trailing = {
-                            when (seriesRefreshState) {
-                                is SeriesRefreshState.Refreshing -> {
+                            when (libraryRefreshState) {
+                                is LibraryRefreshState.Refreshing -> {
                                     CircularProgressIndicator(
                                         modifier = Modifier.size(20.dp),
                                         strokeWidth = 2.dp,
                                         color = EleganteRose
                                     )
                                 }
-                                is SeriesRefreshState.Done -> {
+                                is LibraryRefreshState.Done -> {
                                     Icon(
                                         Icons.Outlined.CheckCircle,
                                         contentDescription = null,
@@ -308,7 +315,7 @@ fun SettingsScreen(
                                 else -> {}
                             }
                         },
-                        onClick = { viewModel.refreshSeries() }
+                        onClick = { viewModel.refreshLibrary() }
                     )
                 }
 

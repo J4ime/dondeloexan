@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
@@ -16,6 +17,7 @@ class UserPreferencesDataStore(private val context: Context) {
     companion object {
         private val ACTIVE_PLATFORMS = stringSetPreferencesKey("active_platforms")
         private val PREFERRED_AVAILABILITY_TYPES = stringSetPreferencesKey("preferred_availability_types")
+        private val LAST_LIBRARY_UPDATE = longPreferencesKey("last_library_update_timestamp")
     }
 
     private val defaultTypes = setOf("SUBSCRIPTION", "RENT", "BUY", "FREE", "ADS")
@@ -64,6 +66,26 @@ class UserPreferencesDataStore(private val context: Context) {
             } else {
                 current + platform
             }
+        }
+    }
+
+    val lastLibraryUpdateTimestamp: Flow<Long?> = context.dataStore.data.map { prefs ->
+        prefs[LAST_LIBRARY_UPDATE]
+    }
+
+    suspend fun setLastLibraryUpdateTimestamp(timestamp: Long) {
+        context.dataStore.edit { prefs ->
+            prefs[LAST_LIBRARY_UPDATE] = timestamp
+        }
+    }
+
+    suspend fun getLastLibraryUpdateTimestamp(): Long? {
+        return context.dataStore.data.map { prefs ->
+            prefs[LAST_LIBRARY_UPDATE]
+        }.let { flow ->
+            var result: Long? = null
+            flow.collect { result = it; return@collect }
+            result
         }
     }
 }
