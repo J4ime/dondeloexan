@@ -12,8 +12,10 @@ import com.dondeloexan.data.remote.mapper.toStreamingAvailability
 import com.dondeloexan.util.AppLogger
 import com.dondeloexan.util.BatchCancelledException
 import com.dondeloexan.util.RefreshCoordinator
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.withContext
 
 class LibraryRefresher(
     private val tvShowDao: TvShowDao,
@@ -29,7 +31,7 @@ class LibraryRefresher(
         val moviesUpdated: Int
     )
 
-    suspend fun refresh(): RefreshResult {
+    suspend fun refresh(): RefreshResult = withContext(Dispatchers.IO) {
         refreshCoordinator.resetBatch()
 
         val newEpisodeDates = mutableListOf<NewEpisodeDateInfo>()
@@ -51,7 +53,7 @@ class LibraryRefresher(
             notificationManager.notifyChanges(newEpisodeDates, newPlatforms)
         }
 
-        return RefreshResult(
+        RefreshResult(
             seriesUpdated = seriesCount,
             moviesUpdated = moviesCount
         )

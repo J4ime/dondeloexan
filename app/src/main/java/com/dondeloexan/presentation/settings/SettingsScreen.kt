@@ -3,6 +3,12 @@ package com.dondeloexan.presentation.settings
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -44,6 +50,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.dondeloexan.domain.model.BackupState
@@ -72,6 +79,17 @@ fun SettingsScreen(
     val libraryRefreshState by viewModel.libraryRefreshState.collectAsState()
     val lastLibraryUpdateDate by viewModel.lastLibraryUpdateDate.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+
+    val infiniteTransition = rememberInfiniteTransition(label = "library_refresh")
+    val rotation by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "rotation"
+    )
 
     val exportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/json")
@@ -291,28 +309,21 @@ fun SettingsScreen(
                 item {
                     SettingsItem(
                         icon = Icons.Outlined.Refresh,
+                        iconModifier = if (libraryRefreshState is LibraryRefreshState.Refreshing) {
+                            Modifier.rotate(rotation)
+                        } else Modifier,
                         title = "Actualizar biblioteca",
                         subtitle = lastLibraryUpdateDate
                             ?.let { "Últ. actualización: $it" }
                             ?: "Nunca actualizada",
                         trailing = {
-                            when (libraryRefreshState) {
-                                is LibraryRefreshState.Refreshing -> {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(20.dp),
-                                        strokeWidth = 2.dp,
-                                        color = EleganteRose
-                                    )
-                                }
-                                is LibraryRefreshState.Done -> {
-                                    Icon(
-                                        Icons.Outlined.CheckCircle,
-                                        contentDescription = null,
-                                        tint = EleganteRose,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-                                else -> {}
+                            if (libraryRefreshState is LibraryRefreshState.Done) {
+                                Icon(
+                                    Icons.Outlined.CheckCircle,
+                                    contentDescription = null,
+                                    tint = EleganteRose,
+                                    modifier = Modifier.size(20.dp)
+                                )
                             }
                         },
                         onClick = { viewModel.refreshLibrary() }

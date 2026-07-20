@@ -29,6 +29,7 @@ fun SettingsItem(
     title: String,
     subtitle: String,
     modifier: Modifier = Modifier,
+    iconModifier: Modifier = Modifier,
     trailing: @Composable (() -> Unit)? = null,
     onClick: () -> Unit
 ) {
@@ -46,7 +47,7 @@ fun SettingsItem(
         ) {
             Icon(
                 imageVector = icon, contentDescription = null,
-                modifier = Modifier.size(22.dp),
+                modifier = iconModifier.size(22.dp),
                 tint = TextSecondary
             )
             Spacer(Modifier.width(14.dp))
