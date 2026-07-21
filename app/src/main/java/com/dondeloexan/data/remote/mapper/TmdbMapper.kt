@@ -33,7 +33,7 @@ fun TmdbMovieDto.toDomain(
     releaseDate = releaseDate,
     durationMinutes = runtime,
     ratingTmdb = voteAverage,
-    ratingImdb = omdbRating?.imdbRating?.toFloatOrNull(),
+    ratingImdb = omdbRating?.imdbRating?.toFloatOrNull() ?: voteAverage,
     ratingRt = omdbRating?.ratings
         ?.find { it.source == "Rotten Tomatoes" }
         ?.value?.removeSuffix("%")?.toIntOrNull(),
@@ -72,7 +72,7 @@ fun TmdbTvDetailDto.toDomain(
     durationMinutes = episodeRunTime?.firstOrNull(),
     totalEpisodes = numberOfEpisodes,
     ratingTmdb = voteAverage,
-    ratingImdb = omdbRating?.imdbRating?.toFloatOrNull(),
+    ratingImdb = omdbRating?.imdbRating?.toFloatOrNull() ?: voteAverage,
     ratingRt = omdbRating?.ratings
         ?.find { it.source == "Rotten Tomatoes" }
         ?.value?.removeSuffix("%")?.toIntOrNull(),

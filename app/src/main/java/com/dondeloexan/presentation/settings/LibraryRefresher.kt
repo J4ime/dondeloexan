@@ -141,7 +141,7 @@ class LibraryRefresher(
     }
 
     private suspend fun refreshMovies(newPlatforms: MutableList<NewPlatformInfo>): Int {
-        val pending = movieDao.getAll().filter { it.liked && it.status != WatchStatus.YA_VISTA }
+        val pending = movieDao.getAll().filter { it.status != WatchStatus.YA_VISTA }
         var count = 0
 
         coroutineScope {
@@ -181,7 +181,7 @@ class LibraryRefresher(
                                         ?: existing.posterUrl,
                                 imdbId = detail.imdbId ?: existing.imdbId,
                                 streamingPlatforms = platformsStr ?: existing.streamingPlatforms,
-                                ratingImdb = newRatingImdb ?: existing.ratingImdb,
+                                ratingImdb = newRatingImdb ?: detail.voteAverage ?: existing.ratingImdb,
                                 lastRefreshedAt = System.currentTimeMillis()
                             )
                         )
