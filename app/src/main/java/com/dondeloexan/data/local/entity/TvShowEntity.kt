@@ -15,6 +15,7 @@ data class TvShowEntity(
     @ColumnInfo(name = "poster_url") val posterUrl: String? = null,
     @ColumnInfo(name = "rating_tmdb") val ratingTmdb: Float? = null,
     @ColumnInfo(name = "rating_imdb") val ratingImdb: Float? = null,
+    @ColumnInfo(name = "certification") val certification: String? = null,
     val status: WatchStatus = WatchStatus.POR_VER,
     val liked: Boolean = false,
     @ColumnInfo(name = "total_episodes") val totalEpisodes: Int? = null,

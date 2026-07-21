@@ -4,6 +4,7 @@ import com.dondeloexan.data.local.dao.MovieDao
 import com.dondeloexan.data.local.dao.TvShowDao
 import com.dondeloexan.data.local.dao.TvShowProgressDao
 import com.dondeloexan.data.local.dao.UserPlatformDao
+import com.dondeloexan.data.local.datastore.UserPreferencesDataStore
 import com.dondeloexan.data.remote.TmdbProviderIds
 import com.dondeloexan.data.remote.api.BalloonerismmApi
 import com.dondeloexan.data.remote.api.OmdbApi
@@ -26,6 +27,7 @@ import com.dondeloexan.util.retryWithBackoff
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import java.time.LocalDate
 import java.util.concurrent.ConcurrentHashMap
@@ -37,7 +39,8 @@ class DiscoverRepositoryImpl(
     private val userPlatformDao: UserPlatformDao,
     private val movieDao: MovieDao,
     private val tvShowDao: TvShowDao,
-    private val tvShowProgressDao: TvShowProgressDao? = null
+    private val tvShowProgressDao: TvShowProgressDao? = null,
+    private val userPreferencesDataStore: UserPreferencesDataStore
 ) : DiscoverRepository {
 
     private data class CachedPlatforms(
@@ -531,13 +534,17 @@ class DiscoverRepositoryImpl(
 
             var combined = (moviePreviews + tvPreviews).shuffled()
 
+            val preferredTypes = if (filterByPlatforms) {
+                userPreferencesDataStore.preferredAvailabilityTypes.first()
+            } else null
+
             if (postFilterByPlatforms) {
                 val before = combined.size
                 combined = combined.filter { preview ->
                     preview.streamingPlatforms.any { platform ->
                         activePlatforms.any { active ->
                             platformMatches(platform.platformName, active)
-                        }
+                        } && (preferredTypes == null || preferredTypes.contains(platform.availabilityType.name))
                     }
                 }
                 AppLogger.d("DiscoverRepo", "platform filter: $before -> ${combined.size}")

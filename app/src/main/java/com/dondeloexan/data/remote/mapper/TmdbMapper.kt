@@ -38,6 +38,7 @@ fun TmdbMovieDto.toDomain(
         ?.find { it.source == "Rotten Tomatoes" }
         ?.value?.removeSuffix("%")?.toIntOrNull(),
     ratingMetacritic = omdbRating?.metascore?.toIntOrNull(),
+    certification = omdbRating?.rated,
     synopsis = overview,
     coverUrl = posterPath?.let { "https://image.tmdb.org/t/p/w500$it" },
     backdropUrl = backdropPath?.let { "https://image.tmdb.org/t/p/w1280$it" },
@@ -77,6 +78,7 @@ fun TmdbTvDetailDto.toDomain(
         ?.find { it.source == "Rotten Tomatoes" }
         ?.value?.removeSuffix("%")?.toIntOrNull(),
     ratingMetacritic = omdbRating?.metascore?.toIntOrNull(),
+    certification = omdbRating?.rated,
     synopsis = overview,
     coverUrl = posterPath?.let { "https://image.tmdb.org/t/p/w500$it" },
     backdropUrl = backdropPath?.let { "https://image.tmdb.org/t/p/w1280$it" },

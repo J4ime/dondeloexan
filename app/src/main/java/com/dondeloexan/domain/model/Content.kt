@@ -26,6 +26,7 @@ data class Content(
     val ratingImdb: Float? = null,
     val ratingRt: Int? = null,
     val ratingMetacritic: Int? = null,
+    val certification: String? = null,
     val synopsis: String? = null,
     val coverUrl: String? = null,
     val backdropUrl: String? = null,

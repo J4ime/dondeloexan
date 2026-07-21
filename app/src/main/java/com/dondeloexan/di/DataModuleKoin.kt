@@ -71,7 +71,8 @@ val dataModule = module {
             userPlatformDao = get(),
             movieDao = get(),
             tvShowDao = get(),
-            tvShowProgressDao = get()
+            tvShowProgressDao = get(),
+            userPreferencesDataStore = get()
         )
     }
 

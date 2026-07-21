@@ -39,6 +39,7 @@ fun ImdbMovieDetailDto.toDomain(
         ?.find { it.source == "Rotten Tomatoes" }
         ?.value?.removeSuffix("%")?.toIntOrNull(),
     ratingMetacritic = metascore ?: omdbRating?.metascore?.toIntOrNull(),
+    certification = certificate?.rating,
     synopsis = overview,
     coverUrl = posterPath,
     backdropUrl = backdropPath,
@@ -71,6 +72,7 @@ fun ImdbTvDetailDto.toDomain(
         ?.find { it.source == "Rotten Tomatoes" }
         ?.value?.removeSuffix("%")?.toIntOrNull(),
     ratingMetacritic = omdbRating?.metascore?.toIntOrNull(),
+    certification = certificate?.rating,
     synopsis = overview,
     coverUrl = posterPath,
     backdropUrl = backdropPath,

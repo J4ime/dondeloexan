@@ -91,6 +91,7 @@ import com.dondeloexan.presentation.theme.RatingMedium
 import com.dondeloexan.presentation.theme.TextPrimary
 import com.dondeloexan.presentation.theme.TextSecondary
 import com.dondeloexan.presentation.theme.UbuntuTypography
+import com.dondeloexan.data.remote.mapper.toCertificationDisplay
 import com.dondeloexan.util.AppLogger
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
@@ -575,6 +576,7 @@ private fun TechnicalInfoSection(content: Content) {
             fontWeight = FontWeight.Bold
         )
 
+        val certificationDisplay = content.certification?.toCertificationDisplay()
         val fields = listOfNotNull(
             "Título Original" to content.originalTitle,
             "Año" to content.year?.toString(),
@@ -588,6 +590,35 @@ private fun TechnicalInfoSection(content: Content) {
             "Compañías" to content.productionCompanies.takeIf { it.isNotEmpty() }?.joinToString(", "),
             "Género" to content.genres.takeIf { it.isNotEmpty() }?.joinToString(", ")
         )
+
+        if (certificationDisplay != null) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "Clasificación",
+                    style = UbuntuTypography.bodySmall,
+                    color = TextSecondary,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.width(120.dp)
+                )
+                Icon(
+                    imageVector = certificationDisplay.icon,
+                    contentDescription = null,
+                    tint = certificationDisplay.color,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    certificationDisplay.label,
+                    style = UbuntuTypography.bodySmall,
+                    color = certificationDisplay.color,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        }
 
         fields.forEach { (label, value) ->
             if (value != null) {
