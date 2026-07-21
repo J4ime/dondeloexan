@@ -268,6 +268,7 @@ class DiscoverViewModel(
                             val newLiked = !existing.liked
                             movieDao.update(existing.copy(
                                 liked = newLiked,
+                                ratingImdb = preview.ratingImdb ?: existing.ratingImdb,
                                 streamingPlatforms = if (platformsStr.isNullOrEmpty() || platformsStr == "[]") existing.streamingPlatforms else platformsStr,
                                 releaseDate = preview.releaseDate ?: existing.releaseDate
                             ))
@@ -286,6 +287,7 @@ class DiscoverViewModel(
                                     year = preview.year,
                                     releaseDate = preview.releaseDate,
                                     posterUrl = preview.coverUrl,
+                                    ratingImdb = preview.ratingImdb,
                                     streamingPlatforms = platformsStr,
                                     liked = true
                                 )
@@ -370,6 +372,7 @@ class DiscoverViewModel(
                                     year = preview.year,
                                     releaseDate = preview.releaseDate,
                                     posterUrl = preview.coverUrl,
+                                    ratingImdb = preview.ratingImdb,
                                     streamingPlatforms = platformsStr,
                                     status = WatchStatus.YA_VISTA,
                                     watchedAt = System.currentTimeMillis()
