@@ -328,32 +328,6 @@ private fun MainPagerContent(
             }
         }
 
-        if (currentPage in 0..5) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.Start
-            ) {
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = DarkSurface
-                ) {
-                    IconButton(
-                        modifier = Modifier.size(52.dp),
-                        onClick = onToggleGrid
-                    ) {
-                        Icon(
-                            if (isGridView) Icons.AutoMirrored.Outlined.ViewList else Icons.Outlined.Apps,
-                            contentDescription = if (isGridView) "Vista lista" else "Vista cuadrícula",
-                            tint = if (isGridView) EleganteRose else TextPrimary,
-                            modifier = Modifier.size(30.dp)
-                        )
-                    }
-                }
-            }
-        }
-
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             HorizontalPager(
                 state = pagerState
@@ -361,6 +335,7 @@ private fun MainPagerContent(
                 when (page) {
                     0 -> SeriesPendingTab(
                         series = pending,
+                        isGridView = isGridView,
                         navController = navController,
                         viewModel = seriesViewModel
                     )
@@ -402,15 +377,39 @@ private fun MainPagerContent(
                     7 -> SettingsScreen(navController = navController)
                 }
             }
+
+            if (currentPage in 0..5) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = DarkSurface,
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(16.dp)
+                ) {
+                    IconButton(
+                        modifier = Modifier.size(44.dp),
+                        onClick = onToggleGrid
+                    ) {
+                        Icon(
+                            if (isGridView) Icons.AutoMirrored.Outlined.ViewList else Icons.Outlined.Apps,
+                            contentDescription = if (isGridView) "Vista lista" else "Vista cuadrícula",
+                            tint = EleganteRose,
+                            modifier = Modifier.size(26.dp)
+                        )
+                    }
+                }
+            }
         }
     }
 }
 
 // ── Series Tab Content Composables ──
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun SeriesPendingTab(
     series: List<com.dondeloexan.presentation.series.SeriesWithProgress>,
+    isGridView: Boolean,
     navController: NavController,
     viewModel: SeriesViewModel
 ) {
@@ -426,6 +425,39 @@ private fun SeriesPendingTab(
                 Spacer(Modifier.height(12.dp))
                 Text("No tienes series pendientes", style = UbuntuTypography.titleMedium, color = TextSecondary)
                 Text("Las series que añadas aparecerán aquí", style = UbuntuTypography.bodySmall, color = TextSecondary.copy(alpha = 0.6f))
+            }
+        }
+    } else if (isGridView) {
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(2),
+            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxSize()
+        ) {
+            items(series, key = { it.show.id }) { item ->
+                val s = item.show
+                LibraryItemCard(
+                    posterUrl = s.posterUrl,
+                    title = s.title,
+                    year = s.year,
+                    streamingPlatforms = s.streamingPlatforms.toStreamingPlatforms(),
+                    watchedCount = item.watchedCount,
+                    totalEpisodes = item.totalEpisodes,
+                    releasedEpisodes = s.releasedEpisodes,
+                    nextEpisodeAirDate = s.nextEpisodeAirDate,
+                    nextEpisodeNumber = s.nextEpisodeNumber,
+                    nextEpisodeSeasonNumber = s.nextEpisodeSeasonNumber,
+                    seriesStatus = s.seriesStatus,
+                    inProduction = s.inProduction,
+                    numberOfSeasons = s.numberOfSeasons,
+                    isLiked = s.liked,
+                    isWatched = s.status.name == "YA_VISTA",
+                    onLikeClick = { viewModel.toggleLike(s) },
+                    onWatchedClick = { viewModel.toggleWatched(s) },
+                    onClick = { navController.navigate("detail/${s.contentId ?: ""}/series") },
+                    modifier = Modifier.fillMaxWidth().aspectRatio(0.65f)
+                )
             }
         }
     } else {
