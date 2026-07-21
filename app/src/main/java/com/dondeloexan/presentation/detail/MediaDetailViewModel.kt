@@ -133,6 +133,8 @@ class MediaDetailViewModel(
                         year = content.year,
                         releaseDate = content.releaseDate,
                         posterUrl = content.coverUrl,
+                        ratingImdb = content.ratingImdb,
+                        ratingTmdb = content.ratingTmdb,
                         status = WatchStatus.YA_VISTA,
                         watchedAt = System.currentTimeMillis()
                     )
