@@ -17,6 +17,10 @@ val RatingHigh = Color(0xFF4CAF50)
 val RatingMedium = Color(0xFFFFC107)
 val RatingLow = Color(0xFFE53935)
 
+val SocialTwitter = Color(0xFF1DA1F2)
+val SocialFacebook = Color(0xFF1877F2)
+val SocialYoutube = Color(0xFFFF0000)
+
 val PlatformActive = EleganteRose.copy(alpha = 0.15f)
 val PlatformActiveBorder = EleganteRose.copy(alpha = 0.5f)
 val PlatformInactiveBorder = TextSecondary.copy(alpha = 0.3f)

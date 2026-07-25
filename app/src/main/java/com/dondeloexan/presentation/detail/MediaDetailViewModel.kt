@@ -18,6 +18,7 @@ import com.dondeloexan.data.remote.mapper.toTmdbSeasonDto
 import com.dondeloexan.domain.model.Content
 import com.dondeloexan.domain.model.ContentSource
 import com.dondeloexan.domain.model.ContentType
+import com.dondeloexan.domain.model.PersonInfo
 import com.dondeloexan.domain.model.DataResult
 import com.dondeloexan.domain.repository.DiscoverRepository
 import com.dondeloexan.util.AppLogger
@@ -49,6 +50,9 @@ data class CascadeProposal(
     val count: Int
 )
 
+data class CastSocialInfo(val url: String, val type: SocialLinkType)
+enum class SocialLinkType { INSTAGRAM, TWITTER, FACEBOOK, YOUTUBE }
+
 class MediaDetailViewModel(
     private val discoverRepository: DiscoverRepository,
     private val tmdbApi: TmdbApi,
@@ -63,6 +67,8 @@ class MediaDetailViewModel(
 
     private var seasonJob: Job? = null
     private val personSocialCache = mutableMapOf<Int, TmdbPersonExternalIdsDto>()
+    private val _castSocialInfo = MutableStateFlow<Map<Int, CastSocialInfo>>(emptyMap())
+    val castSocialInfo: StateFlow<Map<Int, CastSocialInfo>> = _castSocialInfo.asStateFlow()
 
     fun getPersonSocialUrl(personId: Int, onUrl: (String?) -> Unit) {
         viewModelScope.launch {
@@ -75,7 +81,34 @@ class MediaDetailViewModel(
             }
             onUrl(social?.instagramId?.let { "https://instagram.com/$it/" }
                 ?: social?.twitterId?.let { "https://x.com/$it/" }
-                ?: social?.facebookId?.let { "https://facebook.com/$it/" })
+                ?: social?.facebookId?.let { "https://facebook.com/$it/" }
+                ?: social?.youtubeId?.let { "https://www.youtube.com/channel/$it" })
+        }
+    }
+
+    private fun loadCastSocialInfo(cast: List<PersonInfo>) {
+        cast.forEach { person ->
+            val tmdbId = person.tmdbId ?: return@forEach
+            viewModelScope.launch {
+                val social = try { tmdbApi.getPersonExternalIds(tmdbId) } catch (e: Exception) { null }
+                if (social != null) {
+                    personSocialCache[tmdbId] = social
+                    val url = social.instagramId?.let { "https://instagram.com/$it/" }
+                        ?: social.twitterId?.let { "https://x.com/$it/" }
+                        ?: social.facebookId?.let { "https://facebook.com/$it/" }
+                        ?: social.youtubeId?.let { "https://www.youtube.com/channel/$it" }
+                    val type = when {
+                        social.instagramId != null -> SocialLinkType.INSTAGRAM
+                        social.twitterId != null -> SocialLinkType.TWITTER
+                        social.facebookId != null -> SocialLinkType.FACEBOOK
+                        social.youtubeId != null -> SocialLinkType.YOUTUBE
+                        else -> null
+                    }
+                    if (url != null && type != null) {
+                        _castSocialInfo.value = _castSocialInfo.value + (tmdbId to CastSocialInfo(url, type))
+                    }
+                }
+            }
         }
     }
 
@@ -106,6 +139,7 @@ class MediaDetailViewModel(
                                     isMovieFavorite = existing?.liked == true
                                 )
                             }
+                            loadCastSocialInfo(content.cast.take(10))
                         }
                         is DataResult.Error -> {
                             _uiState.value = _uiState.value.copy(

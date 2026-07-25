@@ -261,5 +261,6 @@ data class TmdbPersonExternalIdsDto(
     val id: Int,
     @SerialName("instagram_id") val instagramId: String? = null,
     @SerialName("twitter_id") val twitterId: String? = null,
-    @SerialName("facebook_id") val facebookId: String? = null
+    @SerialName("facebook_id") val facebookId: String? = null,
+    @SerialName("youtube_id") val youtubeId: String? = null
 )

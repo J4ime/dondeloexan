@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -90,6 +91,9 @@ import com.dondeloexan.presentation.theme.DarkSurface
 import com.dondeloexan.presentation.theme.DarkSurfaceVariant
 import com.dondeloexan.presentation.theme.EleganteRose
 import com.dondeloexan.presentation.theme.EleganteRoseLight
+import com.dondeloexan.presentation.theme.SocialFacebook
+import com.dondeloexan.presentation.theme.SocialTwitter
+import com.dondeloexan.presentation.theme.SocialYoutube
 import com.dondeloexan.presentation.theme.RatingHigh
 import com.dondeloexan.presentation.theme.RatingLow
 import com.dondeloexan.presentation.theme.RatingMedium
@@ -647,9 +651,18 @@ private fun TechnicalInfoSection(content: Content, viewModel: MediaDetailViewMod
             Spacer(Modifier.height(8.dp))
             val context = androidx.compose.ui.platform.LocalContext.current
             val detailScope = rememberCoroutineScope()
+            val castSocialInfo by viewModel.castSocialInfo.collectAsState()
             androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 items(content.cast.take(10)) { person ->
                     val hasLink = person.tmdbId != null
+                    val socialInfo = person.tmdbId?.let { castSocialInfo[it] }
+                    val borderColor = when (socialInfo?.type) {
+                        SocialLinkType.INSTAGRAM -> EleganteRose
+                        SocialLinkType.TWITTER -> SocialTwitter
+                        SocialLinkType.FACEBOOK -> SocialFacebook
+                        SocialLinkType.YOUTUBE -> SocialYoutube
+                        else -> Color.Transparent
+                    }
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.width(80.dp).then(
@@ -671,7 +684,11 @@ private fun TechnicalInfoSection(content: Content, viewModel: MediaDetailViewMod
                                     .crossfade(200)
                                     .build(),
                                 contentDescription = person.name,
-                                modifier = Modifier.size(64.dp).clip(CircleShape).background(DarkSurfaceVariant),
+                                modifier = Modifier.size(64.dp).clip(CircleShape).background(DarkSurfaceVariant)
+                                    .then(
+                                        if (borderColor != Color.Transparent) Modifier.border(2.dp, borderColor, CircleShape)
+                                        else Modifier
+                                    ),
                                 contentScale = ContentScale.Crop
                             )
                         } else {

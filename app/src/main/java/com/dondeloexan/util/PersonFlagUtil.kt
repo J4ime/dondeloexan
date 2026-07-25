@@ -38,7 +38,9 @@ object PersonFlagUtil {
     fun countryFlag(placeOfBirth: String?): String {
         val country = placeOfBirth?.substringAfterLast(",")?.trim()?.lowercase() ?: return ""
         val code = countryToCode[country] ?: return ""
-        return code.map { Character.toChars(0x1F1E6 + (it - 'A')) }.joinToString("")
+        return buildString {
+            code.forEach { append(Character.toChars(0x1F1E6 + (it - 'A'))) }
+        }
     }
 
     fun age(birthday: String?, deathday: String?): Int? {
