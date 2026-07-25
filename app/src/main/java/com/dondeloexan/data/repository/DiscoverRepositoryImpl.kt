@@ -607,7 +607,7 @@ class DiscoverRepositoryImpl(
                 withCompanies = companyId.toString(),
                 sortBy = "primary_release_date.desc",
                 releaseDateGte = null,
-                voteCountGte = 10
+                voteCountGte = null
             )
             response.results
                 .filter { !it.adult && it.releaseDate != null }

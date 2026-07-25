@@ -122,6 +122,7 @@ class DiscoverViewModel(
     private var isFilling = false
     private var hasError = false
     private var cachedResults = listOf<ContentPreview>()
+    private var lastCompanySearchResults: List<TmdbCompanySearchResult> = emptyList()
     private var searchJob: Job? = null
     private var trendingJob: Job? = null
 
@@ -196,9 +197,20 @@ class DiscoverViewModel(
                     } else emptyList()
                 }
                 EntityType.COMPANY -> {
-                    val companyId = entity.id.removePrefix("company-").toIntOrNull()
-                    if (companyId != null) {
-                        discoverRepository.getCompanyMovies(companyId)
+                    val firstId = entity.id.removePrefix("company-").toIntOrNull()
+                    if (firstId != null) {
+                        val idsToTry = mutableListOf(firstId)
+                        idsToTry.addAll(
+                            lastCompanySearchResults
+                                .filter { it.name == entity.name && it.id != firstId && it.logoPath != null }
+                                .map { it.id }
+                        )
+                        var movies = emptyList<ContentPreview>()
+                        for (id in idsToTry) {
+                            movies = discoverRepository.getCompanyMovies(id)
+                            if (movies.isNotEmpty()) break
+                        }
+                        movies
                     } else emptyList()
                 }
             }
@@ -254,6 +266,7 @@ class DiscoverViewModel(
             val page = searchDeferred.await()
             val people = peopleDeferred.await()
             val companies = companiesDeferred.await()
+            lastCompanySearchResults = companies
 
             val suggestions = mutableListOf<FilmographyEntity>()
             people.take(5).forEach { p ->
@@ -304,7 +317,7 @@ class DiscoverViewModel(
                     }
                 }
             }
-            companies.take(3).forEach { c ->
+            companies.filter { it.logoPath != null }.take(3).forEach { c ->
                 suggestions.add(
                     FilmographyEntity(
                         id = "company-${c.id}",
