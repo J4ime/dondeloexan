@@ -43,10 +43,9 @@ import androidx.compose.material.icons.outlined.Business
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.FilterList
+import androidx.compose.material.icons.outlined.Movie
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.SearchOff
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
@@ -163,8 +162,8 @@ fun DiscoverScreen(
                             Box(modifier = Modifier.weight(1f)) {
                                 if (searchQuery.isEmpty() && searchMode == SearchMode.FILMOGRAFIA) {
                                     Text(
-                                        "Nombre actor, director, productora...",
-                                        style = UbuntuTypography.bodyLarge.copy(fontSize = 18.sp, lineHeight = 22.sp),
+                                        "Busca filmografía",
+                                        style = UbuntuTypography.bodySmall.copy(fontSize = 12.sp),
                                         color = TextSecondary.copy(alpha = 0.5f)
                                     )
                                 }
@@ -181,37 +180,38 @@ fun DiscoverScreen(
             }
 
             if (searchMode == SearchMode.GENERAL) {
-                FilterChip(
-                    selected = filterByPlatforms,
-                    onClick = viewModel::togglePlatformFilter,
-                    label = { Text("Mis apps", style = UbuntuTypography.labelSmall) },
-                    leadingIcon = {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = DarkSurface
+                ) {
+                    IconButton(
+                        modifier = Modifier.size(36.dp),
+                        onClick = viewModel::togglePlatformFilter
+                    ) {
                         Icon(
-                            Icons.Outlined.FilterList,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp)
+                            Icons.Outlined.FilterList, null,
+                            tint = if (filterByPlatforms) EleganteRose else TextSecondary,
+                            modifier = Modifier.size(22.dp)
                         )
-                    },
-                    colors = FilterChipDefaults.filterChipColors(
-                        containerColor = DarkSurface,
-                        labelColor = TextSecondary,
-                        selectedContainerColor = EleganteRose.copy(alpha = 0.2f),
-                        selectedLabelColor = EleganteRose
-                    )
-                )
+                    }
+                }
             }
 
-            FilterChip(
-                selected = searchMode == SearchMode.FILMOGRAFIA,
-                onClick = viewModel::toggleSearchMode,
-                label = { Text("Filmografía", style = UbuntuTypography.labelSmall) },
-                colors = FilterChipDefaults.filterChipColors(
-                    containerColor = DarkSurface,
-                    labelColor = TextSecondary,
-                    selectedContainerColor = EleganteRose.copy(alpha = 0.2f),
-                    selectedLabelColor = EleganteRose
-                )
-            )
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = if (searchMode == SearchMode.FILMOGRAFIA) EleganteRose.copy(alpha = 0.2f) else DarkSurface
+            ) {
+                IconButton(
+                    modifier = Modifier.size(36.dp),
+                    onClick = viewModel::toggleSearchMode
+                ) {
+                    Icon(
+                        Icons.Outlined.Movie, null,
+                        tint = if (searchMode == SearchMode.FILMOGRAFIA) EleganteRose else TextSecondary,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
 
             Surface(
                 shape = RoundedCornerShape(12.dp),
@@ -229,6 +229,15 @@ fun DiscoverScreen(
                     )
                 }
             }
+        }
+
+        if (searchMode == SearchMode.FILMOGRAFIA && searchQuery.isBlank()) {
+            Text(
+                "Busca filmografía",
+                style = UbuntuTypography.labelSmall,
+                color = TextSecondary,
+                modifier = Modifier.padding(start = 16.dp, top = 4.dp)
+            )
         }
 
         FeedbackBanner(
@@ -604,11 +613,27 @@ private fun EntityRow(entity: FilmographyEntity, onClick: () -> Unit) {
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text(entity.name, style = UbuntuTypography.bodyMedium, color = TextPrimary)
-                Text(
-                    if (entity.type == EntityType.PERSON) "Persona" else "Compañía",
-                    style = UbuntuTypography.labelSmall,
-                    color = TextSecondary
-                )
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        if (entity.type == EntityType.PERSON) (entity.role ?: "Persona") else "Compañía",
+                        style = UbuntuTypography.labelSmall,
+                        color = TextSecondary
+                    )
+                    if (entity.role != null) {
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = EleganteRose.copy(alpha = 0.2f)
+                        ) {
+                            Text(
+                                entity.role,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
+                                style = UbuntuTypography.labelSmall,
+                                color = EleganteRose,
+                                fontSize = 9.sp
+                            )
+                        }
+                    }
+                }
             }
             Icon(
                 if (entity.type == EntityType.PERSON) Icons.Filled.Person else Icons.Outlined.Business,

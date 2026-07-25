@@ -11,6 +11,7 @@ import com.dondeloexan.data.remote.dto.TmdbTvDetailDto
 import com.dondeloexan.domain.model.AvailabilityType
 import com.dondeloexan.domain.model.Content
 import com.dondeloexan.domain.model.ContentPreview
+import com.dondeloexan.domain.model.PersonInfo
 import com.dondeloexan.domain.model.ContentSource
 import com.dondeloexan.domain.model.ContentType
 import com.dondeloexan.domain.model.ExternalLinks
@@ -42,9 +43,13 @@ fun TmdbMovieDto.toDomain(
     synopsis = overview,
     coverUrl = posterPath?.let { "https://image.tmdb.org/t/p/w500$it" },
     backdropUrl = backdropPath?.let { "https://image.tmdb.org/t/p/w1280$it" },
-    directors = credits?.crew?.filter { it.job == "Director" }?.map { it.name }.orEmpty(),
+    directors = credits?.crew?.filter { it.job == "Director" }?.map {
+        PersonInfo(name = it.name, profilePath = it.profilePath, tmdbId = it.id)
+    }.orEmpty(),
     writers = credits?.crew?.filter { it.job == "Screenplay" }?.map { it.name }.orEmpty(),
-    cast = credits?.cast?.map { it.name }.orEmpty(),
+    cast = credits?.cast?.map {
+        PersonInfo(name = it.name, profilePath = it.profilePath, tmdbId = it.id)
+    }.orEmpty(),
     music = credits?.crew?.filter { it.job == "Original Music Composer" }?.map { it.name }.orEmpty(),
     cinematography = credits?.crew?.filter { it.job == "Director of Photography" }?.map { it.name }.orEmpty(),
     productionCompanies = productionCompanies?.map { it.name }.orEmpty(),
@@ -82,9 +87,13 @@ fun TmdbTvDetailDto.toDomain(
     synopsis = overview,
     coverUrl = posterPath?.let { "https://image.tmdb.org/t/p/w500$it" },
     backdropUrl = backdropPath?.let { "https://image.tmdb.org/t/p/w1280$it" },
-    directors = credits?.crew?.filter { it.job == "Director" }?.map { it.name }.orEmpty(),
+    directors = credits?.crew?.filter { it.job == "Director" }?.map {
+        PersonInfo(name = it.name, profilePath = it.profilePath, tmdbId = it.id)
+    }.orEmpty(),
     writers = credits?.crew?.filter { it.job == "Screenplay" }?.map { it.name }.orEmpty(),
-    cast = credits?.cast?.map { it.name }.orEmpty(),
+    cast = credits?.cast?.map {
+        PersonInfo(name = it.name, profilePath = it.profilePath, tmdbId = it.id)
+    }.orEmpty(),
     music = credits?.crew?.filter { it.job == "Original Music Composer" }?.map { it.name }.orEmpty(),
     cinematography = credits?.crew?.filter { it.job == "Director of Photography" }?.map { it.name }.orEmpty(),
     productionCompanies = productionCompanies?.map { it.name }.orEmpty(),

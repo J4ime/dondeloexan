@@ -10,6 +10,12 @@ data class ExternalLinks(
     val homepage: String? = null
 )
 
+data class PersonInfo(
+    val name: String,
+    val profilePath: String? = null,
+    val tmdbId: Int? = null
+)
+
 data class Content(
     val id: String,
     val source: ContentSource,
@@ -30,9 +36,9 @@ data class Content(
     val synopsis: String? = null,
     val coverUrl: String? = null,
     val backdropUrl: String? = null,
-    val directors: List<String> = emptyList(),
+    val directors: List<PersonInfo> = emptyList(),
     val writers: List<String> = emptyList(),
-    val cast: List<String> = emptyList(),
+    val cast: List<PersonInfo> = emptyList(),
     val music: List<String> = emptyList(),
     val cinematography: List<String> = emptyList(),
     val productionCompanies: List<String> = emptyList(),

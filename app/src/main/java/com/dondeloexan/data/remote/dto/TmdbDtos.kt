@@ -178,6 +178,7 @@ data class TmdbCrewMemberDto(
     val name: String,
     val job: String? = null,
     val department: String? = null,
+    @SerialName("profile_path") val profilePath: String? = null,
     @SerialName("known_for_department") val knownForDepartment: String? = null
 )
 

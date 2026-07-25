@@ -25,7 +25,9 @@ import java.time.LocalDate
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import com.dondeloexan.data.remote.dto.TmdbCompanySearchResult
+import com.dondeloexan.data.remote.dto.TmdbPersonCreditsResponse
 import com.dondeloexan.data.remote.dto.TmdbPersonSearchResult
+import com.dondeloexan.data.remote.mapper.toContentPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -182,9 +184,32 @@ class DiscoverViewModel(
         viewModelScope.launch {
             val movies = when (entity.type) {
                 EntityType.PERSON -> {
-                    val personId = entity.id.removePrefix("person-").toIntOrNull()
-                    if (personId != null) {
-                        discoverRepository.getPersonMovieCredits(personId)
+                    val rawId = entity.id.removePrefix("person-").substringBefore("-").toIntOrNull()
+                    if (rawId != null) {
+                        if (entity.role != null) {
+                            val credits = try {
+                                tmdbApi.getPersonMovieCredits(rawId)
+                            } catch (e: Exception) {
+                                null
+                            }
+                            if (credits != null) {
+                                val filtered = when (entity.role) {
+                                    "Actor" -> credits.cast.orEmpty()
+                                    "Director" -> credits.crew.orEmpty().filter { it.job == "Director" }
+                                    "Productor" -> credits.crew.orEmpty().filter { it.job == "Producer" }
+                                    "Productor ejecutivo" -> credits.crew.orEmpty().filter { it.job == "Executive Producer" }
+                                    "Guionista" -> credits.crew.orEmpty().filter { it.job in listOf("Writer", "Screenplay", "Story") }
+                                    else -> credits.cast.orEmpty() + credits.crew.orEmpty()
+                                }
+                                filtered
+                                    .filter { it.releaseDate != null }
+                                    .distinctBy { it.id }
+                                    .sortedByDescending { it.releaseDate }
+                                    .map { it.toContentPreview() }
+                            } else emptyList()
+                        } else {
+                            discoverRepository.getPersonMovieCredits(rawId)
+                        }
                     } else emptyList()
                 }
                 EntityType.COMPANY -> {
@@ -255,7 +280,53 @@ class DiscoverViewModel(
             val companies = discoverRepository.searchCompanies(query)
 
             val allEntities = mutableListOf<FilmographyEntity>()
-            people.forEach { p ->
+
+            people.take(8).forEach { p ->
+                val roles = mutableSetOf<String>()
+                val creditsResponse = try {
+                    tmdbApi.getPersonMovieCredits(p.id)
+                } catch (e: Exception) {
+                    null
+                }
+                if (creditsResponse != null) {
+                    if (creditsResponse.cast.orEmpty().isNotEmpty()) roles.add("Actor")
+                    creditsResponse.crew.orEmpty().forEach { credit ->
+                        when (credit.job) {
+                            "Director" -> roles.add("Director")
+                            "Producer" -> roles.add("Productor")
+                            "Executive Producer" -> roles.add("Productor ejecutivo")
+                            "Writer" -> roles.add("Guionista")
+                            "Screenplay" -> roles.add("Guionista")
+                            "Story" -> roles.add("Guionista")
+                        }
+                    }
+                }
+                if (roles.isEmpty()) {
+                    allEntities.add(
+                        FilmographyEntity(
+                            id = "person-${p.id}",
+                            name = p.name,
+                            type = EntityType.PERSON,
+                            profilePath = p.profilePath,
+                            knownForDepartment = p.knownForDepartment
+                        )
+                    )
+                } else {
+                    roles.sorted().forEach { role ->
+                        allEntities.add(
+                            FilmographyEntity(
+                                id = "person-${p.id}-${role.lowercase().replace(" ", "-")}",
+                                name = "${p.name} ($role)",
+                                type = EntityType.PERSON,
+                                profilePath = p.profilePath,
+                                knownForDepartment = p.knownForDepartment,
+                                role = role
+                            )
+                        )
+                    }
+                }
+            }
+            people.drop(8).forEach { p ->
                 allEntities.add(
                     FilmographyEntity(
                         id = "person-${p.id}",
@@ -801,7 +872,8 @@ data class FilmographyEntity(
     val name: String,
     val type: EntityType,
     val profilePath: String?,
-    val knownForDepartment: String?
+    val knownForDepartment: String?,
+    val role: String? = null
 )
 
 data class FilmographyState(

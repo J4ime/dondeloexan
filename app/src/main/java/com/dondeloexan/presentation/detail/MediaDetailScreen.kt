@@ -36,6 +36,7 @@ import androidx.compose.material.icons.outlined.DoneAll
 import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.outlined.People
+import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.PlayCircle
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.AlertDialog
@@ -79,6 +80,7 @@ import com.dondeloexan.data.remote.dto.TmdbEpisodeDto
 import com.dondeloexan.data.remote.dto.TmdbTvSeasonDetailDto
 import com.dondeloexan.domain.model.Content
 import com.dondeloexan.domain.model.ContentType
+import com.dondeloexan.domain.model.PersonInfo
 import com.dondeloexan.domain.model.ExternalLinks
 import com.dondeloexan.domain.model.StreamingAvailability
 import com.dondeloexan.domain.model.AvailabilityType
@@ -592,9 +594,9 @@ private fun TechnicalInfoSection(content: Content) {
             "Año" to content.year?.toString(),
             "Duración" to content.durationMinutes?.let { "${it} min" },
             "País" to content.countries.takeIf { it.isNotEmpty() }?.joinToString(", "),
-            "Dirección" to content.directors.takeIf { it.isNotEmpty() }?.joinToString(", "),
+            "Dirección" to content.directors.takeIf { it.isNotEmpty() }?.joinToString(", ") { it.name },
             "Guion" to content.writers.takeIf { it.isNotEmpty() }?.joinToString(", "),
-            "Reparto" to content.cast.takeIf { it.isNotEmpty() }?.joinToString(", "),
+            "Reparto" to content.cast.takeIf { it.isNotEmpty() }?.joinToString(", ") { it.name },
             "Música" to content.music.takeIf { it.isNotEmpty() }?.joinToString(", "),
             "Fotografía" to content.cinematography.takeIf { it.isNotEmpty() }?.joinToString(", "),
             "Compañías" to content.productionCompanies.takeIf { it.isNotEmpty() }?.joinToString(", "),
@@ -636,8 +638,43 @@ private fun TechnicalInfoSection(content: Content) {
             }
         }
 
+        if (content.cast.any { it.profilePath != null }) {
+            Spacer(Modifier.height(8.dp))
+            HorizontalDivider(color = DarkSurfaceVariant.copy(alpha = 0.5f))
+            Spacer(Modifier.height(8.dp))
+            Text("Reparto", style = UbuntuTypography.titleSmall, color = TextPrimary, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(8.dp))
+            val context = androidx.compose.ui.platform.LocalContext.current
+            androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                items(content.cast.take(10)) { person ->
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(80.dp)) {
+                        if (person.profilePath != null) {
+                            AsyncImage(
+                                model = ImageRequest.Builder(context)
+                                    .data("https://image.tmdb.org/t/p/w185${person.profilePath}")
+                                    .crossfade(200)
+                                    .build(),
+                                contentDescription = person.name,
+                                modifier = Modifier.size(64.dp).clip(CircleShape).background(DarkSurfaceVariant),
+                                contentScale = ContentScale.Crop
+                            )
+                        } else {
+                            Box(
+                                modifier = Modifier.size(64.dp).clip(CircleShape).background(DarkSurfaceVariant),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Outlined.Person, null, tint = TextSecondary, modifier = Modifier.size(28.dp))
+                            }
+                        }
+                        Spacer(Modifier.height(4.dp))
+                        Text(person.name, style = UbuntuTypography.labelSmall, color = TextPrimary, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+            }
+        }
+
         if (!content.synopsis.isNullOrBlank()) {
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(8.dp))
             HorizontalDivider(color = DarkSurfaceVariant.copy(alpha = 0.5f))
             Spacer(Modifier.height(8.dp))
             Text(

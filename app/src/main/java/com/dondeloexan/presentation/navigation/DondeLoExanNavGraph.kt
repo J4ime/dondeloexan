@@ -325,7 +325,7 @@ private fun MainPagerContent(
                     onClick = { scope.launch { pagerState.animateScrollToPage(5) } },
                     icon = {
                         Icon(
-                            Icons.Filled.Favorite, "Favoritas",
+                            Icons.Outlined.CheckCircle, "Vistas",
                             tint = if (currentPage == 5) EleganteRose else TextSecondary
                         )
                     }
@@ -335,7 +335,7 @@ private fun MainPagerContent(
                     onClick = { scope.launch { pagerState.animateScrollToPage(6) } },
                     icon = {
                         Icon(
-                            Icons.Outlined.CheckCircle, "Vistas",
+                            Icons.Filled.Favorite, "Favoritas",
                             tint = if (currentPage == 6) EleganteRose else TextSecondary
                         )
                     }
@@ -378,14 +378,14 @@ private fun MainPagerContent(
                         navController = navController,
                         viewModel = moviesViewModel
                     )
-                    5 -> MoviesFavoritesTab(
-                        movies = favoriteMovies,
+                    5 -> MoviesWatchedTab(
+                        movies = watchedMovies,
                         isGridView = isGridView,
                         navController = navController,
                         viewModel = moviesViewModel
                     )
-                    6 -> MoviesWatchedTab(
-                        movies = watchedMovies,
+                    6 -> MoviesFavoritesTab(
+                        movies = favoriteMovies,
                         isGridView = isGridView,
                         navController = navController,
                         viewModel = moviesViewModel

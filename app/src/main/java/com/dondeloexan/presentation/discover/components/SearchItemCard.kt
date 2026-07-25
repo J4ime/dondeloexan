@@ -258,60 +258,62 @@ fun SearchItemCard(
             }
         }
 
-        IconButton(
-            onClick = onBlacklistClick,
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(8.dp)
-                .size(36.dp)
-                .background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
-        ) {
-            Icon(
-                Icons.Outlined.Block,
-                contentDescription = "Ocultar",
-                tint = if (isBlacklisted) EleganteRose else TextSecondary,
-                modifier = Modifier.size(18.dp)
-            )
-        }
-
-        Row(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(8.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
+        if (!isWatched) {
             IconButton(
-                onClick = onFavoriteClick,
+                onClick = onBlacklistClick,
                 modifier = Modifier
-                    .size(48.dp)
-                    .background(
-                        Color.Black.copy(alpha = 0.5f),
-                        RoundedCornerShape(8.dp)
-                    )
+                    .align(Alignment.TopStart)
+                    .padding(8.dp)
+                    .size(36.dp)
+                    .background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
             ) {
                 Icon(
-                    if (isLiked) Icons.Outlined.Close else Icons.Outlined.Add,
-                    contentDescription = if (isLiked) "Quitar" else "Favorito",
-                    tint = if (isLiked) EleganteRose else TextPrimary,
-                    modifier = Modifier.size(24.dp)
+                    Icons.Outlined.Block,
+                    contentDescription = "Ocultar",
+                    tint = if (isBlacklisted) EleganteRose else TextSecondary,
+                    modifier = Modifier.size(18.dp)
                 )
             }
 
-            IconButton(
-                onClick = onWatchedClick,
+            Row(
                 modifier = Modifier
-                    .size(48.dp)
-                    .background(
-                        Color.Black.copy(alpha = 0.5f),
-                        RoundedCornerShape(8.dp)
-                    )
+                    .align(Alignment.TopEnd)
+                    .padding(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                Icon(
-                    if (isWatched) Icons.Filled.Check else Icons.Outlined.CheckCircleOutline,
-                    contentDescription = "Visto",
-                    tint = if (isWatched) EleganteRose else TextPrimary,
-                    modifier = Modifier.size(24.dp)
-                )
+                IconButton(
+                    onClick = onFavoriteClick,
+                    modifier = Modifier
+                        .size(48.dp)
+                        .background(
+                            Color.Black.copy(alpha = 0.5f),
+                            RoundedCornerShape(8.dp)
+                        )
+                ) {
+                    Icon(
+                        if (isLiked) Icons.Outlined.Close else Icons.Outlined.Add,
+                        contentDescription = if (isLiked) "Quitar" else "Favorito",
+                        tint = if (isLiked) EleganteRose else TextPrimary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+
+                IconButton(
+                    onClick = onWatchedClick,
+                    modifier = Modifier
+                        .size(48.dp)
+                        .background(
+                            Color.Black.copy(alpha = 0.5f),
+                            RoundedCornerShape(8.dp)
+                        )
+                ) {
+                    Icon(
+                        if (isWatched) Icons.Filled.Check else Icons.Outlined.CheckCircleOutline,
+                        contentDescription = "Visto",
+                        tint = if (isWatched) EleganteRose else TextPrimary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
             }
         }
     }
