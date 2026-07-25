@@ -46,6 +46,7 @@ import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.Movie
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.SearchOff
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
@@ -96,8 +97,7 @@ fun DiscoverScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
-    val searchMode by viewModel.searchMode.collectAsState()
-    val filmographyState by viewModel.filmographyState.collectAsState()
+    val filmographyView by viewModel.filmographyView.collectAsState()
     val likedIds by viewModel.likedIds.collectAsState()
     val watchedIds by viewModel.watchedIds.collectAsState()
     val blacklistedIds by viewModel.blacklistedIds.collectAsState()
@@ -160,13 +160,6 @@ fun DiscoverScreen(
                             )
                             Spacer(Modifier.width(8.dp))
                             Box(modifier = Modifier.weight(1f)) {
-                                if (searchQuery.isEmpty() && searchMode == SearchMode.FILMOGRAFIA) {
-                                    Text(
-                                        "Busca filmografía",
-                                        style = UbuntuTypography.bodySmall.copy(fontSize = 12.sp),
-                                        color = TextSecondary.copy(alpha = 0.5f)
-                                    )
-                                }
                                 innerTextField()
                             }
                             if (searchQuery.isNotEmpty()) {
@@ -179,35 +172,17 @@ fun DiscoverScreen(
                 )
             }
 
-            if (searchMode == SearchMode.GENERAL) {
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = DarkSurface
-                ) {
-                    IconButton(
-                        modifier = Modifier.size(36.dp),
-                        onClick = viewModel::togglePlatformFilter
-                    ) {
-                        Icon(
-                            Icons.Outlined.FilterList, null,
-                            tint = if (filterByPlatforms) EleganteRose else TextSecondary,
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
-                }
-            }
-
             Surface(
                 shape = RoundedCornerShape(12.dp),
-                color = if (searchMode == SearchMode.FILMOGRAFIA) EleganteRose.copy(alpha = 0.2f) else DarkSurface
+                color = DarkSurface
             ) {
                 IconButton(
                     modifier = Modifier.size(36.dp),
-                    onClick = viewModel::toggleSearchMode
+                    onClick = viewModel::togglePlatformFilter
                 ) {
                     Icon(
-                        Icons.Outlined.Movie, null,
-                        tint = if (searchMode == SearchMode.FILMOGRAFIA) EleganteRose else TextSecondary,
+                        Icons.Outlined.FilterList, null,
+                        tint = if (filterByPlatforms) EleganteRose else TextSecondary,
                         modifier = Modifier.size(22.dp)
                     )
                 }
@@ -231,23 +206,15 @@ fun DiscoverScreen(
             }
         }
 
-        if (searchMode == SearchMode.FILMOGRAFIA && searchQuery.isBlank()) {
-            Text(
-                "Busca filmografía",
-                style = UbuntuTypography.labelSmall,
-                color = TextSecondary,
-                modifier = Modifier.padding(start = 16.dp, top = 4.dp)
-            )
-        }
-
         FeedbackBanner(
             message = feedbackMessage,
             modifier = Modifier.padding(horizontal = 16.dp)
         )
 
-        if (searchMode == SearchMode.FILMOGRAFIA) {
+        val activeFilmographyView = filmographyView
+        if (activeFilmographyView != null) {
             FilmographyContent(
-                state = filmographyState,
+                view = activeFilmographyView,
                 likedIds = likedIds,
                 watchedIds = watchedIds,
                 isGridView = isGridView,
@@ -256,8 +223,7 @@ fun DiscoverScreen(
                 },
                 onFavoriteClick = viewModel::onToggleFavorite,
                 onWatchedClick = viewModel::onToggleWatched,
-                onBack = viewModel::onFilmographyBack,
-                onSelectEntity = viewModel::onSelectEntity
+                onBack = viewModel::onFilmographyBack
             )
         } else {
             DiscoverContent(
@@ -275,7 +241,8 @@ fun DiscoverScreen(
                 onWatchedClick = viewModel::onToggleWatched,
                 onBlacklistClick = viewModel::onToggleBlacklist,
                 onLoadNextPage = viewModel::loadNextPage,
-                onRetry = viewModel::onRetry
+                onRetry = viewModel::onRetry,
+                onSelectEntity = viewModel::onSelectEntity
             )
         }
     }
@@ -296,7 +263,8 @@ fun DiscoverContent(
     onWatchedClick: (ContentPreview) -> Unit,
     onBlacklistClick: (ContentPreview) -> Unit,
     onLoadNextPage: () -> Unit,
-    onRetry: () -> Unit
+    onRetry: () -> Unit,
+    onSelectEntity: (FilmographyEntity) -> Unit = {}
 ) {
     var isRefreshing by remember { mutableStateOf(false) }
     val pullRefreshState = rememberPullRefreshState(
@@ -381,6 +349,32 @@ fun DiscoverContent(
                         contentPadding = PaddingValues(vertical = 8.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
+                        if (uiState.personSuggestions.isNotEmpty()) {
+                            item(key = "__person_suggestions__") {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Text(
+                                        "Personas y compañías",
+                                        style = UbuntuTypography.labelSmall,
+                                        color = EleganteRose,
+                                        modifier = Modifier.padding(bottom = 4.dp)
+                                    )
+                                    uiState.personSuggestions.forEach { entity ->
+                                        EntityRow(entity = entity, onClick = { onSelectEntity(entity) })
+                                    }
+                                    if (uiState.results.isNotEmpty()) {
+                                        HorizontalDivider(
+                                            color = DarkSurfaceVariant.copy(alpha = 0.5f),
+                                            modifier = Modifier.padding(vertical = 4.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
                         items(uiState.results, key = { it.id }) { content ->
                             AnimatedVisibility(
                                 visible = true,
@@ -501,17 +495,18 @@ fun ErrorState(message: String, onRetry: () -> Unit) {
 @OptIn(ExperimentalMaterialApi::class)
 @Composable
 fun FilmographyContent(
-    state: FilmographyState,
+    view: FilmographyView,
     likedIds: Set<String>,
     watchedIds: Set<String>,
     isGridView: Boolean,
     onItemClick: (String, String) -> Unit,
     onFavoriteClick: (ContentPreview) -> Unit,
     onWatchedClick: (ContentPreview) -> Unit,
-    onBack: () -> Unit,
-    onSelectEntity: (FilmographyEntity) -> Unit
+    onBack: () -> Unit
 ) {
-    if (state.selectedEntity != null && state.movies != null) {
+    if (view.isLoading) {
+        LoadingState()
+    } else if (view.movies != null) {
         Box(modifier = Modifier.fillMaxSize()) {
             Column(modifier = Modifier.fillMaxSize()) {
                 Row(
@@ -525,14 +520,14 @@ fun FilmographyContent(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver", tint = EleganteRose, modifier = Modifier.size(20.dp))
                     }
                     Text(
-                        "Películas de ${state.selectedEntity.name}",
+                        "Películas de ${view.entity.name}",
                         style = UbuntuTypography.titleSmall,
                         color = TextPrimary
                     )
                 }
 
                 FilmographyMoviesGrid(
-                    movies = state.movies,
+                    movies = view.movies,
                     likedIds = likedIds,
                     watchedIds = watchedIds,
                     isGridView = isGridView,
@@ -542,32 +537,10 @@ fun FilmographyContent(
                 )
             }
         }
-    } else if (state.entities != null) {
-        if (state.entities.isEmpty() && !state.isLoading) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("Sin resultados para \"${state.query}\"", color = TextSecondary)
-            }
-        } else {
-            LazyColumn(
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                items(state.entities, key = { it.id }) { entity ->
-                    EntityRow(entity = entity, onClick = { onSelectEntity(entity) })
-                }
-                if (state.isLoading) {
-                    item {
-                        Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                            BouncingDotsSpinner()
-                        }
-                    }
-                }
-            }
-        }
-    } else if (state.isLoading) {
-        LoadingState()
     } else {
-        InitialState()
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text("No se encontraron películas", color = TextSecondary)
+        }
     }
 }
 

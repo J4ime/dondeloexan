@@ -23,6 +23,7 @@ import com.dondeloexan.presentation.feedback.FeedbackManager
 import com.dondeloexan.util.AppLogger
 import java.time.LocalDate
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import com.dondeloexan.data.remote.dto.TmdbCompanySearchResult
 import com.dondeloexan.data.remote.dto.TmdbPersonCreditsResponse
@@ -157,30 +158,15 @@ class DiscoverViewModel(
         }
     }
 
-    private val _searchMode = MutableStateFlow(SearchMode.GENERAL)
-    val searchMode: StateFlow<SearchMode> = _searchMode.asStateFlow()
-
-    private val _filmographyState = MutableStateFlow(FilmographyState())
-    val filmographyState: StateFlow<FilmographyState> = _filmographyState.asStateFlow()
-
-    fun toggleSearchMode() {
-        val newMode = if (_searchMode.value == SearchMode.GENERAL) SearchMode.FILMOGRAFIA else SearchMode.GENERAL
-        _searchMode.value = newMode
-        _searchQuery.value = ""
-        searchJob?.cancel()
-        currentPage = 1
-        hasMorePages = true
-        cachedResults = emptyList()
-        _uiState.value = DiscoverUiState.Initial
-        _filmographyState.value = FilmographyState()
-    }
+    private val _filmographyView = MutableStateFlow<FilmographyView?>(null)
+    val filmographyView: StateFlow<FilmographyView?> = _filmographyView.asStateFlow()
 
     fun onFilmographyBack() {
-        _filmographyState.update { it.copy(selectedEntity = null, movies = null) }
+        _filmographyView.value = null
     }
 
     fun onSelectEntity(entity: FilmographyEntity) {
-        _filmographyState.update { it.copy(selectedEntity = entity, movies = null, isLoading = true) }
+        _filmographyView.value = FilmographyView(entity = entity, isLoading = true)
         viewModelScope.launch {
             val movies = when (entity.type) {
                 EntityType.PERSON -> {
@@ -219,17 +205,13 @@ class DiscoverViewModel(
                     } else emptyList()
                 }
             }
-            _filmographyState.update { it.copy(movies = movies, isLoading = false) }
+            _filmographyView.value = FilmographyView(entity = entity, movies = movies, isLoading = false)
         }
     }
 
     fun onSearchQueryChanged(query: String) {
-        if (_searchMode.value == SearchMode.FILMOGRAFIA) {
-            onFilmographyQueryChanged(query)
-            return
-        }
-
         _searchQuery.value = query
+        _filmographyView.value = null
 
         if (query.isBlank() || query.length < 3) {
             if (query.isBlank()) {
@@ -248,40 +230,36 @@ class DiscoverViewModel(
             cachedResults = emptyList()
             _uiState.value = DiscoverUiState.Loading
 
-            val page = try {
-                discoverRepository.fetchSearchPage(query, 1)
-                    .filter { it.ratingImdb != null && it.ratingImdb >= 6.0f }
-            } catch (e: Exception) {
-                hasError = true
-                emptyList()
+            val searchDeferred = async {
+                try {
+                    discoverRepository.fetchSearchPage(query, 1)
+                        .filter { it.ratingImdb != null && it.ratingImdb >= 6.0f }
+                } catch (e: Exception) {
+                    hasError = true
+                    emptyList()
+                }
+            }
+            val peopleDeferred = async {
+                try {
+                    discoverRepository.searchPeople(query)
+                } catch (e: Exception) {
+                    emptyList()
+                }
+            }
+            val companiesDeferred = async {
+                try {
+                    discoverRepository.searchCompanies(query)
+                } catch (e: Exception) {
+                    emptyList()
+                }
             }
 
-            cachedResults = page
-            _uiState.value = if (cachedResults.isEmpty()) {
-                DiscoverUiState.Empty(query)
-            } else {
-                DiscoverUiState.Success(cachedResults)
-            }
-        }
-    }
+            val page = searchDeferred.await()
+            val people = peopleDeferred.await()
+            val companies = companiesDeferred.await()
 
-    private fun onFilmographyQueryChanged(query: String) {
-        _searchQuery.value = query
-        _filmographyState.update { it.copy(query = query, selectedEntity = null, movies = null, error = null) }
-
-        if (query.length < 3) {
-            _filmographyState.update { it.copy(entities = null, isLoading = false) }
-            return
-        }
-
-        _filmographyState.update { it.copy(isLoading = true, entities = null) }
-        viewModelScope.launch {
-            val people = discoverRepository.searchPeople(query)
-            val companies = discoverRepository.searchCompanies(query)
-
-            val allEntities = mutableListOf<FilmographyEntity>()
-
-            people.take(8).forEach { p ->
+            val suggestions = mutableListOf<FilmographyEntity>()
+            people.take(5).forEach { p ->
                 val roles = mutableSetOf<String>()
                 val creditsResponse = try {
                     tmdbApi.getPersonMovieCredits(p.id)
@@ -302,7 +280,7 @@ class DiscoverViewModel(
                     }
                 }
                 if (roles.isEmpty()) {
-                    allEntities.add(
+                    suggestions.add(
                         FilmographyEntity(
                             id = "person-${p.id}",
                             name = p.name,
@@ -313,7 +291,7 @@ class DiscoverViewModel(
                     )
                 } else {
                     roles.sorted().forEach { role ->
-                        allEntities.add(
+                        suggestions.add(
                             FilmographyEntity(
                                 id = "person-${p.id}-${role.lowercase().replace(" ", "-")}",
                                 name = "${p.name} ($role)",
@@ -326,19 +304,8 @@ class DiscoverViewModel(
                     }
                 }
             }
-            people.drop(8).forEach { p ->
-                allEntities.add(
-                    FilmographyEntity(
-                        id = "person-${p.id}",
-                        name = p.name,
-                        type = EntityType.PERSON,
-                        profilePath = p.profilePath,
-                        knownForDepartment = p.knownForDepartment
-                    )
-                )
-            }
             companies.forEach { c ->
-                allEntities.add(
+                suggestions.add(
                     FilmographyEntity(
                         id = "company-${c.id}",
                         name = c.name,
@@ -349,12 +316,14 @@ class DiscoverViewModel(
                 )
             }
 
-            _filmographyState.update {
-                it.copy(entities = allEntities, isLoading = false, error = if (allEntities.isEmpty()) "Sin resultados" else null)
+            cachedResults = page
+            _uiState.value = if (cachedResults.isEmpty() && suggestions.isEmpty()) {
+                DiscoverUiState.Empty(query)
+            } else {
+                DiscoverUiState.Success(cachedResults, personSuggestions = suggestions)
             }
         }
     }
-
     private fun removeAndEmit(contentId: String) {
         cachedResults = cachedResults.filter { it.id != contentId }
         if (_uiState.value is DiscoverUiState.Success) {
@@ -736,15 +705,12 @@ class DiscoverViewModel(
 
     fun onClearSearch() {
         _searchQuery.value = ""
-        if (_searchMode.value == SearchMode.FILMOGRAFIA) {
-            _filmographyState.value = FilmographyState()
-        } else {
-            searchJob?.cancel()
-            currentPage = 1
-            hasMorePages = true
-            cachedResults = emptyList()
-            loadTrending()
-        }
+        _filmographyView.value = null
+        searchJob?.cancel()
+        currentPage = 1
+        hasMorePages = true
+        cachedResults = emptyList()
+        loadTrending()
     }
 
     fun onRetry() {
@@ -860,10 +826,11 @@ sealed interface DiscoverUiState {
     data object Loading : DiscoverUiState
     data class Empty(val query: String) : DiscoverUiState
     data class Error(val message: String) : DiscoverUiState
-    data class Success(val results: List<ContentPreview>) : DiscoverUiState
+    data class Success(
+        val results: List<ContentPreview>,
+        val personSuggestions: List<FilmographyEntity> = emptyList()
+    ) : DiscoverUiState
 }
-
-enum class SearchMode { GENERAL, FILMOGRAFIA }
 
 enum class EntityType { PERSON, COMPANY }
 
@@ -876,11 +843,8 @@ data class FilmographyEntity(
     val role: String? = null
 )
 
-data class FilmographyState(
-    val query: String = "",
-    val entities: List<FilmographyEntity>? = null,
-    val isLoading: Boolean = false,
-    val error: String? = null,
-    val selectedEntity: FilmographyEntity? = null,
-    val movies: List<ContentPreview>? = null
+data class FilmographyView(
+    val entity: FilmographyEntity,
+    val movies: List<ContentPreview>? = null,
+    val isLoading: Boolean = false
 )
