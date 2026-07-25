@@ -6,6 +6,7 @@ import com.dondeloexan.data.remote.dto.TmdbExternalIdsDto
 import com.dondeloexan.data.remote.dto.TmdbMovieDto
 import com.dondeloexan.data.remote.dto.TmdbMultiSearchResponse
 import com.dondeloexan.data.remote.dto.TmdbPersonCreditsResponse
+import com.dondeloexan.data.remote.dto.TmdbPersonDetailDto
 import com.dondeloexan.data.remote.dto.TmdbPersonSearchResponse
 import com.dondeloexan.data.remote.dto.TmdbTrendingResponse
 import com.dondeloexan.data.remote.dto.TmdbTvDetailDto
@@ -185,6 +186,11 @@ class TmdbApi(private val client: HttpClient) {
             parameter("page", page)
             parameter("language", language)
         }
+        return response.body()
+    }
+
+    suspend fun getPersonDetail(personId: Int): TmdbPersonDetailDto {
+        val response = client.get("person/$personId")
         return response.body()
     }
 

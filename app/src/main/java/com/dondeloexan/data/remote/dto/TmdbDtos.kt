@@ -245,3 +245,10 @@ data class TmdbCompanySearchResult(
     val name: String,
     @SerialName("logo_path") val logoPath: String? = null
 )
+
+@Serializable
+data class TmdbPersonDetailDto(
+    val id: Int,
+    val name: String,
+    val gender: Int = 0
+)

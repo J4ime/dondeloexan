@@ -180,11 +180,8 @@ class DiscoverViewModel(
                             }
                             if (credits != null) {
                                 val filtered = when (entity.role) {
-                                    "Actor" -> credits.cast.orEmpty()
-                                    "Director" -> credits.crew.orEmpty().filter { it.job == "Director" }
-                                    "Productor" -> credits.crew.orEmpty().filter { it.job == "Producer" }
-                                    "Productor ejecutivo" -> credits.crew.orEmpty().filter { it.job == "Executive Producer" }
-                                    "Guionista" -> credits.crew.orEmpty().filter { it.job in listOf("Writer", "Screenplay", "Story") }
+                                    "Actor", "Actriz" -> credits.cast.orEmpty()
+                                    "Director", "Directora" -> credits.crew.orEmpty().filter { it.job == "Director" }
                                     else -> credits.cast.orEmpty() + credits.crew.orEmpty()
                                 }
                                 filtered
@@ -261,21 +258,24 @@ class DiscoverViewModel(
             val suggestions = mutableListOf<FilmographyEntity>()
             people.take(5).forEach { p ->
                 val roles = mutableSetOf<String>()
+                val personDetail = try {
+                    tmdbApi.getPersonDetail(p.id)
+                } catch (e: Exception) {
+                    null
+                }
+                val isFemale = personDetail?.gender == 1
                 val creditsResponse = try {
                     tmdbApi.getPersonMovieCredits(p.id)
                 } catch (e: Exception) {
                     null
                 }
                 if (creditsResponse != null) {
-                    if (creditsResponse.cast.orEmpty().isNotEmpty()) roles.add("Actor")
+                    if (creditsResponse.cast.orEmpty().isNotEmpty()) {
+                        roles.add(if (isFemale) "Actriz" else "Actor")
+                    }
                     creditsResponse.crew.orEmpty().forEach { credit ->
-                        when (credit.job) {
-                            "Director" -> roles.add("Director")
-                            "Producer" -> roles.add("Productor")
-                            "Executive Producer" -> roles.add("Productor ejecutivo")
-                            "Writer" -> roles.add("Guionista")
-                            "Screenplay" -> roles.add("Guionista")
-                            "Story" -> roles.add("Guionista")
+                        if (credit.job == "Director") {
+                            roles.add(if (isFemale) "Directora" else "Director")
                         }
                     }
                 }
@@ -304,7 +304,7 @@ class DiscoverViewModel(
                     }
                 }
             }
-            companies.forEach { c ->
+            companies.take(3).forEach { c ->
                 suggestions.add(
                     FilmographyEntity(
                         id = "company-${c.id}",
