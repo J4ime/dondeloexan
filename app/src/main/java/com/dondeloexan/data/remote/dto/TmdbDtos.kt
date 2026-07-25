@@ -186,3 +186,61 @@ data class TmdbExternalIdsDto(
     val id: Int,
     @SerialName("imdb_id") val imdbId: String? = null
 )
+
+@Serializable
+data class TmdbPersonSearchResponse(
+    val page: Int,
+    val results: List<TmdbPersonSearchResult>,
+    @SerialName("total_pages") val totalPages: Int,
+    @SerialName("total_results") val totalResults: Int
+)
+
+@Serializable
+data class TmdbPersonSearchResult(
+    val id: Int,
+    val name: String,
+    @SerialName("profile_path") val profilePath: String? = null,
+    @SerialName("known_for_department") val knownForDepartment: String? = null,
+    val popularity: Float? = null,
+    @SerialName("known_for") val knownFor: List<TmdbMultiSearchResult>? = null
+)
+
+@Serializable
+data class TmdbPersonCreditsResponse(
+    val id: Int,
+    val cast: List<TmdbPersonCredit>? = null,
+    val crew: List<TmdbPersonCredit>? = null
+)
+
+@Serializable
+data class TmdbPersonCredit(
+    val id: Int,
+    val title: String? = null,
+    val name: String? = null,
+    @SerialName("release_date") val releaseDate: String? = null,
+    @SerialName("first_air_date") val firstAirDate: String? = null,
+    @SerialName("poster_path") val posterPath: String? = null,
+    @SerialName("vote_average") val voteAverage: Float? = null,
+    @SerialName("vote_count") val voteCount: Int? = null,
+    val popularity: Float? = null,
+    val overview: String? = null,
+    @SerialName("media_type") val mediaType: String? = null,
+    @SerialName("character") val character: String? = null,
+    val department: String? = null,
+    val job: String? = null
+)
+
+@Serializable
+data class TmdbCompanySearchResponse(
+    val page: Int,
+    val results: List<TmdbCompanySearchResult>,
+    @SerialName("total_pages") val totalPages: Int,
+    @SerialName("total_results") val totalResults: Int
+)
+
+@Serializable
+data class TmdbCompanySearchResult(
+    val id: Int,
+    val name: String,
+    @SerialName("logo_path") val logoPath: String? = null
+)

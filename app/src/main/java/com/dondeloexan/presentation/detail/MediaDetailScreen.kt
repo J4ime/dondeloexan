@@ -27,7 +27,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.AlternateEmail
+import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.CameraAlt
 import androidx.compose.material.icons.outlined.CheckCircleOutline
 import androidx.compose.material.icons.outlined.DoneAll
@@ -136,6 +138,14 @@ fun MediaDetailScreen(
             },
             actions = {
                 if (uiState.content?.type == com.dondeloexan.domain.model.ContentType.MOVIE) {
+                    val isFavorite = uiState.isMovieFavorite == true
+                    IconButton(onClick = { viewModel.toggleMovieFavorite() }) {
+                        Icon(
+                            if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                            contentDescription = if (isFavorite) "Quitar de favoritas" else "Marcar como favorita",
+                            tint = if (isFavorite) EleganteRose else TextPrimary
+                        )
+                    }
                     val isWatched = uiState.isMovieWatched == true
                     IconButton(onClick = { viewModel.toggleMovieWatched() }) {
                         Icon(

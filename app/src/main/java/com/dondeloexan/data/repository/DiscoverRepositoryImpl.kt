@@ -9,6 +9,8 @@ import com.dondeloexan.data.remote.TmdbProviderIds
 import com.dondeloexan.data.remote.api.BalloonerismmApi
 import com.dondeloexan.data.remote.api.OmdbApi
 import com.dondeloexan.data.remote.api.TmdbApi
+import com.dondeloexan.data.remote.dto.TmdbCompanySearchResult
+import com.dondeloexan.data.remote.dto.TmdbPersonSearchResult
 import com.dondeloexan.data.remote.mapper.toContentPreview
 import com.dondeloexan.data.remote.mapper.toDomain
 import com.dondeloexan.data.remote.mapper.toStreamingAvailability
@@ -563,6 +565,56 @@ class DiscoverRepositoryImpl(
         return if (tmdbPreviews.isNotEmpty()) {
             fetchPlatforms(tmdbPreviews)
         } else {
+            emptyList()
+        }
+    }
+
+    override suspend fun searchPeople(query: String): List<TmdbPersonSearchResult> {
+        return try {
+            tmdbApi.searchPerson(query).results
+        } catch (e: Exception) {
+            AppLogger.e("DiscoverRepo", "searchPeople error for $query", e)
+            emptyList()
+        }
+    }
+
+    override suspend fun searchCompanies(query: String): List<TmdbCompanySearchResult> {
+        return try {
+            tmdbApi.searchCompany(query).results
+        } catch (e: Exception) {
+            AppLogger.e("DiscoverRepo", "searchCompanies error for $query", e)
+            emptyList()
+        }
+    }
+
+    override suspend fun getPersonMovieCredits(personId: Int): List<ContentPreview> {
+        return try {
+            val credits = tmdbApi.getPersonMovieCredits(personId)
+            (credits.cast.orEmpty() + credits.crew.orEmpty())
+                .filter { it.releaseDate != null }
+                .distinctBy { it.id }
+                .sortedByDescending { it.releaseDate }
+                .map { it.toContentPreview() }
+        } catch (e: Exception) {
+            AppLogger.e("DiscoverRepo", "getPersonMovieCredits error for $personId", e)
+            emptyList()
+        }
+    }
+
+    override suspend fun getCompanyMovies(companyId: Int): List<ContentPreview> {
+        return try {
+            val response = tmdbApi.discoverMovie(
+                withCompanies = companyId.toString(),
+                sortBy = "primary_release_date.desc",
+                releaseDateGte = null,
+                voteCountGte = 10
+            )
+            response.results
+                .filter { !it.adult && it.releaseDate != null }
+                .map { it.toContentPreview() }
+                .sortedByDescending { it.releaseDate }
+        } catch (e: Exception) {
+            AppLogger.e("DiscoverRepo", "getCompanyMovies error for $companyId", e)
             emptyList()
         }
     }

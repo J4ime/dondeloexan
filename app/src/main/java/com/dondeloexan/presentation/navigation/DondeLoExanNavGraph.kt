@@ -31,7 +31,9 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.ViewList
 import androidx.compose.material.icons.outlined.Apps
 import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.PlayCircle
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.StarBorder
@@ -90,16 +92,16 @@ import org.koin.compose.koinInject
 
 private fun pageToBottomNav(page: Int): Int = when (page) {
     in 0..3 -> 0
-    in 4..5 -> 1
-    6 -> 2
+    in 4..6 -> 1
+    7 -> 2
     else -> 3
 }
 
 private fun bottomNavToPage(bottomNavIndex: Int): Int = when (bottomNavIndex) {
     0 -> 0
     1 -> 4
-    2 -> 6
-    else -> 7
+    2 -> 7
+    else -> 8
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -118,10 +120,11 @@ fun DondeLoExanNavGraph(navController: NavHostController) {
     val upcoming by seriesViewModel.upcomingAgenda.collectAsState()
     val pendingMovies by moviesViewModel.pendingMovies.collectAsState()
     val watchedMovies by moviesViewModel.watchedMovies.collectAsState()
+    val favoriteMovies by moviesViewModel.favoriteMovies.collectAsState()
 
     val pagerState = rememberPagerState(
         initialPage = 0,
-        pageCount = { 8 }
+        pageCount = { 9 }
     )
     val scope = rememberCoroutineScope()
 
@@ -180,6 +183,7 @@ fun DondeLoExanNavGraph(navController: NavHostController) {
                         finished = finished,
                         upcoming = upcoming,
                         pendingMovies = pendingMovies,
+                        favoriteMovies = favoriteMovies,
                         watchedMovies = watchedMovies
                     )
                 }
@@ -241,6 +245,7 @@ private fun MainPagerContent(
     finished: List<com.dondeloexan.presentation.series.SeriesWithProgress>,
     upcoming: List<com.dondeloexan.presentation.series.SeriesWithProgress>,
     pendingMovies: List<com.dondeloexan.data.local.entity.MovieEntity>,
+    favoriteMovies: List<com.dondeloexan.data.local.entity.MovieEntity>,
     watchedMovies: List<com.dondeloexan.data.local.entity.MovieEntity>
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
@@ -299,7 +304,7 @@ private fun MainPagerContent(
             }
         }
 
-        if (currentPage in 4..5) {
+        if (currentPage in 4..6) {
             TabRow(
                 selectedTabIndex = currentPage - 4,
                 containerColor = DarkBackground,
@@ -320,8 +325,18 @@ private fun MainPagerContent(
                     onClick = { scope.launch { pagerState.animateScrollToPage(5) } },
                     icon = {
                         Icon(
-                            Icons.Outlined.CheckCircle, "Vistas",
+                            Icons.Filled.Favorite, "Favoritas",
                             tint = if (currentPage == 5) EleganteRose else TextSecondary
+                        )
+                    }
+                )
+                Tab(
+                    selected = currentPage == 6,
+                    onClick = { scope.launch { pagerState.animateScrollToPage(6) } },
+                    icon = {
+                        Icon(
+                            Icons.Outlined.CheckCircle, "Vistas",
+                            tint = if (currentPage == 6) EleganteRose else TextSecondary
                         )
                     }
                 )
@@ -363,22 +378,28 @@ private fun MainPagerContent(
                         navController = navController,
                         viewModel = moviesViewModel
                     )
-                    5 -> MoviesWatchedTab(
+                    5 -> MoviesFavoritesTab(
+                        movies = favoriteMovies,
+                        isGridView = isGridView,
+                        navController = navController,
+                        viewModel = moviesViewModel
+                    )
+                    6 -> MoviesWatchedTab(
                         movies = watchedMovies,
                         isGridView = isGridView,
                         navController = navController,
                         viewModel = moviesViewModel
                     )
-                    6 -> DiscoverScreen(
+                    7 -> DiscoverScreen(
                         navController = navController,
                         isGridView = isGridView,
                         onToggleGrid = onToggleGrid
                     )
-                    7 -> SettingsScreen(navController = navController)
+                    8 -> SettingsScreen(navController = navController)
                 }
             }
 
-            if (currentPage in 0..5) {
+            if (currentPage in 0..6) {
                 Surface(
                     shape = RoundedCornerShape(12.dp),
                     color = DarkSurface,
@@ -838,6 +859,81 @@ private fun MoviesPendingTab(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
+private fun MoviesFavoritesTab(
+    movies: List<com.dondeloexan.data.local.entity.MovieEntity>,
+    isGridView: Boolean,
+    navController: NavController,
+    viewModel: MoviesViewModel
+) {
+    if (movies.isEmpty()) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(
+                    painter = painterResource(com.dondeloexan.R.drawable.ic_popcorn),
+                    contentDescription = null,
+                    modifier = Modifier.size(80.dp),
+                    tint = EleganteRoseDark.copy(alpha = 0.2f)
+                )
+                Spacer(Modifier.height(12.dp))
+                Text("No tienes películas favoritas", style = UbuntuTypography.titleMedium, color = TextSecondary)
+                Text("Marca películas como favoritas desde Vistas o Descubrir", style = UbuntuTypography.bodySmall, color = TextSecondary.copy(alpha = 0.6f))
+            }
+        }
+    } else if (isGridView) {
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(2),
+            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxSize()
+        ) {
+            items(movies, key = { it.id }) { movie ->
+                LibraryItemCard(
+                    posterUrl = movie.posterUrl,
+                    title = movie.title,
+                    year = movie.year,
+                    ratingImdb = movie.ratingImdb,
+                    streamingPlatforms = movie.streamingPlatforms.toStreamingPlatforms(),
+                    releaseDate = movie.releaseDate,
+                    isWatched = true,
+                    isLiked = true,
+                    watchedAt = movie.watchedAt,
+                    onLikeClick = { viewModel.toggleLike(movie) },
+                    onWatchedClick = { viewModel.toggleWatched(movie) },
+                    onClick = { navController.navigate("detail/${movie.contentId ?: ""}/movie") },
+                    modifier = Modifier.fillMaxWidth().aspectRatio(0.65f)
+                )
+            }
+        }
+    } else {
+        LazyColumn(
+            contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxSize()
+        ) {
+            items(movies, key = { it.id }) { movie ->
+                LibraryItemCard(
+                    posterUrl = movie.posterUrl,
+                    title = movie.title,
+                    year = movie.year,
+                    ratingImdb = movie.ratingImdb,
+                    streamingPlatforms = movie.streamingPlatforms.toStreamingPlatforms(),
+                    releaseDate = movie.releaseDate,
+                    isWatched = true,
+                    isLiked = true,
+                    watchedAt = movie.watchedAt,
+                    onLikeClick = { viewModel.toggleLike(movie) },
+                    onWatchedClick = { viewModel.toggleWatched(movie) },
+                    onClick = { navController.navigate("detail/${movie.contentId ?: ""}/movie") },
+                    modifier = Modifier.fillMaxWidth().height(180.dp)
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
 private fun MoviesWatchedTab(
     movies: List<com.dondeloexan.data.local.entity.MovieEntity>,
     isGridView: Boolean,
@@ -874,9 +970,10 @@ private fun MoviesWatchedTab(
                     ratingImdb = movie.ratingImdb,
                     streamingPlatforms = movie.streamingPlatforms.toStreamingPlatforms(),
                     releaseDate = movie.releaseDate,
-                    isWatched = movie.status.name == "YA_VISTA",
+                    isWatched = true,
+                    isLiked = false,
                     watchedAt = movie.watchedAt,
-                    onDeleteClick = { viewModel.deleteMovie(movie) },
+                    onLikeClick = { viewModel.toggleLike(movie) },
                     onWatchedClick = { viewModel.toggleWatched(movie) },
                     onClick = { navController.navigate("detail/${movie.contentId ?: ""}/movie") },
                     modifier = Modifier.fillMaxWidth().aspectRatio(0.65f)
@@ -897,9 +994,10 @@ private fun MoviesWatchedTab(
                     ratingImdb = movie.ratingImdb,
                     streamingPlatforms = movie.streamingPlatforms.toStreamingPlatforms(),
                     releaseDate = movie.releaseDate,
-                    isWatched = movie.status.name == "YA_VISTA",
+                    isWatched = true,
+                    isLiked = false,
                     watchedAt = movie.watchedAt,
-                    onDeleteClick = { viewModel.deleteMovie(movie) },
+                    onLikeClick = { viewModel.toggleLike(movie) },
                     onWatchedClick = { viewModel.toggleWatched(movie) },
                     onClick = { navController.navigate("detail/${movie.contentId ?: ""}/movie") },
                     modifier = Modifier.fillMaxWidth().height(180.dp)

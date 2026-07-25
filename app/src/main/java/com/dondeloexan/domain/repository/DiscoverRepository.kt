@@ -1,5 +1,7 @@
 package com.dondeloexan.domain.repository
 
+import com.dondeloexan.data.remote.dto.TmdbCompanySearchResult
+import com.dondeloexan.data.remote.dto.TmdbPersonSearchResult
 import com.dondeloexan.domain.model.Content
 import com.dondeloexan.domain.model.ContentPreview
 import com.dondeloexan.domain.model.ContentType
@@ -15,4 +17,8 @@ interface DiscoverRepository {
     suspend fun fetchTrendingPage(page: Int, filterByPlatforms: Boolean = true): List<ContentPreview>
     suspend fun fetchSearchPage(query: String, page: Int): List<ContentPreview>
     suspend fun resolveTmdbId(imdbId: String, type: ContentType): Int?
+    suspend fun searchPeople(query: String): List<TmdbPersonSearchResult>
+    suspend fun searchCompanies(query: String): List<TmdbCompanySearchResult>
+    suspend fun getPersonMovieCredits(personId: Int): List<ContentPreview>
+    suspend fun getCompanyMovies(companyId: Int): List<ContentPreview>
 }

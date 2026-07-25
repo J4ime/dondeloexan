@@ -34,6 +34,9 @@ class MoviesViewModel(
     val watchedMovies: StateFlow<List<MovieEntity>> = movieDao.getWatchedMoviesFlow()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val favoriteMovies: StateFlow<List<MovieEntity>> = movieDao.getFavoritesFlow()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     private val refreshJob = SupervisorJob()
     private val refreshScope = CoroutineScope(Dispatchers.IO + refreshJob)
 
@@ -75,6 +78,23 @@ class MoviesViewModel(
         viewModelScope.launch {
             movieDao.delete(movie)
             feedbackManager.emit("Película eliminada")
+        }
+    }
+
+    fun toggleLike(movie: MovieEntity) {
+        viewModelScope.launch {
+            val wasLiked = movie.liked
+            if (wasLiked) {
+                movieDao.update(movie.copy(liked = false))
+                feedbackManager.emit("Película quitada de favoritas")
+            } else {
+                movieDao.update(movie.copy(
+                    liked = true,
+                    status = WatchStatus.YA_VISTA,
+                    watchedAt = movie.watchedAt ?: System.currentTimeMillis()
+                ))
+                feedbackManager.emit("Película marcada como favorita")
+            }
         }
     }
 

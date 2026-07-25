@@ -1,9 +1,12 @@
 package com.dondeloexan.data.remote.api
 
+import com.dondeloexan.data.remote.dto.TmdbCompanySearchResponse
 import com.dondeloexan.data.remote.dto.TmdbCreditsResponse
 import com.dondeloexan.data.remote.dto.TmdbExternalIdsDto
 import com.dondeloexan.data.remote.dto.TmdbMovieDto
 import com.dondeloexan.data.remote.dto.TmdbMultiSearchResponse
+import com.dondeloexan.data.remote.dto.TmdbPersonCreditsResponse
+import com.dondeloexan.data.remote.dto.TmdbPersonSearchResponse
 import com.dondeloexan.data.remote.dto.TmdbTrendingResponse
 import com.dondeloexan.data.remote.dto.TmdbTvDetailDto
 import com.dondeloexan.data.remote.dto.TmdbTvSeasonDetailDto
@@ -83,7 +86,9 @@ class TmdbApi(private val client: HttpClient) {
         releaseDateGte: String? = "2024-01-01",
         releaseDateLte: String? = null,
         sortBy: String? = "popularity.desc",
-        voteCountGte: Int? = null
+        voteCountGte: Int? = null,
+        withPeople: String? = null,
+        withCompanies: String? = null
     ): TmdbTrendingResponse {
         val response = client.get("discover/movie") {
             timeout {
@@ -98,6 +103,8 @@ class TmdbApi(private val client: HttpClient) {
             if (!releaseDateGte.isNullOrBlank()) parameter("primary_release_date.gte", releaseDateGte)
             if (!releaseDateLte.isNullOrBlank()) parameter("primary_release_date.lte", releaseDateLte)
             if (voteCountGte != null) parameter("vote_count.gte", voteCountGte)
+            if (!withPeople.isNullOrBlank()) parameter("with_people", withPeople)
+            if (!withCompanies.isNullOrBlank()) parameter("with_companies", withCompanies)
         }
         return response.body()
     }
@@ -158,6 +165,31 @@ class TmdbApi(private val client: HttpClient) {
 
     suspend fun getTvSeason(tvId: Int, seasonNumber: Int, language: String = "es-ES"): TmdbTvSeasonDetailDto {
         val response = client.get("tv/$tvId/season/$seasonNumber") {
+            parameter("language", language)
+        }
+        return response.body()
+    }
+
+    suspend fun searchPerson(query: String, page: Int = 1, language: String = "es-ES"): TmdbPersonSearchResponse {
+        val response = client.get("search/person") {
+            parameter("query", query)
+            parameter("page", page)
+            parameter("language", language)
+        }
+        return response.body()
+    }
+
+    suspend fun searchCompany(query: String, page: Int = 1, language: String = "es-ES"): TmdbCompanySearchResponse {
+        val response = client.get("search/company") {
+            parameter("query", query)
+            parameter("page", page)
+            parameter("language", language)
+        }
+        return response.body()
+    }
+
+    suspend fun getPersonMovieCredits(personId: Int, language: String = "es-ES"): TmdbPersonCreditsResponse {
+        val response = client.get("person/$personId/movie_credits") {
             parameter("language", language)
         }
         return response.body()

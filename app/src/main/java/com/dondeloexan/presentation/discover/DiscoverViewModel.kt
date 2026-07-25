@@ -24,6 +24,8 @@ import com.dondeloexan.util.AppLogger
 import java.time.LocalDate
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import com.dondeloexan.data.remote.dto.TmdbCompanySearchResult
+import com.dondeloexan.data.remote.dto.TmdbPersonSearchResult
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -34,6 +36,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 class DiscoverViewModel(
@@ -152,7 +155,55 @@ class DiscoverViewModel(
         }
     }
 
+    private val _searchMode = MutableStateFlow(SearchMode.GENERAL)
+    val searchMode: StateFlow<SearchMode> = _searchMode.asStateFlow()
+
+    private val _filmographyState = MutableStateFlow(FilmographyState())
+    val filmographyState: StateFlow<FilmographyState> = _filmographyState.asStateFlow()
+
+    fun toggleSearchMode() {
+        val newMode = if (_searchMode.value == SearchMode.GENERAL) SearchMode.FILMOGRAFIA else SearchMode.GENERAL
+        _searchMode.value = newMode
+        _searchQuery.value = ""
+        searchJob?.cancel()
+        currentPage = 1
+        hasMorePages = true
+        cachedResults = emptyList()
+        _uiState.value = DiscoverUiState.Initial
+        _filmographyState.value = FilmographyState()
+    }
+
+    fun onFilmographyBack() {
+        _filmographyState.update { it.copy(selectedEntity = null, movies = null) }
+    }
+
+    fun onSelectEntity(entity: FilmographyEntity) {
+        _filmographyState.update { it.copy(selectedEntity = entity, movies = null, isLoading = true) }
+        viewModelScope.launch {
+            val movies = when (entity.type) {
+                EntityType.PERSON -> {
+                    val personId = entity.id.removePrefix("person-").toIntOrNull()
+                    if (personId != null) {
+                        discoverRepository.getPersonMovieCredits(personId)
+                    } else emptyList()
+                }
+                EntityType.COMPANY -> {
+                    val companyId = entity.id.removePrefix("company-").toIntOrNull()
+                    if (companyId != null) {
+                        discoverRepository.getCompanyMovies(companyId)
+                    } else emptyList()
+                }
+            }
+            _filmographyState.update { it.copy(movies = movies, isLoading = false) }
+        }
+    }
+
     fun onSearchQueryChanged(query: String) {
+        if (_searchMode.value == SearchMode.FILMOGRAFIA) {
+            onFilmographyQueryChanged(query)
+            return
+        }
+
         _searchQuery.value = query
 
         if (query.isBlank() || query.length < 3) {
@@ -185,6 +236,50 @@ class DiscoverViewModel(
                 DiscoverUiState.Empty(query)
             } else {
                 DiscoverUiState.Success(cachedResults)
+            }
+        }
+    }
+
+    private fun onFilmographyQueryChanged(query: String) {
+        _searchQuery.value = query
+        _filmographyState.update { it.copy(query = query, selectedEntity = null, movies = null, error = null) }
+
+        if (query.length < 3) {
+            _filmographyState.update { it.copy(entities = null, isLoading = false) }
+            return
+        }
+
+        _filmographyState.update { it.copy(isLoading = true, entities = null) }
+        viewModelScope.launch {
+            val people = discoverRepository.searchPeople(query)
+            val companies = discoverRepository.searchCompanies(query)
+
+            val allEntities = mutableListOf<FilmographyEntity>()
+            people.forEach { p ->
+                allEntities.add(
+                    FilmographyEntity(
+                        id = "person-${p.id}",
+                        name = p.name,
+                        type = EntityType.PERSON,
+                        profilePath = p.profilePath,
+                        knownForDepartment = p.knownForDepartment
+                    )
+                )
+            }
+            companies.forEach { c ->
+                allEntities.add(
+                    FilmographyEntity(
+                        id = "company-${c.id}",
+                        name = c.name,
+                        type = EntityType.COMPANY,
+                        profilePath = c.logoPath,
+                        knownForDepartment = null
+                    )
+                )
+            }
+
+            _filmographyState.update {
+                it.copy(entities = allEntities, isLoading = false, error = if (allEntities.isEmpty()) "Sin resultados" else null)
             }
         }
     }
@@ -268,6 +363,8 @@ class DiscoverViewModel(
                             val newLiked = !existing.liked
                             movieDao.update(existing.copy(
                                 liked = newLiked,
+                                status = if (newLiked) WatchStatus.YA_VISTA else existing.status,
+                                watchedAt = if (newLiked) (existing.watchedAt ?: System.currentTimeMillis()) else existing.watchedAt,
                                 ratingImdb = preview.ratingImdb ?: existing.ratingImdb,
                                 streamingPlatforms = if (platformsStr.isNullOrEmpty() || platformsStr == "[]") existing.streamingPlatforms else platformsStr,
                                 releaseDate = preview.releaseDate ?: existing.releaseDate
@@ -289,7 +386,9 @@ class DiscoverViewModel(
                                     posterUrl = preview.coverUrl,
                                     ratingImdb = preview.ratingImdb,
                                     streamingPlatforms = platformsStr,
-                                    liked = true
+                                    liked = true,
+                                    status = WatchStatus.YA_VISTA,
+                                    watchedAt = System.currentTimeMillis()
                                 )
                             )
                             feedbackManager.emit("Película añadida")
@@ -566,11 +665,15 @@ class DiscoverViewModel(
 
     fun onClearSearch() {
         _searchQuery.value = ""
-        searchJob?.cancel()
-        currentPage = 1
-        hasMorePages = true
-        cachedResults = emptyList()
-        loadTrending()
+        if (_searchMode.value == SearchMode.FILMOGRAFIA) {
+            _filmographyState.value = FilmographyState()
+        } else {
+            searchJob?.cancel()
+            currentPage = 1
+            hasMorePages = true
+            cachedResults = emptyList()
+            loadTrending()
+        }
     }
 
     fun onRetry() {
@@ -688,3 +791,24 @@ sealed interface DiscoverUiState {
     data class Error(val message: String) : DiscoverUiState
     data class Success(val results: List<ContentPreview>) : DiscoverUiState
 }
+
+enum class SearchMode { GENERAL, FILMOGRAFIA }
+
+enum class EntityType { PERSON, COMPANY }
+
+data class FilmographyEntity(
+    val id: String,
+    val name: String,
+    val type: EntityType,
+    val profilePath: String?,
+    val knownForDepartment: String?
+)
+
+data class FilmographyState(
+    val query: String = "",
+    val entities: List<FilmographyEntity>? = null,
+    val isLoading: Boolean = false,
+    val error: String? = null,
+    val selectedEntity: FilmographyEntity? = null,
+    val movies: List<ContentPreview>? = null
+)

@@ -52,7 +52,10 @@ interface MovieDao {
     @Query("SELECT * FROM movies WHERE liked = 1 AND status != 'YA_VISTA' ORDER BY release_date DESC")
     fun getPendingFlow(): Flow<List<MovieEntity>>
 
-    @Query("SELECT * FROM movies WHERE status = 'YA_VISTA' ORDER BY watched_at DESC")
+    @Query("SELECT * FROM movies WHERE liked = 1 AND status = 'YA_VISTA' ORDER BY watched_at DESC")
+    fun getFavoritesFlow(): Flow<List<MovieEntity>>
+
+    @Query("SELECT * FROM movies WHERE status = 'YA_VISTA' AND liked = 0 ORDER BY watched_at DESC")
     fun getWatchedMoviesFlow(): Flow<List<MovieEntity>>
 
     @Query("UPDATE movies SET watched_at = :timestamp WHERE id = :id")

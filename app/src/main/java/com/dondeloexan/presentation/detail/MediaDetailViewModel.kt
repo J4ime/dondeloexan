@@ -38,7 +38,8 @@ data class DetailUiState(
     val cascadeProposal: CascadeProposal? = null,
     val lastWatchedSeason: Int? = null,
     val lastWatchedEpisode: Int? = null,
-    val isMovieWatched: Boolean? = null
+    val isMovieWatched: Boolean? = null,
+    val isMovieFavorite: Boolean? = null
 )
 
 data class CascadeProposal(
@@ -84,7 +85,8 @@ class MediaDetailViewModel(
                                     ?: content.tmdbId?.let { movieDao.getByTmdbId(it) }
                                     ?: content.imdbId?.let { movieDao.getByImdbId(it) }
                                 _uiState.value = _uiState.value.copy(
-                                    isMovieWatched = existing?.status == WatchStatus.YA_VISTA
+                                    isMovieWatched = existing?.status == WatchStatus.YA_VISTA,
+                                    isMovieFavorite = existing?.liked == true
                                 )
                             }
                         }
@@ -141,6 +143,44 @@ class MediaDetailViewModel(
                 )
             }
             _uiState.value = _uiState.value.copy(isMovieWatched = !wasWatched)
+        }
+    }
+
+    fun toggleMovieFavorite() {
+        viewModelScope.launch {
+            val content = _uiState.value.content ?: return@launch
+            val wasFavorite = _uiState.value.isMovieFavorite ?: false
+            val newLiked = !wasFavorite
+
+            val existing = movieDao.getByContentId(content.id)
+                ?: content.tmdbId?.let { movieDao.getByTmdbId(it) }
+                ?: content.imdbId?.let { movieDao.getByImdbId(it) }
+
+            if (existing != null) {
+                movieDao.update(existing.copy(
+                    liked = newLiked,
+                    status = if (newLiked) WatchStatus.YA_VISTA else existing.status,
+                    watchedAt = if (newLiked) (existing.watchedAt ?: System.currentTimeMillis()) else existing.watchedAt
+                ))
+            } else {
+                movieDao.insert(
+                    MovieEntity(
+                        contentId = content.id,
+                        tmdbId = content.tmdbId,
+                        imdbId = content.imdbId,
+                        title = content.title,
+                        year = content.year,
+                        releaseDate = content.releaseDate,
+                        posterUrl = content.coverUrl,
+                        ratingImdb = content.ratingImdb,
+                        ratingTmdb = content.ratingTmdb,
+                        liked = true,
+                        status = WatchStatus.YA_VISTA,
+                        watchedAt = System.currentTimeMillis()
+                    )
+                )
+            }
+            _uiState.value = _uiState.value.copy(isMovieFavorite = newLiked, isMovieWatched = if (newLiked) true else _uiState.value.isMovieWatched)
         }
     }
 

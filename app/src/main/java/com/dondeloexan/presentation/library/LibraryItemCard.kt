@@ -20,9 +20,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.CheckCircleOutline
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.Movie
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material3.Icon
@@ -282,9 +284,9 @@ fun LibraryItemCard(
                         val isSeries = totalEpisodes != null
                         Icon(
                             if (isLiked) {
-                                if (isSeries) Icons.Filled.Close else Icons.Filled.Add
+                                if (isSeries) Icons.Filled.Close else Icons.Filled.Favorite
                             } else {
-                                if (isSeries) Icons.Outlined.Close else Icons.Outlined.Add
+                                if (isSeries) Icons.Outlined.Close else Icons.Outlined.FavoriteBorder
                             },
                             contentDescription = if (isSeries) "Quitar" else "Favorito",
                             tint = if (isLiked) EleganteRose else TextPrimary,

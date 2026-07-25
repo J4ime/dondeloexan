@@ -6,6 +6,7 @@ import androidx.compose.animation.slideInVertically
 import com.dondeloexan.presentation.components.BouncingDotsSpinner
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,6 +27,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.ExperimentalMaterialApi
@@ -34,7 +36,10 @@ import androidx.compose.material.pullrefresh.PullRefreshIndicator
 import androidx.compose.material.pullrefresh.pullRefresh
 import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.material.icons.automirrored.outlined.ViewList
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.outlined.Apps
+import androidx.compose.material.icons.outlined.Business
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.FilterList
@@ -61,14 +66,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.dondeloexan.domain.model.ContentPreview
 import com.dondeloexan.presentation.discover.components.SearchItemCard
 import com.dondeloexan.presentation.theme.DarkSurface
+import com.dondeloexan.presentation.theme.DarkSurfaceVariant
 import com.dondeloexan.presentation.theme.EleganteRose
 import com.dondeloexan.presentation.theme.EleganteRoseDark
 import com.dondeloexan.presentation.theme.TextPrimary
@@ -88,6 +97,8 @@ fun DiscoverScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
+    val searchMode by viewModel.searchMode.collectAsState()
+    val filmographyState by viewModel.filmographyState.collectAsState()
     val likedIds by viewModel.likedIds.collectAsState()
     val watchedIds by viewModel.watchedIds.collectAsState()
     val blacklistedIds by viewModel.blacklistedIds.collectAsState()
@@ -150,6 +161,13 @@ fun DiscoverScreen(
                             )
                             Spacer(Modifier.width(8.dp))
                             Box(modifier = Modifier.weight(1f)) {
+                                if (searchQuery.isEmpty() && searchMode == SearchMode.FILMOGRAFIA) {
+                                    Text(
+                                        "Nombre actor, director, productora...",
+                                        style = UbuntuTypography.bodyLarge.copy(fontSize = 18.sp, lineHeight = 22.sp),
+                                        color = TextSecondary.copy(alpha = 0.5f)
+                                    )
+                                }
                                 innerTextField()
                             }
                             if (searchQuery.isNotEmpty()) {
@@ -162,17 +180,31 @@ fun DiscoverScreen(
                 )
             }
 
-            FilterChip(
-                selected = filterByPlatforms,
-                onClick = viewModel::togglePlatformFilter,
-                label = { Text("Mis apps", style = UbuntuTypography.labelSmall) },
-                leadingIcon = {
-                    Icon(
-                        Icons.Outlined.FilterList,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
+            if (searchMode == SearchMode.GENERAL) {
+                FilterChip(
+                    selected = filterByPlatforms,
+                    onClick = viewModel::togglePlatformFilter,
+                    label = { Text("Mis apps", style = UbuntuTypography.labelSmall) },
+                    leadingIcon = {
+                        Icon(
+                            Icons.Outlined.FilterList,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    },
+                    colors = FilterChipDefaults.filterChipColors(
+                        containerColor = DarkSurface,
+                        labelColor = TextSecondary,
+                        selectedContainerColor = EleganteRose.copy(alpha = 0.2f),
+                        selectedLabelColor = EleganteRose
                     )
-                },
+                )
+            }
+
+            FilterChip(
+                selected = searchMode == SearchMode.FILMOGRAFIA,
+                onClick = viewModel::toggleSearchMode,
+                label = { Text("Filmografía", style = UbuntuTypography.labelSmall) },
                 colors = FilterChipDefaults.filterChipColors(
                     containerColor = DarkSurface,
                     labelColor = TextSecondary,
@@ -204,23 +236,39 @@ fun DiscoverScreen(
             modifier = Modifier.padding(horizontal = 16.dp)
         )
 
-        DiscoverContent(
-            uiState = uiState,
-            isLoadingMore = isLoadingMore,
-            searchQuery = searchQuery,
-            likedIds = likedIds,
-            watchedIds = watchedIds,
-            blacklistedIds = blacklistedIds,
-            isGridView = isGridView,
-            onItemClick = { contentId, contentType ->
-                navController.navigate("detail/$contentId/$contentType")
-            },
-            onFavoriteClick = viewModel::onToggleFavorite,
-            onWatchedClick = viewModel::onToggleWatched,
-            onBlacklistClick = viewModel::onToggleBlacklist,
-            onLoadNextPage = viewModel::loadNextPage,
-            onRetry = viewModel::onRetry
-        )
+        if (searchMode == SearchMode.FILMOGRAFIA) {
+            FilmographyContent(
+                state = filmographyState,
+                likedIds = likedIds,
+                watchedIds = watchedIds,
+                isGridView = isGridView,
+                onItemClick = { contentId, contentType ->
+                    navController.navigate("detail/$contentId/$contentType")
+                },
+                onFavoriteClick = viewModel::onToggleFavorite,
+                onWatchedClick = viewModel::onToggleWatched,
+                onBack = viewModel::onFilmographyBack,
+                onSelectEntity = viewModel::onSelectEntity
+            )
+        } else {
+            DiscoverContent(
+                uiState = uiState,
+                isLoadingMore = isLoadingMore,
+                searchQuery = searchQuery,
+                likedIds = likedIds,
+                watchedIds = watchedIds,
+                blacklistedIds = blacklistedIds,
+                isGridView = isGridView,
+                onItemClick = { contentId, contentType ->
+                    navController.navigate("detail/$contentId/$contentType")
+                },
+                onFavoriteClick = viewModel::onToggleFavorite,
+                onWatchedClick = viewModel::onToggleWatched,
+                onBlacklistClick = viewModel::onToggleBlacklist,
+                onLoadNextPage = viewModel::loadNextPage,
+                onRetry = viewModel::onRetry
+            )
+        }
     }
 }
 
@@ -436,6 +484,191 @@ fun ErrorState(message: String, onRetry: () -> Unit) {
             Spacer(Modifier.height(12.dp))
             OutlinedButton(onClick = onRetry) {
                 Text("Reintentar")
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterialApi::class)
+@Composable
+fun FilmographyContent(
+    state: FilmographyState,
+    likedIds: Set<String>,
+    watchedIds: Set<String>,
+    isGridView: Boolean,
+    onItemClick: (String, String) -> Unit,
+    onFavoriteClick: (ContentPreview) -> Unit,
+    onWatchedClick: (ContentPreview) -> Unit,
+    onBack: () -> Unit,
+    onSelectEntity: (FilmographyEntity) -> Unit
+) {
+    if (state.selectedEntity != null && state.movies != null) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    IconButton(onClick = onBack, modifier = Modifier.size(32.dp)) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver", tint = EleganteRose, modifier = Modifier.size(20.dp))
+                    }
+                    Text(
+                        "Películas de ${state.selectedEntity.name}",
+                        style = UbuntuTypography.titleSmall,
+                        color = TextPrimary
+                    )
+                }
+
+                FilmographyMoviesGrid(
+                    movies = state.movies,
+                    likedIds = likedIds,
+                    watchedIds = watchedIds,
+                    isGridView = isGridView,
+                    onItemClick = onItemClick,
+                    onFavoriteClick = onFavoriteClick,
+                    onWatchedClick = onWatchedClick
+                )
+            }
+        }
+    } else if (state.entities != null) {
+        if (state.entities.isEmpty() && !state.isLoading) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("Sin resultados para \"${state.query}\"", color = TextSecondary)
+            }
+        } else {
+            LazyColumn(
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                items(state.entities, key = { it.id }) { entity ->
+                    EntityRow(entity = entity, onClick = { onSelectEntity(entity) })
+                }
+                if (state.isLoading) {
+                    item {
+                        Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                            BouncingDotsSpinner()
+                        }
+                    }
+                }
+            }
+        }
+    } else if (state.isLoading) {
+        LoadingState()
+    } else {
+        InitialState()
+    }
+}
+
+@Composable
+private fun EntityRow(entity: FilmographyEntity, onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(12.dp),
+        color = DarkSurface,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(DarkSurfaceVariant),
+                contentAlignment = Alignment.Center
+            ) {
+                if (entity.profilePath != null) {
+                    val context = androidx.compose.ui.platform.LocalContext.current
+                    AsyncImage(
+                        model = ImageRequest.Builder(context)
+                            .data(if (entity.type == EntityType.PERSON) "https://image.tmdb.org/t/p/w185${entity.profilePath}" else "https://logo.tmdb.org/t/p/w92${entity.profilePath}")
+                            .crossfade(200)
+                            .build(),
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Icon(
+                        if (entity.type == EntityType.PERSON) Icons.Filled.Person else Icons.Outlined.Business,
+                        contentDescription = null,
+                        tint = TextSecondary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(entity.name, style = UbuntuTypography.bodyMedium, color = TextPrimary)
+                Text(
+                    if (entity.type == EntityType.PERSON) "Persona" else "Compañía",
+                    style = UbuntuTypography.labelSmall,
+                    color = TextSecondary
+                )
+            }
+            Icon(
+                if (entity.type == EntityType.PERSON) Icons.Filled.Person else Icons.Outlined.Business,
+                contentDescription = null,
+                tint = EleganteRoseDark,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun FilmographyMoviesGrid(
+    movies: List<ContentPreview>,
+    likedIds: Set<String>,
+    watchedIds: Set<String>,
+    isGridView: Boolean,
+    onItemClick: (String, String) -> Unit,
+    onFavoriteClick: (ContentPreview) -> Unit,
+    onWatchedClick: (ContentPreview) -> Unit
+) {
+    if (movies.isEmpty()) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text("No se encontraron películas", color = TextSecondary)
+        }
+        return
+    }
+
+    if (isGridView) {
+        LazyVerticalGrid(
+            columns = GridCells.Adaptive(140.dp),
+            contentPadding = PaddingValues(vertical = 8.dp, horizontal = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            items(movies, key = { it.id }) { content ->
+                SearchItemCard(
+                    content = content,
+                    isLiked = likedIds.contains(content.id),
+                    isWatched = watchedIds.contains(content.id),
+                    onFavoriteClick = { onFavoriteClick(content) },
+                    onWatchedClick = { onWatchedClick(content) },
+                    onClick = { onItemClick(content.id, content.type.name.lowercase()) }
+                )
+            }
+        }
+    } else {
+        LazyColumn(
+            contentPadding = PaddingValues(vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            items(movies, key = { it.id }) { content ->
+                SearchItemCard(
+                    content = content,
+                    isLiked = likedIds.contains(content.id),
+                    isWatched = watchedIds.contains(content.id),
+                    onFavoriteClick = { onFavoriteClick(content) },
+                    onWatchedClick = { onWatchedClick(content) },
+                    onClick = { onItemClick(content.id, content.type.name.lowercase()) }
+                )
             }
         }
     }
