@@ -464,7 +464,8 @@ class MediaDetailViewModel(
             val contentId = content.id
 
             val tvShow = tvShowDao.getByContentId(contentId) ?: content.tmdbId?.let { tvShowDao.getByTmdbId(it) } ?: return@launch
-            val currentWatched = _uiState.value.watchedEpisodes.toMutableSet()
+            val progress = tvShowProgressDao.getByTvShowId(tvShow.id)
+            val currentWatched = progress.map { "S${it.season}E${it.episode}" }.toMutableSet()
 
             val alreadyWatched = episodeNumbers.all { epNum ->
                 currentWatched.contains("S${seasonNumber}E${epNum}")
@@ -473,32 +474,31 @@ class MediaDetailViewModel(
             if (alreadyWatched) {
                 episodeNumbers.forEach { epNum ->
                     val key = "S${seasonNumber}E${epNum}"
-                    if (currentWatched.remove(key)) {
-                        tvShowProgressDao.deleteEpisode(tvShow.id, seasonNumber, epNum)
-                    }
+                    currentWatched.remove(key)
+                    tvShowProgressDao.deleteEpisode(tvShow.id, seasonNumber, epNum)
                 }
                 val lastWatched = tvShowProgressDao.getLastWatchedAt(tvShow.id)
                 tvShowDao.updateLastWatchedAt(tvShow.id, lastWatched)
             } else {
-                val lastEp = episodeNumbers.maxOrNull() ?: 0
-                episodeNumbers.forEach { epNum ->
-                    val key = "S${seasonNumber}E${epNum}"
-                    if (!currentWatched.contains(key)) {
-                        currentWatched.add(key)
-                        tvShowProgressDao.insert(
-                            TvShowProgressEntity(
-                                tvShowId = tvShow.id,
-                                season = seasonNumber,
-                                episode = epNum
-                            )
-                        )
-                    }
+                val items = episodeNumbers.filter { epNum ->
+                    !currentWatched.contains("S${seasonNumber}E${epNum}")
+                }.map { epNum ->
+                    currentWatched.add("S${seasonNumber}E${epNum}")
+                    TvShowProgressEntity(
+                        tvShowId = tvShow.id,
+                        season = seasonNumber,
+                        episode = epNum
+                    )
+                }
+                if (items.isNotEmpty()) {
+                    tvShowProgressDao.insertAll(items)
                 }
                 tvShowDao.updateLastWatchedAt(tvShow.id, System.currentTimeMillis())
+                val lastEp = episodeNumbers.maxOrNull() ?: 0
                 if (lastEp > 0) checkAndMarkFinale(seasonNumber, lastEp)
             }
 
-            _uiState.value = _uiState.value.copy(watchedEpisodes = currentWatched)
+            _uiState.value = _uiState.value.copy(watchedEpisodes = currentWatched, cascadeProposal = null)
         }
     }
 }

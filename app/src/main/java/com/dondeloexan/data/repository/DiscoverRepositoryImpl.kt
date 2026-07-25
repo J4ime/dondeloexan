@@ -392,7 +392,7 @@ class DiscoverRepositoryImpl(
         }
     }
 
-    private suspend fun fetchPlatforms(previews: List<ContentPreview>): List<ContentPreview> {
+    override suspend fun fetchPlatforms(previews: List<ContentPreview>): List<ContentPreview> {
         return coroutineScope {
             previews.map { preview ->
                 async {
@@ -587,6 +587,20 @@ class DiscoverRepositoryImpl(
         }
     }
 
+    override suspend fun getPersonTvCredits(personId: Int): List<ContentPreview> {
+        return try {
+            val credits = tmdbApi.getPersonTvCredits(personId)
+            (credits.cast.orEmpty() + credits.crew.orEmpty())
+                .filter { it.firstAirDate != null }
+                .distinctBy { it.id }
+                .sortedByDescending { it.firstAirDate }
+                .map { it.toContentPreview() }
+        } catch (e: Exception) {
+            AppLogger.e("DiscoverRepo", "getPersonTvCredits error for $personId", e)
+            emptyList()
+        }
+    }
+
     override suspend fun getPersonMovieCredits(personId: Int): List<ContentPreview> {
         return try {
             val credits = tmdbApi.getPersonMovieCredits(personId)
@@ -615,6 +629,24 @@ class DiscoverRepositoryImpl(
                 .sortedByDescending { it.releaseDate }
         } catch (e: Exception) {
             AppLogger.e("DiscoverRepo", "getCompanyMovies error for $companyId", e)
+            emptyList()
+        }
+    }
+
+    override suspend fun getCompanyTvShows(companyId: Int): List<ContentPreview> {
+        return try {
+            val response = tmdbApi.discoverTv(
+                withCompanies = companyId.toString(),
+                sortBy = "first_air_date.desc",
+                firstAirDateGte = null,
+                voteCountGte = null
+            )
+            response.results
+                .filter { !it.adult && it.firstAirDate != null }
+                .map { it.toContentPreview() }
+                .sortedByDescending { it.releaseDate }
+        } catch (e: Exception) {
+            AppLogger.e("DiscoverRepo", "getCompanyTvShows error for $companyId", e)
             emptyList()
         }
     }

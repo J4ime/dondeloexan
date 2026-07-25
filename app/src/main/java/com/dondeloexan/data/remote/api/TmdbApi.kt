@@ -116,10 +116,11 @@ class TmdbApi(private val client: HttpClient) {
         page: Int = 1,
         watchProviders: String? = null,
         watchRegion: String? = "ES",
-        firstAirDateGte: String? = "2024-01-01",
+        firstAirDateGte: String? = null,
         firstAirDateLte: String? = null,
         sortBy: String? = "popularity.desc",
-        voteCountGte: Int? = null
+        voteCountGte: Int? = null,
+        withCompanies: String? = null
     ): TmdbTrendingResponse {
         val response = client.get("discover/tv") {
             timeout {
@@ -134,6 +135,7 @@ class TmdbApi(private val client: HttpClient) {
             if (!firstAirDateGte.isNullOrBlank()) parameter("first_air_date.gte", firstAirDateGte)
             if (!firstAirDateLte.isNullOrBlank()) parameter("first_air_date.lte", firstAirDateLte)
             if (voteCountGte != null) parameter("vote_count.gte", voteCountGte)
+            if (!withCompanies.isNullOrBlank()) parameter("with_companies", withCompanies)
         }
         return response.body()
     }
@@ -197,6 +199,13 @@ class TmdbApi(private val client: HttpClient) {
 
     suspend fun getPersonExternalIds(personId: Int): TmdbPersonExternalIdsDto {
         val response = client.get("person/$personId/external_ids")
+        return response.body()
+    }
+
+    suspend fun getPersonTvCredits(personId: Int, language: String = "es-ES"): TmdbPersonCreditsResponse {
+        val response = client.get("person/$personId/tv_credits") {
+            parameter("language", language)
+        }
         return response.body()
     }
 

@@ -124,6 +124,8 @@ class DiscoverViewModel(
     private var hasError = false
     private var cachedResults = listOf<ContentPreview>()
     private var lastCompanySearchResults: List<TmdbCompanySearchResult> = emptyList()
+    private var filmographyCache = listOf<ContentPreview>()
+    private var filmographyPage = 0
     private var searchJob: Job? = null
     private var trendingJob: Job? = null
 
@@ -169,31 +171,47 @@ class DiscoverViewModel(
 
     fun onSelectEntity(entity: FilmographyEntity) {
         _filmographyView.value = FilmographyView(entity = entity, isLoading = true)
+        filmographyPage = 0
         viewModelScope.launch {
-            val movies = when (entity.type) {
+            val blacklisted = blacklistedIds.value
+            val raw = when (entity.type) {
                 EntityType.PERSON -> {
                     val rawId = entity.id.removePrefix("person-").substringBefore("-").toIntOrNull()
                     if (rawId != null) {
                         if (entity.role != null) {
-                            val credits = try {
+                            val movieCredits = try {
                                 tmdbApi.getPersonMovieCredits(rawId)
-                            } catch (e: Exception) {
-                                null
-                            }
-                            if (credits != null) {
+                            } catch (e: Exception) { null }
+                            val tvCredits = try {
+                                tmdbApi.getPersonTvCredits(rawId)
+                            } catch (e: Exception) { null }
+                            val movieList = if (movieCredits != null) {
                                 val filtered = when (entity.role) {
-                                    "Actor", "Actriz" -> credits.cast.orEmpty()
-                                    "Director", "Directora" -> credits.crew.orEmpty().filter { it.job == "Director" }
-                                    else -> credits.cast.orEmpty() + credits.crew.orEmpty()
+                                    "Actor", "Actriz" -> movieCredits.cast.orEmpty()
+                                    "Director", "Directora" -> movieCredits.crew.orEmpty().filter { it.job == "Director" }
+                                    else -> movieCredits.cast.orEmpty() + movieCredits.crew.orEmpty()
                                 }
                                 filtered
                                     .filter { it.releaseDate != null }
                                     .distinctBy { it.id }
-                                    .sortedByDescending { it.releaseDate }
                                     .map { it.toContentPreview() }
                             } else emptyList()
+                            val tvList = if (tvCredits != null) {
+                                val filtered = when (entity.role) {
+                                    "Actor", "Actriz" -> tvCredits.cast.orEmpty()
+                                    "Director", "Directora" -> tvCredits.crew.orEmpty().filter { it.job == "Director" }
+                                    else -> tvCredits.cast.orEmpty() + tvCredits.crew.orEmpty()
+                                }
+                                filtered
+                                    .filter { it.firstAirDate != null }
+                                    .distinctBy { it.id }
+                                    .map { it.toContentPreview() }
+                            } else emptyList()
+                            (movieList + tvList).sortedByDescending { it.releaseDate }
                         } else {
-                            discoverRepository.getPersonMovieCredits(rawId)
+                            val movies = discoverRepository.getPersonMovieCredits(rawId)
+                            val tvs = discoverRepository.getPersonTvCredits(rawId)
+                            (movies + tvs).sortedByDescending { it.releaseDate }
                         }
                     } else emptyList()
                 }
@@ -206,17 +224,44 @@ class DiscoverViewModel(
                                 .filter { it.name == entity.name && it.id != firstId && it.logoPath != null }
                                 .map { it.id }
                         )
-                        var movies = emptyList<ContentPreview>()
+                        var all = emptyList<ContentPreview>()
                         for (id in idsToTry) {
-                            movies = discoverRepository.getCompanyMovies(id)
-                            if (movies.isNotEmpty()) break
+                            val movies = discoverRepository.getCompanyMovies(id)
+                            val tvs = discoverRepository.getCompanyTvShows(id)
+                            val combined = (movies + tvs).sortedByDescending { it.releaseDate }
+                            if (combined.isNotEmpty()) { all = combined; break }
                         }
-                        movies
+                        all
                     } else emptyList()
                 }
             }
-            _filmographyView.value = FilmographyView(entity = entity, movies = movies, isLoading = false)
+
+            val filtered = raw.filter { it.id !in blacklisted }
+            filmographyCache = discoverRepository.fetchPlatforms(filtered)
+            filmographyPage = 1
+            val pageSize = 10
+            val shown = filmographyCache.take(pageSize)
+            _filmographyView.value = FilmographyView(
+                entity = entity,
+                movies = shown,
+                isLoading = false,
+                hasMore = filmographyCache.size > pageSize,
+                totalCount = filmographyCache.size
+            )
         }
+    }
+
+    fun onFilmographyLoadMore() {
+        val view = _filmographyView.value ?: return
+        if (!view.hasMore || view.isLoading) return
+        filmographyPage++
+        val pageSize = 10
+        val shown = filmographyCache.take(filmographyPage * pageSize)
+        _filmographyView.value = view.copy(
+            movies = shown,
+            isLoading = false,
+            hasMore = shown.size < filmographyCache.size
+        )
     }
 
     fun onSearchQueryChanged(query: String) {
@@ -864,5 +909,7 @@ data class FilmographyEntity(
 data class FilmographyView(
     val entity: FilmographyEntity,
     val movies: List<ContentPreview>? = null,
-    val isLoading: Boolean = false
+    val isLoading: Boolean = false,
+    val hasMore: Boolean = false,
+    val totalCount: Int = 0
 )

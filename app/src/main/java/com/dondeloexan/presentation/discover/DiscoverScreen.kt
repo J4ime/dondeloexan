@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -51,6 +52,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
+import androidx.compose.material3.TextButton
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.material3.Text
@@ -217,12 +219,15 @@ fun DiscoverScreen(
                 view = activeFilmographyView,
                 likedIds = likedIds,
                 watchedIds = watchedIds,
+                blacklistedIds = blacklistedIds,
                 isGridView = isGridView,
                 onItemClick = { contentId, contentType ->
                     navController.navigate("detail/$contentId/$contentType")
                 },
                 onFavoriteClick = viewModel::onToggleFavorite,
                 onWatchedClick = viewModel::onToggleWatched,
+                onBlacklistClick = viewModel::onToggleBlacklist,
+                onLoadMore = viewModel::onFilmographyLoadMore,
                 onBack = viewModel::onFilmographyBack
             )
         } else {
@@ -498,10 +503,13 @@ fun FilmographyContent(
     view: FilmographyView,
     likedIds: Set<String>,
     watchedIds: Set<String>,
+    blacklistedIds: Set<String>,
     isGridView: Boolean,
     onItemClick: (String, String) -> Unit,
     onFavoriteClick: (ContentPreview) -> Unit,
     onWatchedClick: (ContentPreview) -> Unit,
+    onBlacklistClick: (ContentPreview) -> Unit,
+    onLoadMore: () -> Unit,
     onBack: () -> Unit
 ) {
     if (view.isLoading) {
@@ -520,20 +528,32 @@ fun FilmographyContent(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver", tint = EleganteRose, modifier = Modifier.size(20.dp))
                     }
                     Text(
-                        "Películas de ${view.entity.name}",
+                        "Filmografía de ${view.entity.name}",
                         style = UbuntuTypography.titleSmall,
                         color = TextPrimary
                     )
+                    Spacer(Modifier.weight(1f))
+                    if (view.totalCount > 0) {
+                        Text(
+                            "${view.movies.size}/${view.totalCount}",
+                            style = UbuntuTypography.labelSmall,
+                            color = TextSecondary
+                        )
+                    }
                 }
 
                 FilmographyMoviesGrid(
                     movies = view.movies,
                     likedIds = likedIds,
                     watchedIds = watchedIds,
+                    blacklistedIds = blacklistedIds,
                     isGridView = isGridView,
                     onItemClick = onItemClick,
                     onFavoriteClick = onFavoriteClick,
-                    onWatchedClick = onWatchedClick
+                    onWatchedClick = onWatchedClick,
+                    onBlacklistClick = onBlacklistClick,
+                    hasMore = view.hasMore,
+                    onLoadMore = onLoadMore
                 )
             }
         }
@@ -623,10 +643,14 @@ private fun FilmographyMoviesGrid(
     movies: List<ContentPreview>,
     likedIds: Set<String>,
     watchedIds: Set<String>,
+    blacklistedIds: Set<String>,
     isGridView: Boolean,
     onItemClick: (String, String) -> Unit,
     onFavoriteClick: (ContentPreview) -> Unit,
-    onWatchedClick: (ContentPreview) -> Unit
+    onWatchedClick: (ContentPreview) -> Unit,
+    onBlacklistClick: (ContentPreview) -> Unit,
+    hasMore: Boolean,
+    onLoadMore: () -> Unit
 ) {
     if (movies.isEmpty()) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -647,14 +671,36 @@ private fun FilmographyMoviesGrid(
                     content = content,
                     isLiked = likedIds.contains(content.id),
                     isWatched = watchedIds.contains(content.id),
+                    isBlacklisted = blacklistedIds.contains(content.id),
                     onFavoriteClick = { onFavoriteClick(content) },
                     onWatchedClick = { onWatchedClick(content) },
+                    onBlacklistClick = { onBlacklistClick(content) },
                     onClick = { onItemClick(content.id, content.type.name.lowercase()) }
                 )
             }
+            if (hasMore) {
+                item {
+                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        TextButton(onClick = onLoadMore) {
+                            Text("Cargar más", color = EleganteRose)
+                        }
+                    }
+                }
+            }
         }
     } else {
+        val listState = rememberLazyListState()
+        val shouldLoadMore = remember {
+            derivedStateOf {
+                val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+                lastVisible >= movies.size - 3
+            }
+        }
+        LaunchedEffect(shouldLoadMore.value) {
+            if (shouldLoadMore.value && hasMore) onLoadMore()
+        }
         LazyColumn(
+            state = listState,
             contentPadding = PaddingValues(vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
@@ -663,8 +709,10 @@ private fun FilmographyMoviesGrid(
                     content = content,
                     isLiked = likedIds.contains(content.id),
                     isWatched = watchedIds.contains(content.id),
+                    isBlacklisted = blacklistedIds.contains(content.id),
                     onFavoriteClick = { onFavoriteClick(content) },
                     onWatchedClick = { onWatchedClick(content) },
+                    onBlacklistClick = { onBlacklistClick(content) },
                     onClick = { onItemClick(content.id, content.type.name.lowercase()) }
                 )
             }

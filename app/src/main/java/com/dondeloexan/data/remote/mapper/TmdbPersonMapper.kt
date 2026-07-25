@@ -12,7 +12,7 @@ fun TmdbPersonCredit.toContentPreview(): ContentPreview = ContentPreview(
     source = ContentSource.TMDB,
     tmdbId = id,
     title = title ?: name ?: "Sin título",
-    type = ContentType.MOVIE,
+    type = if (mediaType == "tv") ContentType.SERIES else ContentType.MOVIE,
     year = (releaseDate ?: firstAirDate)?.substringBefore("-")?.toIntOrNull(),
     releaseDate = releaseDate ?: firstAirDate,
     coverUrl = posterPath?.let { "$TMDB_IMAGE_BASE$it" },
