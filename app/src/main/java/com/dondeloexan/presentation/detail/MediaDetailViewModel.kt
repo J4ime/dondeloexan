@@ -10,6 +10,7 @@ import com.dondeloexan.data.local.entity.TvShowProgressEntity
 import com.dondeloexan.data.local.entity.WatchStatus
 import com.dondeloexan.data.remote.api.BalloonerismmApi
 import com.dondeloexan.data.remote.api.TmdbApi
+import com.dondeloexan.data.remote.dto.TmdbPersonExternalIdsDto
 import com.dondeloexan.data.remote.dto.TmdbSeasonDto
 import com.dondeloexan.data.remote.dto.TmdbTvSeasonDetailDto
 import com.dondeloexan.data.remote.mapper.toTmdb
@@ -61,6 +62,22 @@ class MediaDetailViewModel(
     val uiState: StateFlow<DetailUiState> = _uiState.asStateFlow()
 
     private var seasonJob: Job? = null
+    private val personSocialCache = mutableMapOf<Int, TmdbPersonExternalIdsDto>()
+
+    fun getPersonSocialUrl(personId: Int, onUrl: (String?) -> Unit) {
+        viewModelScope.launch {
+            val cached = personSocialCache[personId]
+            val social = if (cached != null) cached
+            else try {
+                tmdbApi.getPersonExternalIds(personId).also { personSocialCache[personId] = it }
+            } catch (e: Exception) {
+                null
+            }
+            onUrl(social?.instagramId?.let { "https://instagram.com/$it/" }
+                ?: social?.twitterId?.let { "https://x.com/$it/" }
+                ?: social?.facebookId?.let { "https://facebook.com/$it/" })
+        }
+    }
 
     fun loadContent(contentId: String, contentType: ContentType = ContentType.MOVIE) {
         viewModelScope.launch {

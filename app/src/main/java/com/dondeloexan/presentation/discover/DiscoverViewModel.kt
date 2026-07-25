@@ -21,6 +21,7 @@ import com.dondeloexan.domain.model.StreamingAvailability
 import com.dondeloexan.domain.repository.DiscoverRepository
 import com.dondeloexan.presentation.feedback.FeedbackManager
 import com.dondeloexan.util.AppLogger
+import com.dondeloexan.util.PersonFlagUtil
 import java.time.LocalDate
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -292,11 +293,15 @@ class DiscoverViewModel(
                         }
                     }
                 }
+                val flag = PersonFlagUtil.countryFlag(personDetail?.placeOfBirth)
+                val countryStr = if (flag.isNotEmpty()) " $flag" else ""
+                val ageN = PersonFlagUtil.age(personDetail?.birthday, personDetail?.deathday)
+                val ageStr = if (ageN != null) " · $ageN" else ""
                 if (roles.isEmpty()) {
                     suggestions.add(
                         FilmographyEntity(
                             id = "person-${p.id}",
-                            name = p.name,
+                            name = "$countryStr${p.name}$ageStr",
                             type = EntityType.PERSON,
                             profilePath = p.profilePath,
                             knownForDepartment = p.knownForDepartment
@@ -307,7 +312,7 @@ class DiscoverViewModel(
                         suggestions.add(
                             FilmographyEntity(
                                 id = "person-${p.id}-${role.lowercase().replace(" ", "-")}",
-                                name = "${p.name} ($role)",
+                                name = "$countryStr${p.name} ($role)$ageStr",
                                 type = EntityType.PERSON,
                                 profilePath = p.profilePath,
                                 knownForDepartment = p.knownForDepartment,

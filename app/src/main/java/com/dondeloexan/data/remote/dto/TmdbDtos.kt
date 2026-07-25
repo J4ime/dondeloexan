@@ -250,5 +250,16 @@ data class TmdbCompanySearchResult(
 data class TmdbPersonDetailDto(
     val id: Int,
     val name: String,
-    val gender: Int = 0
+    val gender: Int = 0,
+    @SerialName("place_of_birth") val placeOfBirth: String? = null,
+    val birthday: String? = null,
+    val deathday: String? = null
+)
+
+@Serializable
+data class TmdbPersonExternalIdsDto(
+    val id: Int,
+    @SerialName("instagram_id") val instagramId: String? = null,
+    @SerialName("twitter_id") val twitterId: String? = null,
+    @SerialName("facebook_id") val facebookId: String? = null
 )

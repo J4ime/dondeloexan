@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -215,7 +216,7 @@ fun MediaDetailScreen(
                     modifier = Modifier.fillMaxSize()
                 ) { page ->
                     when (page) {
-                        0 -> FichaTab(content)
+                        0 -> FichaTab(content, viewModel)
                         1 -> if (content.type == ContentType.SERIES) {
                             EpisodiosTab(
                                 seasons = uiState.seasons,
@@ -263,7 +264,7 @@ fun MediaDetailScreen(
 }
 
 @Composable
-private fun FichaTab(content: Content) {
+private fun FichaTab(content: Content, viewModel: MediaDetailViewModel) {
     val displayPlatforms = remember(content) {
         if (content.type == ContentType.MOVIE && content.releaseDate != null) {
             appendCinemaPlatform(content.releaseDate, content.streamingPlatforms)
@@ -280,7 +281,7 @@ private fun FichaTab(content: Content) {
         if (displayPlatforms.isNotEmpty()) {
             item { StreamingSection(displayPlatforms) }
         }
-        item { TechnicalInfoSection(content) }
+        item { TechnicalInfoSection(content, viewModel) }
         if (content.externalLinks != null) {
             item { ExternalLinksSection(content.externalLinks) }
         }
@@ -574,7 +575,7 @@ private fun RatingRow(content: Content) {
 }
 
 @Composable
-private fun TechnicalInfoSection(content: Content) {
+private fun TechnicalInfoSection(content: Content, viewModel: MediaDetailViewModel) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -645,9 +646,24 @@ private fun TechnicalInfoSection(content: Content) {
             Text("Reparto", style = UbuntuTypography.titleSmall, color = TextPrimary, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(8.dp))
             val context = androidx.compose.ui.platform.LocalContext.current
+            val detailScope = rememberCoroutineScope()
             androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 items(content.cast.take(10)) { person ->
-                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(80.dp)) {
+                    val hasLink = person.tmdbId != null
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.width(80.dp).then(
+                            if (hasLink) Modifier.clickable {
+                                detailScope.launch {
+                                    viewModel.getPersonSocialUrl(person.tmdbId!!) { url ->
+                                        if (url != null) {
+                                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                                        }
+                                    }
+                                }
+                            } else Modifier
+                        )
+                    ) {
                         if (person.profilePath != null) {
                             AsyncImage(
                                 model = ImageRequest.Builder(context)
