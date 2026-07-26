@@ -5,8 +5,8 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class TmdbWatchProvidersResponse(
-    val id: Int,
-    val results: Map<String, TmdbCountryProviders> = emptyMap()
+    val id: Int = 0,
+    val results: Map<String, TmdbCountryProviders>? = null
 )
 
 @Serializable

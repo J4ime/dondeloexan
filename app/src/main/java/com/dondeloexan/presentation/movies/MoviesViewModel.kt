@@ -55,7 +55,7 @@ class MoviesViewModel(
                         val providers = refreshCoordinator.execute(coroutineContext, tmdbId) {
                             tmdbApi.getMovieWatchProviders(tmdbId)
                         }
-                        val platforms = providers.results["ES"]?.toStreamingAvailability().orEmpty()
+                        val platforms = providers.results?.get("ES")?.toStreamingAvailability().orEmpty()
                         val platformsStr = platforms.toPlatformsString()
                         val existing = movieDao.getByTmdbId(tmdbId) ?: return@async
                         if (platformsStr != null) {

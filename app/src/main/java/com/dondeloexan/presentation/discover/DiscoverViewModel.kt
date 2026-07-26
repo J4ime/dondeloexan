@@ -443,7 +443,7 @@ class DiscoverViewModel(
             } else {
                 tmdbApi.getMovieWatchProviders(tmdbId)
             }
-            providers.results["ES"]?.toStreamingAvailability().orEmpty()
+            providers.results?.get("ES")?.toStreamingAvailability().orEmpty()
         } catch (e: Exception) {
             AppLogger.e("DiscoverVM", "fetchPlatformsIfEmpty for ${preview.title}", e)
             emptyList()

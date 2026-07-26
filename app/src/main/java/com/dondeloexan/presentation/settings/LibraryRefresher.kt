@@ -93,7 +93,7 @@ class LibraryRefresher(
                                 val providers = refreshCoordinator.execute(coroutineContext, tmdbId) {
                                     tmdbApi.getTvWatchProviders(tmdbId)
                                 }
-                                providers.results["ES"]?.toStreamingAvailability().orEmpty().toPlatformsString()
+                                providers.results?.get("ES")?.toStreamingAvailability().orEmpty().toPlatformsString()
                             } catch (e: Exception) {
                                 null
                             }
@@ -160,7 +160,7 @@ class LibraryRefresher(
                         val providers = refreshCoordinator.execute(coroutineContext, tmdbId) {
                             tmdbApi.getMovieWatchProviders(tmdbId)
                         }
-                        val platforms = providers.results["ES"]?.toStreamingAvailability().orEmpty()
+                        val platforms = providers.results?.get("ES")?.toStreamingAvailability().orEmpty()
                         val platformsStr = platforms.toPlatformsString()
 
                         val newRatingImdb = if (movie.imdbId != null) {

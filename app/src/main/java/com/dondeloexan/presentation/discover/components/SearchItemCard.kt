@@ -17,7 +17,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.CheckCircleOutline
@@ -259,67 +259,78 @@ fun SearchItemCard(
             }
         }
 
-        val showAllButtons = !isWatched && !isLiked
-        val showOnlyHeart = isWatched && isLiked
-        if (showAllButtons) {
-            IconButton(
-                onClick = onBlacklistClick,
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(8.dp)
-                    .size(36.dp)
-                    .background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
-            ) {
-                Icon(
-                    Icons.Outlined.Block,
-                    contentDescription = "Ocultar",
-                    tint = if (isBlacklisted) EleganteRose else TextSecondary,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
+        IconButton(
+            onClick = onBlacklistClick,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(8.dp)
+                .size(36.dp)
+                .background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+        ) {
+            Icon(
+                Icons.Outlined.Block,
+                contentDescription = "Ocultar",
+                tint = if (isBlacklisted) EleganteRose else TextSecondary,
+                modifier = Modifier.size(18.dp)
+            )
         }
 
-        if (showAllButtons || showOnlyHeart) {
-            Row(
+        Row(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            IconButton(
+                onClick = onFavoriteClick,
                 modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(8.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    .size(48.dp)
+                    .background(
+                        Color.Black.copy(alpha = 0.5f),
+                        RoundedCornerShape(8.dp)
+                    )
             ) {
+                Icon(
+                    if (isLiked) Icons.Filled.Favorite else Icons.Outlined.Add,
+                    contentDescription = if (isLiked) "Favorita" else "Añadir",
+                    tint = if (isLiked) EleganteRose else TextPrimary,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+
+            if (!isWatched) {
                 IconButton(
-                    onClick = onFavoriteClick,
+                    onClick = onWatchedClick,
                     modifier = Modifier
-                        .size(if (isLiked || isWatched) 48.dp else 48.dp)
+                        .size(48.dp)
                         .background(
                             Color.Black.copy(alpha = 0.5f),
                             RoundedCornerShape(8.dp)
                         )
                 ) {
                     Icon(
-                        if (isLiked) Icons.Filled.Favorite else Icons.Outlined.Add,
-                        contentDescription = if (isLiked) "Favorita" else "Añadir",
-                        tint = if (isLiked) EleganteRose else TextPrimary,
+                        Icons.Outlined.CheckCircleOutline,
+                        contentDescription = "Visto",
+                        tint = TextPrimary,
                         modifier = Modifier.size(24.dp)
                     )
                 }
-
-                if (!isWatched) {
-                    IconButton(
-                        onClick = onWatchedClick,
-                        modifier = Modifier
-                            .size(48.dp)
-                            .background(
-                                Color.Black.copy(alpha = 0.5f),
-                                RoundedCornerShape(8.dp)
-                            )
-                    ) {
-                        Icon(
-                            Icons.Outlined.CheckCircleOutline,
-                            contentDescription = "Visto",
-                            tint = TextPrimary,
-                            modifier = Modifier.size(24.dp)
+            } else {
+                IconButton(
+                    onClick = onWatchedClick,
+                    modifier = Modifier
+                        .size(48.dp)
+                        .background(
+                            Color.Black.copy(alpha = 0.5f),
+                            RoundedCornerShape(8.dp)
                         )
-                    }
+                ) {
+                    Icon(
+                        Icons.Filled.CheckCircle,
+                        contentDescription = "Visto",
+                        tint = RatingHigh,
+                        modifier = Modifier.size(24.dp)
+                    )
                 }
             }
         }

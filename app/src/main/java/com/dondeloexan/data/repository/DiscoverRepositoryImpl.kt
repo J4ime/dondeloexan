@@ -573,6 +573,7 @@ class DiscoverRepositoryImpl(
         return try {
             tmdbApi.searchPerson(query).results
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             AppLogger.e("DiscoverRepo", "searchPeople error for $query", e)
             emptyList()
         }
@@ -582,6 +583,7 @@ class DiscoverRepositoryImpl(
         return try {
             tmdbApi.searchCompany(query).results
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             AppLogger.e("DiscoverRepo", "searchCompanies error for $query", e)
             emptyList()
         }
