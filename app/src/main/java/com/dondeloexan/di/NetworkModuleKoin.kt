@@ -143,7 +143,9 @@ val networkModule = module {
             }
             defaultRequest {
                 url("https://www.filmaffinity.com/")
-                header("User-Agent", "Mozilla/5.0 (Linux; Android 14)")
+                header("User-Agent", "Mozilla/5.0 (Linux; Android 14; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36")
+                header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8")
+                header("Accept-Language", "es-ES,es;q=0.9,en;q=0.8")
             }
         }
     }

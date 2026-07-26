@@ -15,6 +15,7 @@ import com.dondeloexan.data.remote.dto.TmdbSeasonDto
 import com.dondeloexan.data.remote.dto.TmdbTvSeasonDetailDto
 import com.dondeloexan.data.remote.mapper.toTmdb
 import com.dondeloexan.data.remote.mapper.toTmdbSeasonDto
+import com.dondeloexan.domain.model.ContentPreview
 import com.dondeloexan.domain.model.CriticReview
 import com.dondeloexan.domain.model.Content
 import com.dondeloexan.domain.model.ContentSource
@@ -44,7 +45,11 @@ data class DetailUiState(
     val isMovieWatched: Boolean? = null,
     val isMovieFavorite: Boolean? = null,
     val criticReviews: List<CriticReview>? = null,
-    val isCriticReviewsLoading: Boolean = false
+    val isCriticReviewsLoading: Boolean = false,
+    val collectionMovies: List<ContentPreview>? = null,
+    val isCollectionLoading: Boolean = false,
+    val similarContent: List<ContentPreview>? = null,
+    val isSimilarLoading: Boolean = false
 )
 
 data class CascadeProposal(
@@ -137,6 +142,49 @@ class MediaDetailViewModel(
         }
     }
 
+    private fun loadCollection(content: Content) {
+        if (content.type != ContentType.MOVIE) return
+        val collectionId = content.collectionTmdbId ?: return
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isCollectionLoading = true)
+            try {
+                val movies = discoverRepository.getCollectionMovies(collectionId)
+                    .filter { it.tmdbId != content.tmdbId }
+                _uiState.value = _uiState.value.copy(
+                    collectionMovies = movies,
+                    isCollectionLoading = false
+                )
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                AppLogger.e("DetailVM", "Error loading collection", e)
+                _uiState.value = _uiState.value.copy(
+                    collectionMovies = emptyList(),
+                    isCollectionLoading = false
+                )
+            }
+        }
+    }
+
+    private fun loadSimilar(content: Content) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isSimilarLoading = true)
+            try {
+                val similar = discoverRepository.getRecommendations(content.id, content.type)
+                _uiState.value = _uiState.value.copy(
+                    similarContent = similar,
+                    isSimilarLoading = false
+                )
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                AppLogger.e("DetailVM", "Error loading similar", e)
+                _uiState.value = _uiState.value.copy(
+                    similarContent = emptyList(),
+                    isSimilarLoading = false
+                )
+            }
+        }
+    }
+
     fun loadContent(contentId: String, contentType: ContentType = ContentType.MOVIE) {
         viewModelScope.launch {
             _uiState.value = DetailUiState(isLoading = true)
@@ -166,6 +214,8 @@ class MediaDetailViewModel(
                             }
                             loadCastSocialInfo(content.cast.take(10))
                             loadCriticReviews(content)
+                            loadCollection(content)
+                            loadSimilar(content)
                         }
                         is DataResult.Error -> {
                             _uiState.value = _uiState.value.copy(

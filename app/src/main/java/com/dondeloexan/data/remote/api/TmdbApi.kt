@@ -1,6 +1,7 @@
 package com.dondeloexan.data.remote.api
 
 import com.dondeloexan.data.remote.dto.TmdbCompanySearchResponse
+import com.dondeloexan.data.remote.dto.TmdbCollectionDto
 import com.dondeloexan.data.remote.dto.TmdbCreditsResponse
 import com.dondeloexan.data.remote.dto.TmdbExternalIdsDto
 import com.dondeloexan.data.remote.dto.TmdbMovieDto
@@ -211,6 +212,27 @@ class TmdbApi(private val client: HttpClient) {
 
     suspend fun getPersonMovieCredits(personId: Int, language: String = "es-ES"): TmdbPersonCreditsResponse {
         val response = client.get("person/$personId/movie_credits") {
+            parameter("language", language)
+        }
+        return response.body()
+    }
+
+    suspend fun getCollection(collectionId: Int, language: String = "es-ES"): TmdbCollectionDto {
+        val response = client.get("collection/$collectionId") {
+            parameter("language", language)
+        }
+        return response.body()
+    }
+
+    suspend fun getMovieRecommendations(movieId: Int, language: String = "es-ES"): TmdbTrendingResponse {
+        val response = client.get("movie/$movieId/recommendations") {
+            parameter("language", language)
+        }
+        return response.body()
+    }
+
+    suspend fun getTvRecommendations(tvId: Int, language: String = "es-ES"): TmdbTrendingResponse {
+        val response = client.get("tv/$tvId/recommendations") {
             parameter("language", language)
         }
         return response.body()

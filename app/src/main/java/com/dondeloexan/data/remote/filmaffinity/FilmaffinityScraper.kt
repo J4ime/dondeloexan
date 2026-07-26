@@ -10,17 +10,23 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
+import java.net.URLEncoder
 
 class FilmaffinityScraper(private val httpClient: HttpClient) {
 
     suspend fun searchMovieId(title: String, year: Int? = null): Int? = withContext(Dispatchers.IO) {
         try {
             val query = if (year != null) "$title $year" else title
-            val html = httpClient.get("https://www.filmaffinity.com/es/search.php?stext=$query").bodyAsText()
+            val encoded = URLEncoder.encode(query, "UTF-8")
+            val html = httpClient.get("https://www.filmaffinity.com/es/search.php?stext=$encoded").bodyAsText()
             val doc = Jsoup.parse(html)
-            val link = doc.selectFirst("a[href^=/es/film]") ?: return@withContext null
+            val link = doc.selectFirst("a[href^=/es/film]") ?: run {
+                AppLogger.w("Filmaffinity", "searchMovieId: no film link found for '$query'")
+                return@withContext null
+            }
             val href = link.attr("href")
             val id = FILM_ID_REGEX.find(href)?.groupValues?.get(1)?.toIntOrNull()
+            if (id == null) AppLogger.w("Filmaffinity", "searchMovieId: could not parse id from '$href'")
             id
         } catch (e: Exception) {
             AppLogger.e("Filmaffinity", "searchMovieId error for $title", e)

@@ -28,6 +28,39 @@ data class TmdbProvider(
 )
 
 @Serializable
+data class TmdbBelongsToCollectionDto(
+    val id: Int,
+    val name: String? = null,
+    @SerialName("poster_path") val posterPath: String? = null,
+    @SerialName("backdrop_path") val backdropPath: String? = null
+)
+
+@Serializable
+data class TmdbCollectionDto(
+    val id: Int,
+    val name: String? = null,
+    val overview: String? = null,
+    @SerialName("poster_path") val posterPath: String? = null,
+    @SerialName("backdrop_path") val backdropPath: String? = null,
+    val parts: List<TmdbCollectionPartDto> = emptyList()
+)
+
+@Serializable
+data class TmdbCollectionPartDto(
+    val id: Int,
+    val title: String? = null,
+    val name: String? = null,
+    @SerialName("original_title") val originalTitle: String? = null,
+    @SerialName("original_name") val originalName: String? = null,
+    @SerialName("poster_path") val posterPath: String? = null,
+    @SerialName("release_date") val releaseDate: String? = null,
+    @SerialName("first_air_date") val firstAirDate: String? = null,
+    @SerialName("vote_average") val voteAverage: Float? = null,
+    @SerialName("vote_count") val voteCount: Int? = null,
+    val overview: String? = null
+)
+
+@Serializable
 data class TmdbMovieDto(
     val id: Int,
     val title: String,
@@ -42,7 +75,8 @@ data class TmdbMovieDto(
     @SerialName("imdb_id") val imdbId: String? = null,
     val genres: List<TmdbGenreDto>? = null,
     @SerialName("production_countries") val productionCountries: List<TmdbCountryDto>? = null,
-    @SerialName("production_companies") val productionCompanies: List<TmdbProductionCompanyDto>? = null
+    @SerialName("production_companies") val productionCompanies: List<TmdbProductionCompanyDto>? = null,
+    @SerialName("belongs_to_collection") val belongsToCollection: TmdbBelongsToCollectionDto? = null
 )
 
 @Serializable

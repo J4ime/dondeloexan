@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
@@ -84,6 +85,7 @@ import com.dondeloexan.domain.model.Content
 import com.dondeloexan.domain.model.ContentType
 import com.dondeloexan.domain.model.PersonInfo
 import com.dondeloexan.domain.model.ExternalLinks
+import com.dondeloexan.domain.model.ContentPreview
 import com.dondeloexan.domain.model.CriticReview
 import com.dondeloexan.domain.model.Sentiment
 import com.dondeloexan.domain.model.StreamingAvailability
@@ -147,14 +149,6 @@ fun MediaDetailScreen(
             },
             actions = {
                 if (uiState.content?.type == com.dondeloexan.domain.model.ContentType.MOVIE) {
-                    val isFavorite = uiState.isMovieFavorite == true
-                    IconButton(onClick = { viewModel.toggleMovieFavorite() }) {
-                        Icon(
-                            if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                            contentDescription = if (isFavorite) "Quitar de favoritas" else "Marcar como favorita",
-                            tint = if (isFavorite) EleganteRose else TextPrimary
-                        )
-                    }
                     val isWatched = uiState.isMovieWatched == true
                     IconButton(onClick = { viewModel.toggleMovieWatched() }) {
                         Icon(
@@ -162,6 +156,16 @@ fun MediaDetailScreen(
                             contentDescription = if (isWatched) "Quitar de vistos" else "Marcar como vista",
                             tint = if (isWatched) EleganteRose else TextPrimary
                         )
+                    }
+                    if (isWatched) {
+                        val isFavorite = uiState.isMovieFavorite == true
+                        IconButton(onClick = { viewModel.toggleMovieFavorite() }) {
+                            Icon(
+                                if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                                contentDescription = if (isFavorite) "Quitar de favoritas" else "Marcar como favorita",
+                                tint = if (isFavorite) EleganteRose else TextPrimary
+                            )
+                        }
                     }
                 }
             },
@@ -234,12 +238,11 @@ fun MediaDetailScreen(
                                 onToggleEpisode = viewModel::toggleEpisodeWatched,
                                 onMarkSeasonToggle = viewModel::markSeasonWatched
                             )
-                        }
-                    }
                 }
             }
         }
     }
+}
 
     uiState.cascadeProposal?.let { proposal ->
         AlertDialog(
@@ -268,6 +271,229 @@ fun MediaDetailScreen(
         )
     }
 }
+}
+
+@Composable
+private fun CollectionSection(viewModel: MediaDetailViewModel) {
+    val uiState by viewModel.uiState.collectAsState()
+
+    if (uiState.isCollectionLoading) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator(color = EleganteRose, modifier = Modifier.size(24.dp))
+        }
+        return
+    }
+
+    val movies = uiState.collectionMovies
+    if (movies.isNullOrEmpty()) return
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+    ) {
+        HorizontalDivider(color = DarkSurfaceVariant.copy(alpha = 0.5f))
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "Precuelas / Secuelas",
+            style = UbuntuTypography.titleSmall,
+            color = TextPrimary,
+            fontWeight = FontWeight.Bold
+        )
+        Spacer(Modifier.height(8.dp))
+        androidx.compose.foundation.lazy.LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(movies) { movie ->
+                CollectionItemCard(movie)
+            }
+        }
+    }
+}
+
+@Composable
+private fun CollectionItemCard(movie: ContentPreview) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    Surface(
+        onClick = {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.themoviedb.org/movie/${movie.tmdbId}"))
+            context.startActivity(intent)
+        },
+        shape = RoundedCornerShape(12.dp),
+        color = DarkSurfaceVariant.copy(alpha = 0.5f)
+    ) {
+        Row(
+            modifier = Modifier.padding(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (movie.coverUrl != null) {
+                AsyncImage(
+                    model = ImageRequest.Builder(context)
+                        .data(movie.coverUrl)
+                        .crossfade(200)
+                        .build(),
+                    contentDescription = movie.title,
+                    modifier = Modifier
+                        .size(60.dp)
+                        .clip(RoundedCornerShape(8.dp)),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(60.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(DarkSurface),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Outlined.PlayCircle, null, tint = TextSecondary, modifier = Modifier.size(24.dp))
+                }
+            }
+            Column(modifier = Modifier.width(120.dp)) {
+                Text(
+                    movie.title,
+                    style = UbuntuTypography.labelSmall,
+                    color = TextPrimary,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (movie.year != null) {
+                    Text(
+                        movie.year.toString(),
+                        style = UbuntuTypography.labelSmall,
+                        color = TextSecondary,
+                        fontSize = 10.sp
+                    )
+                }
+                if (movie.ratingImdb != null) {
+                    Text(
+                        "★ ${String.format("%.1f", movie.ratingImdb)}",
+                        style = UbuntuTypography.labelSmall,
+                        color = RatingHigh,
+                        fontSize = 10.sp
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SimilarSection(viewModel: MediaDetailViewModel) {
+    val uiState by viewModel.uiState.collectAsState()
+
+    if (uiState.isSimilarLoading) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator(color = EleganteRose, modifier = Modifier.size(24.dp))
+        }
+        return
+    }
+
+    val similar = uiState.similarContent
+    if (similar.isNullOrEmpty()) return
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+    ) {
+        HorizontalDivider(color = DarkSurfaceVariant.copy(alpha = 0.5f))
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "Similares",
+            style = UbuntuTypography.titleSmall,
+            color = TextPrimary,
+            fontWeight = FontWeight.Bold
+        )
+        Spacer(Modifier.height(8.dp))
+        androidx.compose.foundation.lazy.LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(similar) { item ->
+                SimilarItemCard(item)
+            }
+        }
+    }
+}
+
+@Composable
+private fun SimilarItemCard(item: ContentPreview) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    Surface(
+        onClick = {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.themoviedb.org/${if (item.type == ContentType.SERIES) "tv" else "movie"}/${item.tmdbId}"))
+            context.startActivity(intent)
+        },
+        shape = RoundedCornerShape(12.dp),
+        color = DarkSurfaceVariant.copy(alpha = 0.5f)
+    ) {
+        Column(
+            modifier = Modifier.width(110.dp).padding(8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            if (item.coverUrl != null) {
+                AsyncImage(
+                    model = ImageRequest.Builder(context)
+                        .data(item.coverUrl)
+                        .crossfade(200)
+                        .build(),
+                    contentDescription = item.title,
+                    modifier = Modifier
+                        .size(90.dp, 135.dp)
+                        .clip(RoundedCornerShape(8.dp)),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(90.dp, 135.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(DarkSurface),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Outlined.PlayCircle, null, tint = TextSecondary, modifier = Modifier.size(32.dp))
+                }
+            }
+            Text(
+                item.title,
+                style = UbuntuTypography.labelSmall,
+                color = TextPrimary,
+                fontWeight = FontWeight.Bold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            if (item.year != null) {
+                Text(
+                    item.year.toString(),
+                    style = UbuntuTypography.labelSmall,
+                    color = TextSecondary,
+                    fontSize = 10.sp
+                )
+            }
+            if (item.ratingImdb != null) {
+                Text(
+                    "★ ${String.format("%.1f", item.ratingImdb)}",
+                    style = UbuntuTypography.labelSmall,
+                    color = RatingHigh,
+                    fontSize = 10.sp
+                )
+            }
+        }
+}
+}
 
 @Composable
 private fun FichaTab(content: Content, viewModel: MediaDetailViewModel) {
@@ -292,6 +518,8 @@ private fun FichaTab(content: Content, viewModel: MediaDetailViewModel) {
             item { ExternalLinksSection(content.externalLinks) }
         }
         item { CriticReviewsSection(viewModel) }
+        item { CollectionSection(viewModel) }
+        item { SimilarSection(viewModel) }
     }
 }
 
@@ -780,18 +1008,18 @@ private fun ExternalLinksSection(links: ExternalLinks) {
             fontWeight = FontWeight.Bold
         )
         Spacer(Modifier.height(8.dp))
-        Row(
+        androidx.compose.foundation.lazy.LazyRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            items.forEach { (value, icon, label) ->
+            items(items) { (value, icon, label) ->
                 val url = when (label) {
                     "IMDb" -> "https://www.imdb.com/title/$value/"
                     "Wikipedia" -> value
                     "Facebook" -> "https://facebook.com/$value/"
                     "Instagram" -> "https://instagram.com/$value/"
                     "Twitter" -> "https://x.com/$value/"
-                    "YouTube" -> "https://www.youtube.com/watch?v=$value"
+                    "YouTube" -> if (value.startsWith("http")) value else "https://www.youtube.com/watch?v=$value"
                     "Web" -> value
                     else -> value
                 }

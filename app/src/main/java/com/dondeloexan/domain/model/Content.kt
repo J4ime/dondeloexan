@@ -46,6 +46,7 @@ data class Content(
     val countries: List<String> = emptyList(),
     val streamingPlatforms: List<StreamingAvailability> = emptyList(),
     val externalLinks: ExternalLinks? = null,
+    val collectionTmdbId: Int? = null,
     val lastCachedAt: Long = System.currentTimeMillis()
 )
 

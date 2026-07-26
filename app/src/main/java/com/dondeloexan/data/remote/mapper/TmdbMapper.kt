@@ -5,6 +5,7 @@ import com.dondeloexan.data.remote.TmdbProviderIds
 import com.dondeloexan.data.remote.dto.TmdbCountryProviders
 import com.dondeloexan.data.remote.dto.TmdbCreditsResponse
 import com.dondeloexan.data.remote.dto.TmdbMovieDto
+import com.dondeloexan.data.remote.dto.TmdbCollectionPartDto
 import com.dondeloexan.data.remote.dto.TmdbMultiSearchResult
 import com.dondeloexan.data.remote.dto.TmdbProvider
 import com.dondeloexan.data.remote.dto.TmdbTvDetailDto
@@ -57,6 +58,7 @@ fun TmdbMovieDto.toDomain(
     countries = productionCountries?.map { it.name }.orEmpty(),
     streamingPlatforms = platforms,
     externalLinks = externalLinks,
+    collectionTmdbId = belongsToCollection?.id,
     lastCachedAt = System.currentTimeMillis()
 )
 
@@ -102,6 +104,20 @@ fun TmdbTvDetailDto.toDomain(
     streamingPlatforms = platforms,
     externalLinks = externalLinks,
     lastCachedAt = System.currentTimeMillis()
+)
+
+fun TmdbCollectionPartDto.toContentPreview(): ContentPreview = ContentPreview(
+    id = "tmdb-$id",
+    source = ContentSource.TMDB,
+    tmdbId = id,
+    title = title ?: name.orEmpty(),
+    type = ContentType.MOVIE,
+    year = releaseDate?.substringBefore("-")?.toIntOrNull()
+        ?: firstAirDate?.substringBefore("-")?.toIntOrNull(),
+    releaseDate = releaseDate ?: firstAirDate,
+    coverUrl = posterPath?.let { "https://image.tmdb.org/t/p/w500$it" },
+    voteCount = voteCount,
+    ratingImdb = voteAverage
 )
 
 fun TmdbMultiSearchResult.toContentPreview(): ContentPreview = ContentPreview(

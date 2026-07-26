@@ -664,4 +664,39 @@ class DiscoverRepositoryImpl(
         }
         return filmaffinityScraper.getProReviews(faId)
     }
+
+    override suspend fun getCollectionMovies(collectionId: Int): List<ContentPreview> {
+        return try {
+            val collection = tmdbApi.getCollection(collectionId)
+            collection.parts
+                .filter { it.posterPath != null }
+                .map { it.toContentPreview() }
+        } catch (e: Exception) {
+            AppLogger.e("DiscoverRepo", "getCollectionMovies error for $collectionId", e)
+            emptyList()
+        }
+    }
+
+    override suspend fun getRecommendations(contentId: String, contentType: ContentType): List<ContentPreview> {
+        return try {
+            val prefix = contentId.substringBefore("-")
+            val rawId = contentId.removePrefix("$prefix-")
+            val tmdbId = when (prefix) {
+                "tmdb" -> rawId.toIntOrNull()
+                "imdb" -> resolveTmdbId(rawId, contentType)
+                else -> null
+            } ?: return emptyList()
+            val response = when (contentType) {
+                ContentType.MOVIE -> tmdbApi.getMovieRecommendations(tmdbId)
+                ContentType.SERIES -> tmdbApi.getTvRecommendations(tmdbId)
+            }
+            response.results
+                .filter { it.posterPath != null }
+                .take(5)
+                .map { it.toContentPreview() }
+        } catch (e: Exception) {
+            AppLogger.e("DiscoverRepo", "getRecommendations error for $contentId", e)
+            emptyList()
+        }
+    }
 }
