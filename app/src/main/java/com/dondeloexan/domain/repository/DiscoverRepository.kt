@@ -5,6 +5,7 @@ import com.dondeloexan.data.remote.dto.TmdbPersonSearchResult
 import com.dondeloexan.domain.model.Content
 import com.dondeloexan.domain.model.ContentPreview
 import com.dondeloexan.domain.model.ContentType
+import com.dondeloexan.domain.model.CriticReview
 import com.dondeloexan.domain.model.DataResult
 import kotlinx.coroutines.flow.Flow
 
@@ -24,4 +25,5 @@ interface DiscoverRepository {
     suspend fun getCompanyMovies(companyId: Int): List<ContentPreview>
     suspend fun getCompanyTvShows(companyId: Int): List<ContentPreview>
     suspend fun fetchPlatforms(previews: List<ContentPreview>): List<ContentPreview>
+    suspend fun getCriticReviews(title: String, year: Int? = null): List<CriticReview>
 }

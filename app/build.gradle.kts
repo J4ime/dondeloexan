@@ -124,6 +124,9 @@ dependencies {
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.0")
 
+    // Jsoup (HTML parsing for Filmaffinity)
+    implementation("org.jsoup:jsoup:1.17.2")
+
     // Test
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.0")
     testImplementation("io.mockk:mockk:1.13.8")

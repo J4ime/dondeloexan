@@ -19,6 +19,7 @@ import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
 import okhttp3.ConnectionPool
 import okhttp3.Dispatcher
+import org.koin.core.qualifier.named
 import org.koin.dsl.module
 import java.util.concurrent.TimeUnit
 
@@ -126,5 +127,24 @@ val networkModule = module {
             }
         }
         GitHubApi(client, BuildConfig.GITHUB_OWNER, BuildConfig.GITHUB_REPO)
+    }
+
+    // ── Filmaffinity (plain HTML client, no JSON) ──
+    single(named("filmaffinity")) {
+        HttpClient(OkHttp) {
+            engine {
+                config {
+                    retryOnConnectionFailure(true)
+                }
+            }
+            install(HttpTimeout) {
+                requestTimeoutMillis = 15_000
+                connectTimeoutMillis = 5_000
+            }
+            defaultRequest {
+                url("https://www.filmaffinity.com/")
+                header("User-Agent", "Mozilla/5.0 (Linux; Android 14)")
+            }
+        }
     }
 }

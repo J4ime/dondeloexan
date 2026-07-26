@@ -10,6 +10,7 @@ import com.dondeloexan.data.local.dao.TvShowDao
 import com.dondeloexan.data.local.dao.TvShowProgressDao
 import com.dondeloexan.data.local.dao.UserPlatformDao
 import com.dondeloexan.data.local.datastore.UserPreferencesDataStore
+import com.dondeloexan.data.remote.filmaffinity.FilmaffinityScraper
 import com.dondeloexan.data.repository.DiscoverRepositoryImpl
 import com.dondeloexan.data.repository.SettingsRepositoryImpl
 import com.dondeloexan.data.update.SilentUpdateManager
@@ -20,6 +21,7 @@ import com.dondeloexan.presentation.feedback.FeedbackManager
 import com.dondeloexan.presentation.settings.LibraryNotificationManager
 import com.dondeloexan.presentation.settings.LibraryRefresher
 import org.koin.android.ext.koin.androidContext
+import org.koin.core.qualifier.named
 import org.koin.dsl.module
 
 val dataModule = module {
@@ -62,6 +64,9 @@ val dataModule = module {
         )
     }
 
+    // Filmaffinity Scraper
+    single { FilmaffinityScraper(httpClient = get(named("filmaffinity"))) }
+
     // Repositories
     single<DiscoverRepository> {
         DiscoverRepositoryImpl(
@@ -72,7 +77,8 @@ val dataModule = module {
             movieDao = get(),
             tvShowDao = get(),
             tvShowProgressDao = get(),
-            userPreferencesDataStore = get()
+            userPreferencesDataStore = get(),
+            filmaffinityScraper = get()
         )
     }
 

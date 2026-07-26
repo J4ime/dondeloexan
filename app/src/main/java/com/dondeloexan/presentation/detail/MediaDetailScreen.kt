@@ -84,6 +84,8 @@ import com.dondeloexan.domain.model.Content
 import com.dondeloexan.domain.model.ContentType
 import com.dondeloexan.domain.model.PersonInfo
 import com.dondeloexan.domain.model.ExternalLinks
+import com.dondeloexan.domain.model.CriticReview
+import com.dondeloexan.domain.model.Sentiment
 import com.dondeloexan.domain.model.StreamingAvailability
 import com.dondeloexan.domain.model.AvailabilityType
 import com.dondeloexan.presentation.theme.DarkBackground
@@ -289,6 +291,7 @@ private fun FichaTab(content: Content, viewModel: MediaDetailViewModel) {
         if (content.externalLinks != null) {
             item { ExternalLinksSection(content.externalLinks) }
         }
+        item { CriticReviewsSection(viewModel) }
     }
 }
 
@@ -1080,6 +1083,128 @@ private fun EpisodeRow(
                     else -> RatingLow
                 }
             )
+        }
+    }
+}
+
+@Composable
+private fun CriticReviewsSection(viewModel: MediaDetailViewModel) {
+    val uiState by viewModel.uiState.collectAsState()
+
+    if (uiState.isCriticReviewsLoading) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator(color = EleganteRose, modifier = Modifier.size(24.dp))
+        }
+        return
+    }
+
+    val reviews = uiState.criticReviews
+    if (reviews.isNullOrEmpty()) return
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+    ) {
+        HorizontalDivider(color = DarkSurfaceVariant.copy(alpha = 0.5f))
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "Críticas de Filmaffinity",
+            style = UbuntuTypography.titleSmall,
+            color = TextPrimary,
+            fontWeight = FontWeight.Bold
+        )
+        Spacer(Modifier.height(8.dp))
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            reviews.forEach { review ->
+                CriticReviewCard(review)
+            }
+        }
+    }
+}
+
+@Composable
+private fun CriticReviewCard(review: CriticReview) {
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = DarkSurfaceVariant.copy(alpha = 0.5f)
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(
+                        Icons.Outlined.Star,
+                        contentDescription = null,
+                        tint = when (review.sentiment) {
+                            Sentiment.POSITIVE -> RatingHigh
+                            Sentiment.NEGATIVE -> RatingLow
+                            Sentiment.NEUTRAL -> RatingMedium
+                        },
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Column {
+                        Text(
+                            review.author,
+                            style = UbuntuTypography.labelSmall,
+                            color = TextPrimary,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp
+                        )
+                        Text(
+                            review.publication,
+                            style = UbuntuTypography.labelSmall,
+                            color = TextSecondary,
+                            fontSize = 10.sp
+                        )
+                    }
+                }
+                if (review.rating != null) {
+                    Text(
+                        review.rating,
+                        style = UbuntuTypography.labelSmall,
+                        color = TextPrimary,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 11.sp
+                    )
+                }
+            }
+            Spacer(Modifier.height(4.dp))
+            Text(
+                review.text,
+                style = UbuntuTypography.bodySmall,
+                color = TextSecondary,
+                maxLines = 4,
+                overflow = TextOverflow.Ellipsis
+            )
+            if (review.url != null) {
+                Spacer(Modifier.height(4.dp))
+                val context = androidx.compose.ui.platform.LocalContext.current
+                TextButton(
+                    onClick = {
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(review.url))
+                        context.startActivity(intent)
+                    },
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)
+                ) {
+                    Text("Leer crítica completa", color = EleganteRose, fontSize = 11.sp)
+                }
+            }
         }
     }
 }

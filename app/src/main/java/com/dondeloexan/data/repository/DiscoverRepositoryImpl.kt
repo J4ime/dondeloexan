@@ -6,6 +6,8 @@ import com.dondeloexan.data.local.dao.TvShowProgressDao
 import com.dondeloexan.data.local.dao.UserPlatformDao
 import com.dondeloexan.data.local.datastore.UserPreferencesDataStore
 import com.dondeloexan.data.remote.TmdbProviderIds
+import com.dondeloexan.data.remote.filmaffinity.FilmaffinityScraper
+import com.dondeloexan.domain.model.CriticReview
 import com.dondeloexan.data.remote.api.BalloonerismmApi
 import com.dondeloexan.data.remote.api.OmdbApi
 import com.dondeloexan.data.remote.api.TmdbApi
@@ -42,7 +44,8 @@ class DiscoverRepositoryImpl(
     private val movieDao: MovieDao,
     private val tvShowDao: TvShowDao,
     private val tvShowProgressDao: TvShowProgressDao? = null,
-    private val userPreferencesDataStore: UserPreferencesDataStore
+    private val userPreferencesDataStore: UserPreferencesDataStore,
+    private val filmaffinityScraper: FilmaffinityScraper
 ) : DiscoverRepository {
 
     private data class CachedPlatforms(
@@ -651,5 +654,14 @@ class DiscoverRepositoryImpl(
             AppLogger.e("DiscoverRepo", "getCompanyTvShows error for $companyId", e)
             emptyList()
         }
+    }
+
+    override suspend fun getCriticReviews(title: String, year: Int?): List<CriticReview> {
+        val faId = filmaffinityScraper.searchMovieId(title, year)
+        if (faId == null) {
+            AppLogger.w("DiscoverRepo", "getCriticReviews: no FA id for $title")
+            return emptyList()
+        }
+        return filmaffinityScraper.getProReviews(faId)
     }
 }

@@ -15,6 +15,7 @@ import com.dondeloexan.data.remote.dto.TmdbSeasonDto
 import com.dondeloexan.data.remote.dto.TmdbTvSeasonDetailDto
 import com.dondeloexan.data.remote.mapper.toTmdb
 import com.dondeloexan.data.remote.mapper.toTmdbSeasonDto
+import com.dondeloexan.domain.model.CriticReview
 import com.dondeloexan.domain.model.Content
 import com.dondeloexan.domain.model.ContentSource
 import com.dondeloexan.domain.model.ContentType
@@ -41,7 +42,9 @@ data class DetailUiState(
     val lastWatchedSeason: Int? = null,
     val lastWatchedEpisode: Int? = null,
     val isMovieWatched: Boolean? = null,
-    val isMovieFavorite: Boolean? = null
+    val isMovieFavorite: Boolean? = null,
+    val criticReviews: List<CriticReview>? = null,
+    val isCriticReviewsLoading: Boolean = false
 )
 
 data class CascadeProposal(
@@ -112,6 +115,28 @@ class MediaDetailViewModel(
         }
     }
 
+    private fun loadCriticReviews(content: Content) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isCriticReviewsLoading = true)
+            try {
+                val title = content.originalTitle ?: content.title
+                val year = content.year
+                val reviews = discoverRepository.getCriticReviews(title, year)
+                _uiState.value = _uiState.value.copy(
+                    criticReviews = reviews,
+                    isCriticReviewsLoading = false
+                )
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                AppLogger.e("DetailVM", "Error loading critic reviews", e)
+                _uiState.value = _uiState.value.copy(
+                    criticReviews = emptyList(),
+                    isCriticReviewsLoading = false
+                )
+            }
+        }
+    }
+
     fun loadContent(contentId: String, contentType: ContentType = ContentType.MOVIE) {
         viewModelScope.launch {
             _uiState.value = DetailUiState(isLoading = true)
@@ -140,6 +165,7 @@ class MediaDetailViewModel(
                                 )
                             }
                             loadCastSocialInfo(content.cast.take(10))
+                            loadCriticReviews(content)
                         }
                         is DataResult.Error -> {
                             _uiState.value = _uiState.value.copy(
