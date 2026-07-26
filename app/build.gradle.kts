@@ -9,6 +9,10 @@ android {
     namespace = "com.dondeloexan"
     compileSdk = 34
 
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
+
     defaultConfig {
         applicationId = "com.dondeloexan"
         minSdk = 26
@@ -132,5 +136,9 @@ dependencies {
     testImplementation("io.mockk:mockk:1.13.8")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.0")
     testImplementation("app.cash.turbine:turbine:1.0.0")
+}
+
+tasks.withType<Test> {
+    useJUnitPlatform()
 }
 
