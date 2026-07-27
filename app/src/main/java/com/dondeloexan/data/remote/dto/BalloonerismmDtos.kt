@@ -182,7 +182,7 @@ data class ImdbDetailCertificateDto(
 
 @Serializable
 data class ImdbExternalIds(
-    val id: String,
+    val id: String = "",
     @SerialName("imdb_id") val imdbId: String? = null,
     @SerialName("tmdb_id") val tmdbId: Int? = null,
     @SerialName("wikidata_id") val wikidataId: String? = null,

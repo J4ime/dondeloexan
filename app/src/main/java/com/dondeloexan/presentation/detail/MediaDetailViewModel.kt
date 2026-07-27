@@ -209,7 +209,7 @@ class MediaDetailViewModel(
     private fun loadSeriesRelationships(content: Content) {
         if (content.type != ContentType.SERIES) return
         val wikidataId = content.externalLinks?.wikidataId
-        val imdbId = content.imdbId
+        val imdbId = content.externalLinks?.imdbId ?: content.imdbId
         AppLogger.d("DetailVM", "loadSeriesRelationships — wikidataId=$wikidataId, imdbId=$imdbId")
         if (wikidataId == null && imdbId == null) {
             AppLogger.d("DetailVM", "No wikidataId nor imdbId, skipping")
