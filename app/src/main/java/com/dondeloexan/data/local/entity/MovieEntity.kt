@@ -22,5 +22,6 @@ data class MovieEntity(
     @ColumnInfo(name = "streaming_platforms") val streamingPlatforms: String? = null,
     @ColumnInfo(name = "watched_at") val watchedAt: Long? = null,
     @ColumnInfo(name = "added_at") val addedAt: Long = System.currentTimeMillis(),
-    @ColumnInfo(name = "last_refreshed_at") val lastRefreshedAt: Long? = null
+    @ColumnInfo(name = "last_refreshed_at") val lastRefreshedAt: Long? = null,
+    @ColumnInfo(name = "fa_id") val faId: Int? = null
 )

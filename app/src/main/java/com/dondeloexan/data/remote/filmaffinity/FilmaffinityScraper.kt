@@ -16,9 +16,9 @@ class FilmaffinityScraper(private val httpClient: HttpClient) {
 
     suspend fun searchMovieId(title: String, year: Int? = null): Int? = withContext(Dispatchers.IO) {
         try {
-            val query = if (year != null) "$title $year" else title
+            val query = title
             val encoded = URLEncoder.encode(query, "UTF-8")
-            val html = httpClient.get("https://www.filmaffinity.com/es/search.php?stext=$encoded").bodyAsText()
+            val html = httpClient.get("https://www.filmaffinity.com/es/search.php?stext=$encoded&stype=title&em=1").bodyAsText()
             val doc = Jsoup.parse(html)
             val link = doc.selectFirst("a[href^=/es/film]") ?: run {
                 AppLogger.w("Filmaffinity", "searchMovieId: no film link found for '$query'")

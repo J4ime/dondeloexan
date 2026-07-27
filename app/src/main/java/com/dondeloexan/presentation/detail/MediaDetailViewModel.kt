@@ -126,7 +126,7 @@ class MediaDetailViewModel(
             try {
                 val title = content.originalTitle ?: content.title
                 val year = content.year
-                val reviews = discoverRepository.getCriticReviews(title, year)
+                val reviews = discoverRepository.getCriticReviews(content.id, title, year)
                 _uiState.value = _uiState.value.copy(
                     criticReviews = reviews,
                     isCriticReviewsLoading = false

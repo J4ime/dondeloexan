@@ -61,6 +61,9 @@ interface MovieDao {
     @Query("UPDATE movies SET watched_at = :timestamp WHERE id = :id")
     suspend fun updateWatchedAt(id: Long, timestamp: Long?)
 
+    @Query("UPDATE movies SET fa_id = :faId WHERE content_id = :contentId")
+    suspend fun updateFaId(contentId: String, faId: Int?)
+
     @Query("DELETE FROM movies")
     suspend fun deleteAll()
 }

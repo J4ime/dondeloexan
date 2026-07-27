@@ -9,6 +9,8 @@ import com.dondeloexan.domain.model.Content
 import com.dondeloexan.domain.model.ContentPreview
 import com.dondeloexan.domain.model.ContentSource
 import com.dondeloexan.domain.model.ContentType
+import com.dondeloexan.domain.model.CriticReview
+import com.dondeloexan.domain.model.Sentiment
 import com.dondeloexan.domain.repository.DiscoverRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -239,5 +241,95 @@ class MediaDetailViewModelTest {
         val state = viewModel.uiState.value
         assert(!state.isSimilarLoading)
         assert(state.similarContent!!.isEmpty())
+    }
+
+    @Test
+    fun `Matrix Revolutions loads critic reviews and collection`() = runTest {
+        val content = Content(
+            id = "tmdb-603",
+            source = ContentSource.TMDB,
+            tmdbId = 603,
+            title = "The Matrix Revolutions",
+            year = 2003,
+            type = ContentType.MOVIE,
+            collectionTmdbId = 2344
+        )
+
+        val reviews = listOf(
+            CriticReview(
+                author = "Pablo Kurt",
+                publication = "FilmAffinity",
+                text = "Fascinados por la primera entrega, muchos fuimos indulgentes y extremadamente benévolos con la segunda... Revolutions no puede ser más decepcionante.",
+                sentiment = Sentiment.NEGATIVE
+            ),
+            CriticReview(
+                author = "Roger Ebert",
+                publication = "rogerebert.com",
+                text = "Mi admiración por ella está limitada por el hecho de que no me importa en absoluto lo que le sucede a los personajes... Puntuación: ★★★ (sobre 4)",
+                sentiment = Sentiment.NEUTRAL
+            ),
+            CriticReview(
+                author = "Peter Travers",
+                publication = "Rolling Stone",
+                text = "A riesgo de no hacerle justicia, 'The Matrix Revolutions' apesta. Es cierto que hace gala de cierta destreza visual que te dejará boquiabierto. Pero todo acaba siendo una gran nada.",
+                sentiment = Sentiment.NEGATIVE
+            ),
+            CriticReview(
+                author = "A. O. Scott",
+                publication = "The New York Times",
+                text = "Toda su grandilocuencia no evita que haya una atmósfera general de agotamiento.",
+                sentiment = Sentiment.NEGATIVE
+            ),
+            CriticReview(
+                author = "David Denby",
+                publication = "The New Yorker",
+                text = "En el mejor de los casos, es violentamente emocionante. En el peor, es banal y monótona.",
+                sentiment = Sentiment.NEUTRAL
+            )
+        )
+
+        val collection = listOf(
+            ContentPreview(
+                id = "tmdb-603", title = "The Matrix Revolutions",
+                source = ContentSource.TMDB, tmdbId = 603, type = ContentType.MOVIE,
+                year = 2003, coverUrl = "https://image.tmdb.org/t/p/w500/revolutions.jpg"
+            ),
+            ContentPreview(
+                id = "tmdb-604", title = "The Matrix",
+                source = ContentSource.TMDB, tmdbId = 604, type = ContentType.MOVIE,
+                year = 1999, coverUrl = "https://image.tmdb.org/t/p/w500/matrix.jpg"
+            ),
+            ContentPreview(
+                id = "tmdb-605", title = "The Matrix Reloaded",
+                source = ContentSource.TMDB, tmdbId = 605, type = ContentType.MOVIE,
+                year = 2003, coverUrl = "https://image.tmdb.org/t/p/w500/reloaded.jpg"
+            )
+        )
+
+        coEvery { discoverRepository.getDetail(any(), any()) } returns flowOf(
+            com.dondeloexan.domain.model.DataResult.Success(content)
+        )
+        coEvery { movieDao.getByContentId(any()) } returns null
+        coEvery { movieDao.getByTmdbId(any()) } returns null
+        coEvery { movieDao.getByImdbId(any()) } returns null
+        coEvery { discoverRepository.getCriticReviews("tmdb-603", "The Matrix Revolutions", 2003) } returns reviews
+        coEvery { discoverRepository.getCollectionMovies(2344) } returns collection
+        coEvery { discoverRepository.getRecommendations(any(), any()) } returns emptyList()
+
+        viewModel.loadContent("tmdb-603")
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assert(state.criticReviews!!.size == 5)
+        assert(state.criticReviews!![0].author == "Pablo Kurt")
+        assert(state.criticReviews!![0].publication == "FilmAffinity")
+        assert(state.criticReviews!![1].author == "Roger Ebert")
+        assert(state.criticReviews!![4].author == "David Denby")
+        assert(state.collectionMovies!!.size == 2)
+        assert(state.collectionMovies!!.any { it.title == "The Matrix" })
+        assert(state.collectionMovies!!.any { it.title == "The Matrix Reloaded" })
+        assert(state.collectionMovies!!.none { it.title == "The Matrix Revolutions" })
+        assert(!state.isCriticReviewsLoading)
+        assert(!state.isCollectionLoading)
     }
 }

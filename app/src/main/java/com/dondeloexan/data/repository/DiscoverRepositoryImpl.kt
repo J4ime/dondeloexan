@@ -1,5 +1,6 @@
 package com.dondeloexan.data.repository
 
+import com.dondeloexan.data.local.dao.CriticReviewDao
 import com.dondeloexan.data.local.dao.MovieDao
 import com.dondeloexan.data.local.dao.TvShowDao
 import com.dondeloexan.data.local.dao.TvShowProgressDao
@@ -7,6 +8,7 @@ import com.dondeloexan.data.local.dao.UserPlatformDao
 import com.dondeloexan.data.local.datastore.UserPreferencesDataStore
 import com.dondeloexan.data.remote.TmdbProviderIds
 import com.dondeloexan.data.remote.filmaffinity.FilmaffinityScraper
+import com.dondeloexan.data.local.entity.CriticReviewEntity
 import com.dondeloexan.domain.model.CriticReview
 import com.dondeloexan.data.remote.api.BalloonerismmApi
 import com.dondeloexan.data.remote.api.OmdbApi
@@ -24,6 +26,7 @@ import com.dondeloexan.domain.model.ContentSource
 import com.dondeloexan.domain.model.ContentType
 import com.dondeloexan.domain.model.DataResult
 import com.dondeloexan.domain.model.ExternalLinks
+import com.dondeloexan.domain.model.Sentiment
 import com.dondeloexan.domain.model.StreamingAvailability
 import com.dondeloexan.domain.repository.DiscoverRepository
 import com.dondeloexan.util.AppLogger
@@ -33,6 +36,8 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
+import org.json.JSONArray
+import org.json.JSONObject
 import java.time.LocalDate
 import java.util.concurrent.ConcurrentHashMap
 
@@ -45,7 +50,8 @@ class DiscoverRepositoryImpl(
     private val tvShowDao: TvShowDao,
     private val tvShowProgressDao: TvShowProgressDao? = null,
     private val userPreferencesDataStore: UserPreferencesDataStore,
-    private val filmaffinityScraper: FilmaffinityScraper
+    private val filmaffinityScraper: FilmaffinityScraper,
+    private val criticReviewDao: CriticReviewDao
 ) : DiscoverRepository {
 
     private data class CachedPlatforms(
@@ -656,13 +662,56 @@ class DiscoverRepositoryImpl(
         }
     }
 
-    override suspend fun getCriticReviews(title: String, year: Int?): List<CriticReview> {
+    override suspend fun getCriticReviews(contentId: String, title: String, year: Int?): List<CriticReview> {
+        val cacheTtlMs = 24 * 60 * 60 * 1000L
+        val cached = criticReviewDao.getByContentId(contentId)
+        if (cached != null && System.currentTimeMillis() - cached.cachedAt < cacheTtlMs) {
+            return reviewsFromJson(cached.reviewsJson)
+        }
+
         val faId = filmaffinityScraper.searchMovieId(title, year)
         if (faId == null) {
             AppLogger.w("DiscoverRepo", "getCriticReviews: no FA id for $title")
             return emptyList()
         }
-        return filmaffinityScraper.getProReviews(faId)
+        val reviews = filmaffinityScraper.getProReviews(faId)
+        criticReviewDao.upsert(
+            CriticReviewEntity(
+                contentId = contentId,
+                reviewsJson = reviewsToJson(reviews)
+            )
+        )
+        return reviews
+    }
+
+    private fun reviewsToJson(reviews: List<CriticReview>): String {
+        val arr = JSONArray()
+        for (r in reviews) {
+            val obj = JSONObject()
+            obj.put("author", r.author)
+            obj.put("publication", r.publication)
+            obj.put("text", r.text)
+            r.rating?.let { obj.put("rating", it) }
+            r.url?.let { obj.put("url", it) }
+            obj.put("sentiment", r.sentiment.name)
+            arr.put(obj)
+        }
+        return arr.toString()
+    }
+
+    private fun reviewsFromJson(json: String): List<CriticReview> {
+        val arr = JSONArray(json)
+        return (0 until arr.length()).map { i ->
+            val obj = arr.getJSONObject(i)
+            CriticReview(
+                author = obj.getString("author"),
+                publication = obj.optString("publication", ""),
+                text = obj.optString("text", ""),
+                rating = obj.optString("rating", null),
+                url = obj.optString("url", null),
+                sentiment = Sentiment.valueOf(obj.optString("sentiment", "NEUTRAL"))
+            )
+        }
     }
 
     override suspend fun getCollectionMovies(collectionId: Int): List<ContentPreview> {

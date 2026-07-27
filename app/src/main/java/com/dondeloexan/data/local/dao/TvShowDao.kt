@@ -103,6 +103,9 @@ interface TvShowDao {
     """)
     fun getFinishedFlow(): Flow<List<TvShowEntity>>
 
+    @Query("UPDATE tv_shows SET fa_id = :faId WHERE content_id = :contentId")
+    suspend fun updateFaId(contentId: String, faId: Int?)
+
     @Query("DELETE FROM tv_shows")
     suspend fun deleteAll()
 }

@@ -25,7 +25,7 @@ interface DiscoverRepository {
     suspend fun getCompanyMovies(companyId: Int): List<ContentPreview>
     suspend fun getCompanyTvShows(companyId: Int): List<ContentPreview>
     suspend fun fetchPlatforms(previews: List<ContentPreview>): List<ContentPreview>
-    suspend fun getCriticReviews(title: String, year: Int? = null): List<CriticReview>
+    suspend fun getCriticReviews(contentId: String, title: String, year: Int? = null): List<CriticReview>
     suspend fun getCollectionMovies(collectionId: Int): List<ContentPreview>
     suspend fun getRecommendations(contentId: String, contentType: ContentType = ContentType.MOVIE): List<ContentPreview>
 }
