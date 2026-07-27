@@ -208,11 +208,17 @@ class MediaDetailViewModel(
 
     private fun loadSeriesRelationships(content: Content) {
         if (content.type != ContentType.SERIES) return
-        val wikidataId = content.externalLinks?.wikidataId ?: return
+        val wikidataId = content.externalLinks?.wikidataId
+        val imdbId = content.imdbId
+        AppLogger.d("DetailVM", "loadSeriesRelationships — wikidataId=$wikidataId, imdbId=$imdbId")
+        if (wikidataId == null && imdbId == null) {
+            AppLogger.d("DetailVM", "No wikidataId nor imdbId, skipping")
+            return
+        }
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isSeriesRelationshipsLoading = true)
             try {
-                val (previews, excludeIds) = discoverRepository.getSeriesRelationships(wikidataId)
+                val (previews, excludeIds) = discoverRepository.getSeriesRelationships(wikidataId, imdbId)
                 _uiState.value = _uiState.value.copy(
                     seriesRelationships = previews,
                     isSeriesRelationshipsLoading = false,

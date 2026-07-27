@@ -762,9 +762,10 @@ class DiscoverRepositoryImpl(
         }
     }
 
-    override suspend fun getSeriesRelationships(wikidataId: String): Pair<List<ContentPreview>, Set<String>> {
+    override suspend fun getSeriesRelationships(wikidataId: String?, imdbId: String?): Pair<List<ContentPreview>, Set<String>> {
+        AppLogger.d("DiscoverRepo", "getSeriesRelationships called — wikidataId=$wikidataId, imdbId=$imdbId")
         return try {
-            val relationships = wikidataApi.getRelationships(wikidataId)
+            val relationships = wikidataApi.getRelationships(wikidataId, imdbId)
             val results = mutableListOf<ContentPreview>()
             val excludeIds = mutableSetOf<String>()
 
@@ -800,9 +801,10 @@ class DiscoverRepositoryImpl(
                     )
                 }
             }
+            AppLogger.d("DiscoverRepo", "getSeriesRelationships returning ${results.size} previews, ${excludeIds.size} excludeIds")
             results to excludeIds
         } catch (e: Exception) {
-            AppLogger.e("DiscoverRepo", "getSeriesRelationships error for $wikidataId", e)
+            AppLogger.e("DiscoverRepo", "getSeriesRelationships error", e)
             emptyList<ContentPreview>() to emptySet()
         }
     }
