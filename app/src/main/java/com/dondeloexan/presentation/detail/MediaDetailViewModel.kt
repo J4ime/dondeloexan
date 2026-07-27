@@ -22,6 +22,7 @@ import com.dondeloexan.domain.model.ContentSource
 import com.dondeloexan.domain.model.ContentType
 import com.dondeloexan.domain.model.PersonInfo
 import com.dondeloexan.domain.model.DataResult
+import com.dondeloexan.domain.model.ExternalLinks
 import com.dondeloexan.domain.repository.DiscoverRepository
 import com.dondeloexan.util.AppLogger
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -127,6 +128,21 @@ class MediaDetailViewModel(
                 val title = content.originalTitle ?: content.title
                 val year = content.year
                 val reviews = discoverRepository.getCriticReviews(content.id, title, year)
+                if (reviews.isNotEmpty()) {
+                    val faId = when (content.type) {
+                        ContentType.MOVIE -> movieDao.getByContentId(content.id)?.faId
+                        ContentType.SERIES -> tvShowDao.getByContentId(content.id)?.faId
+                    }
+                    if (faId != null) {
+                        val faUrl = "https://www.filmaffinity.com/es/film$faId.html"
+                        val currentLinks = _uiState.value.content?.externalLinks
+                        val updatedLinks = currentLinks?.copy(filmaffinityUrl = faUrl)
+                            ?: ExternalLinks(filmaffinityUrl = faUrl)
+                        _uiState.value = _uiState.value.copy(
+                            content = _uiState.value.content?.copy(externalLinks = updatedLinks)
+                        )
+                    }
+                }
                 _uiState.value = _uiState.value.copy(
                     criticReviews = reviews,
                     isCriticReviewsLoading = false

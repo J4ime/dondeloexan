@@ -675,6 +675,8 @@ class DiscoverRepositoryImpl(
             return emptyList()
         }
         val reviews = filmaffinityScraper.getProReviews(faId)
+        movieDao.updateFaId(contentId, faId)
+        tvShowDao.updateFaId(contentId, faId)
         criticReviewDao.upsert(
             CriticReviewEntity(
                 contentId = contentId,

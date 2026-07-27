@@ -989,7 +989,8 @@ private fun ExternalLinksSection(links: ExternalLinks) {
         links.instagramId?.let { Triple(it, Icons.Outlined.CameraAlt, "Instagram") },
         links.twitterId?.let { Triple(it, Icons.Outlined.AlternateEmail, "Twitter") },
         links.youtubeId?.let { Triple(it, Icons.Outlined.PlayCircle, "YouTube") },
-        links.homepage?.let { Triple(it, Icons.Outlined.Language, "Web") }
+        links.homepage?.let { Triple(it, Icons.Outlined.Language, "Web") },
+        links.filmaffinityUrl?.let { Triple(it, Icons.Outlined.Star, "FilmAffinity") }
     )
 
     if (items.isEmpty()) return
@@ -1021,6 +1022,7 @@ private fun ExternalLinksSection(links: ExternalLinks) {
                     "Twitter" -> "https://x.com/$value/"
                     "YouTube" -> if (value.startsWith("http")) value else "https://www.youtube.com/watch?v=$value"
                     "Web" -> value
+                    "FilmAffinity" -> value
                     else -> value
                 }
                 Surface(
