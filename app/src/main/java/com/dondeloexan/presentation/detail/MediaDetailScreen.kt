@@ -120,6 +120,7 @@ fun MediaDetailScreen(
     contentId: String,
     contentType: ContentType = ContentType.MOVIE,
     onBack: () -> Unit,
+    onNavigateToDetail: (contentId: String, contentType: String) -> Unit = { _, _ -> },
     viewModel: MediaDetailViewModel = koinViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -228,7 +229,7 @@ fun MediaDetailScreen(
                     modifier = Modifier.fillMaxSize()
                 ) { page ->
                     when (page) {
-                        0 -> FichaTab(content, viewModel)
+                        0 -> FichaTab(content, viewModel, onNavigateToDetail)
                         1 -> if (content.type == ContentType.SERIES) {
                             EpisodiosTab(
                                 seasons = uiState.seasons,
@@ -276,7 +277,7 @@ fun MediaDetailScreen(
 }
 
 @Composable
-private fun CollectionSection(viewModel: MediaDetailViewModel) {
+private fun CollectionSection(viewModel: MediaDetailViewModel, onNavigateToDetail: (contentId: String, contentType: String) -> Unit) {
     val uiState by viewModel.uiState.collectAsState()
 
     if (uiState.isCollectionLoading) {
@@ -312,20 +313,17 @@ private fun CollectionSection(viewModel: MediaDetailViewModel) {
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(movies) { movie ->
-                CollectionItemCard(movie)
+                CollectionItemCard(movie, onNavigateToDetail)
             }
         }
     }
 }
 
 @Composable
-private fun CollectionItemCard(movie: ContentPreview) {
+private fun CollectionItemCard(movie: ContentPreview, onNavigateToDetail: (contentId: String, contentType: String) -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
     Surface(
-        onClick = {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.themoviedb.org/movie/${movie.tmdbId}"))
-            context.startActivity(intent)
-        },
+        onClick = { onNavigateToDetail(movie.id, "movie") },
         shape = RoundedCornerShape(12.dp),
         color = DarkSurfaceVariant.copy(alpha = 0.5f)
     ) {
@@ -388,7 +386,7 @@ private fun CollectionItemCard(movie: ContentPreview) {
 }
 
 @Composable
-private fun SimilarSection(viewModel: MediaDetailViewModel) {
+private fun SimilarSection(viewModel: MediaDetailViewModel, onNavigateToDetail: (contentId: String, contentType: String) -> Unit) {
     val uiState by viewModel.uiState.collectAsState()
 
     if (uiState.isSimilarLoading) {
@@ -424,19 +422,19 @@ private fun SimilarSection(viewModel: MediaDetailViewModel) {
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(similar) { item ->
-                SimilarItemCard(item)
+                SimilarItemCard(item, onNavigateToDetail)
             }
         }
     }
 }
 
 @Composable
-private fun SimilarItemCard(item: ContentPreview) {
+private fun SimilarItemCard(item: ContentPreview, onNavigateToDetail: (contentId: String, contentType: String) -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
     Surface(
         onClick = {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.themoviedb.org/${if (item.type == ContentType.SERIES) "tv" else "movie"}/${item.tmdbId}"))
-            context.startActivity(intent)
+            val type = if (item.type == ContentType.SERIES) "series" else "movie"
+            onNavigateToDetail(item.id, type)
         },
         shape = RoundedCornerShape(12.dp),
         color = DarkSurfaceVariant.copy(alpha = 0.5f)
@@ -498,7 +496,7 @@ private fun SimilarItemCard(item: ContentPreview) {
 }
 
 @Composable
-private fun FichaTab(content: Content, viewModel: MediaDetailViewModel) {
+private fun FichaTab(content: Content, viewModel: MediaDetailViewModel, onNavigateToDetail: (contentId: String, contentType: String) -> Unit) {
     val displayPlatforms = remember(content) {
         if (content.type == ContentType.MOVIE && content.releaseDate != null) {
             appendCinemaPlatform(content.releaseDate, content.streamingPlatforms)
@@ -520,8 +518,8 @@ private fun FichaTab(content: Content, viewModel: MediaDetailViewModel) {
             item { ExternalLinksSection(content.externalLinks) }
         }
         item { CriticReviewsSection(viewModel) }
-        item { CollectionSection(viewModel) }
-        item { SimilarSection(viewModel) }
+        item { CollectionSection(viewModel, onNavigateToDetail) }
+        item { SimilarSection(viewModel, onNavigateToDetail) }
     }
 }
 

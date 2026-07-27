@@ -221,7 +221,10 @@ fun DondeLoExanNavGraph(navController: NavHostController) {
                     MediaDetailScreen(
                         contentId = contentId,
                         contentType = contentType,
-                        onBack = { navController.popBackStack() }
+                        onBack = { navController.popBackStack() },
+                        onNavigateToDetail = { id, type ->
+                            navController.navigate("detail/$id/$type")
+                        }
                     )
                 }
             }

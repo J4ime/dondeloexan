@@ -78,19 +78,12 @@ class FilmaffinityScraper(private val httpClient: HttpClient) {
     suspend fun getProReviews(faMovieId: Int): List<CriticReview> = withContext(Dispatchers.IO) {
         try {
             val url = "https://www.filmaffinity.com/es/pro-reviews.php?movie-id=$faMovieId"
-            AppLogger.i("Filmaffinity", "getProReviews: GET $url")
             val html = httpClient.get(url).bodyAsText()
-            val hasTable = "pro-rev-table" in html
-            val tableIdx = html.indexOf("pro-rev-table")
-            AppLogger.i("Filmaffinity", "getProReviews: htmlLen=${html.length}, hasTable=$hasTable, tableIdx=$tableIdx, first200=${html.take(200).replace('\n', '¶')}")
             val doc = Jsoup.parse(html)
-            val tables = doc.select("table")
-            val proRevTables = doc.select("table.pro-rev-table")
             val rows = doc.select("table.pro-rev-table tbody tr")
-            AppLogger.i("Filmaffinity", "getProReviews: tables=${tables.size}, proRevTables=${proRevTables.size}, rows=${rows.size}, docChildren=${doc.children().size}")
             if (rows.isEmpty()) return@withContext emptyList()
 
-            rows.take(5).mapNotNull { row ->
+            rows.mapNotNull { row ->
                 try {
                     val authorEl = row.selectFirst("td.author .author-name a")
                     val publicationEl = row.selectFirst("td.author em a, td.author strong a")
@@ -120,6 +113,9 @@ class FilmaffinityScraper(private val httpClient: HttpClient) {
                     AppLogger.w("Filmaffinity", "skip review row: ${e.message}")
                     null
                 }
+            }.let { reviews ->
+                val fromSpanish = reviews.filter { it.publication.normalize() in SPANISH_MEDIA }
+                if (fromSpanish.isNotEmpty()) fromSpanish.take(5) else reviews.take(5)
             }
         } catch (e: Exception) {
             AppLogger.e("Filmaffinity", "getProReviews error for $faMovieId", e)
@@ -137,9 +133,22 @@ class FilmaffinityScraper(private val httpClient: HttpClient) {
         return null
     }
 
+    private fun String.normalize(): String =
+        lowercase()
+            .replace('á', 'a').replace('é', 'e').replace('í', 'i')
+            .replace('ó', 'o').replace('ú', 'u').replace('ü', 'u')
+            .replace('ñ', 'n')
+            .trim()
+
     companion object {
         private val FILM_ID_REGEX = Regex("/es/film(\\d+)\\.html")
         private val STAR_RATING_REGEX = Regex("[★☆½]{1,10}(\\s*\\(sobre \\d+\\))?")
         private val NUMERIC_RATING_REGEX = Regex("\\d{1,2}(\\.\\d)?\\s*\\(sobre \\d+\\)")
+        private val SPANISH_MEDIA = setOf(
+            "el pais", "el mundo", "abc", "la vanguardia", "el periodico",
+            "cinemania", "fotogramas", "sensacine", "el confidencial",
+            "eldiario.es", "rtve", "cadena ser", "onda cero",
+            "20 minutos", "la razon", "publico"
+        )
     }
 }
