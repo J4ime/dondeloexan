@@ -5,6 +5,7 @@ import com.dondeloexan.data.remote.api.BalloonerismmApi
 import com.dondeloexan.data.remote.api.GitHubApi
 import com.dondeloexan.data.remote.api.OmdbApi
 import com.dondeloexan.data.remote.api.TmdbApi
+import com.dondeloexan.data.remote.api.WikidataApi
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.HttpTimeout
@@ -127,6 +128,28 @@ val networkModule = module {
             }
         }
         GitHubApi(client, BuildConfig.GITHUB_OWNER, BuildConfig.GITHUB_REPO)
+    }
+
+    // ── Wikidata ──
+    single {
+        val client = HttpClient(OkHttp) {
+            engine {
+                config {
+                    retryOnConnectionFailure(true)
+                }
+            }
+            install(HttpTimeout) {
+                requestTimeoutMillis = 15_000
+                connectTimeoutMillis = 10_000
+                socketTimeoutMillis = 10_000
+            }
+            defaultRequest {
+                url("https://query.wikidata.org/")
+                header("User-Agent", "DondeLoExan/${BuildConfig.VERSION_NAME}")
+                header("Accept", "application/sparql-results+json")
+            }
+        }
+        WikidataApi(client, get())
     }
 
     // ── Filmaffinity (plain HTML client, no JSON) ──

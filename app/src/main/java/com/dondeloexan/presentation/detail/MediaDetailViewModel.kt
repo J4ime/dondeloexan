@@ -50,7 +50,10 @@ data class DetailUiState(
     val collectionMovies: List<ContentPreview>? = null,
     val isCollectionLoading: Boolean = false,
     val similarContent: List<ContentPreview>? = null,
-    val isSimilarLoading: Boolean = false
+    val isSimilarLoading: Boolean = false,
+    val seriesRelationships: List<ContentPreview>? = null,
+    val isSeriesRelationshipsLoading: Boolean = false,
+    val seriesRelationshipTargetIds: Set<String> = emptySet()
 )
 
 data class CascadeProposal(
@@ -203,6 +206,29 @@ class MediaDetailViewModel(
         }
     }
 
+    private fun loadSeriesRelationships(content: Content) {
+        if (content.type != ContentType.SERIES) return
+        val wikidataId = content.externalLinks?.wikidataId ?: return
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isSeriesRelationshipsLoading = true)
+            try {
+                val (previews, excludeIds) = discoverRepository.getSeriesRelationships(wikidataId)
+                _uiState.value = _uiState.value.copy(
+                    seriesRelationships = previews,
+                    isSeriesRelationshipsLoading = false,
+                    seriesRelationshipTargetIds = excludeIds
+                )
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                AppLogger.e("DetailVM", "Error loading series relationships", e)
+                _uiState.value = _uiState.value.copy(
+                    seriesRelationships = emptyList(),
+                    isSeriesRelationshipsLoading = false
+                )
+            }
+        }
+    }
+
     fun loadContent(contentId: String, contentType: ContentType = ContentType.MOVIE) {
         viewModelScope.launch {
             _uiState.value = DetailUiState(isLoading = true)
@@ -234,6 +260,7 @@ class MediaDetailViewModel(
                             loadCriticReviews(content)
                             loadCollection(content)
                             loadSimilar(content)
+                            loadSeriesRelationships(content)
                         }
                         is DataResult.Error -> {
                             _uiState.value = _uiState.value.copy(

@@ -75,6 +75,7 @@ val dataModule = module {
             imdbApi = get(),
             tmdbApi = get(),
             omdbApi = get(),
+            wikidataApi = get(),
             userPlatformDao = get(),
             movieDao = get(),
             tvShowDao = get(),

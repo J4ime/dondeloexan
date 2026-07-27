@@ -28,4 +28,5 @@ interface DiscoverRepository {
     suspend fun getCriticReviews(contentId: String, title: String, year: Int? = null): List<CriticReview>
     suspend fun getCollectionMovies(collectionId: Int): List<ContentPreview>
     suspend fun getRecommendations(contentId: String, contentType: ContentType = ContentType.MOVIE): List<ContentPreview>
+    suspend fun getSeriesRelationships(wikidataId: String): Pair<List<ContentPreview>, Set<String>>
 }

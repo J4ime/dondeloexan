@@ -8,7 +8,8 @@ data class ExternalLinks(
     val twitterId: String? = null,
     val youtubeId: String? = null,
     val homepage: String? = null,
-    val filmaffinityUrl: String? = null
+    val filmaffinityUrl: String? = null,
+    val wikidataId: String? = null
 )
 
 data class PersonInfo(

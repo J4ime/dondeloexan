@@ -18,6 +18,7 @@ import com.dondeloexan.data.remote.dto.TmdbPersonSearchResult
 import com.dondeloexan.data.remote.dto.TmdbPersonSearchResponse
 import com.dondeloexan.data.remote.dto.TmdbTrendingResponse
 import com.dondeloexan.data.remote.filmaffinity.FilmaffinityScraper
+import com.dondeloexan.data.remote.api.WikidataApi
 import com.dondeloexan.domain.model.ContentType
 import io.mockk.coEvery
 import io.mockk.mockk
@@ -36,11 +37,13 @@ class DiscoverRepositoryFilmographyTest {
     private val userPreferencesDataStore: UserPreferencesDataStore = mockk()
     private val filmaffinityScraper: FilmaffinityScraper = mockk()
     private val criticReviewDao: CriticReviewDao = mockk()
+    private val wikidataApi: WikidataApi = mockk()
 
     private val repo: DiscoverRepositoryImpl = DiscoverRepositoryImpl(
         imdbApi = imdbApi,
         tmdbApi = tmdbApi,
         omdbApi = omdbApi,
+        wikidataApi = wikidataApi,
         userPlatformDao = userPlatformDao,
         movieDao = movieDao,
         tvShowDao = tvShowDao,

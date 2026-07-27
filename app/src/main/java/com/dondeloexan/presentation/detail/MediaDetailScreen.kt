@@ -277,6 +277,102 @@ fun MediaDetailScreen(
 }
 
 @Composable
+private fun SeriesRelationshipsSection(viewModel: MediaDetailViewModel, onNavigateToDetail: (contentId: String, contentType: String) -> Unit) {
+    val uiState by viewModel.uiState.collectAsState()
+
+    if (uiState.isSeriesRelationshipsLoading) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator(color = EleganteRose, modifier = Modifier.size(24.dp))
+        }
+        return
+    }
+
+    val series = uiState.seriesRelationships
+    if (series.isNullOrEmpty()) return
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+    ) {
+        HorizontalDivider(color = DarkSurfaceVariant.copy(alpha = 0.5f))
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "Relaciones",
+            style = UbuntuTypography.titleSmall,
+            color = TextPrimary,
+            fontWeight = FontWeight.Bold
+        )
+        Spacer(Modifier.height(8.dp))
+        androidx.compose.foundation.lazy.LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(series) { movie ->
+                RelationshipItemCard(movie, onNavigateToDetail)
+            }
+        }
+    }
+}
+
+@Composable
+private fun RelationshipItemCard(item: ContentPreview, onNavigateToDetail: (contentId: String, contentType: String) -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    Surface(
+        onClick = {
+            val type = if (item.type == ContentType.SERIES) "series" else "movie"
+            onNavigateToDetail(item.id, type)
+        },
+        shape = RoundedCornerShape(12.dp),
+        color = DarkSurfaceVariant.copy(alpha = 0.5f)
+    ) {
+        Row(
+            modifier = Modifier.padding(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (item.coverUrl != null) {
+                AsyncImage(
+                    model = ImageRequest.Builder(context)
+                        .data(item.coverUrl)
+                        .crossfade(200)
+                        .build(),
+                    contentDescription = item.title,
+                    modifier = Modifier
+                        .size(60.dp)
+                        .clip(RoundedCornerShape(8.dp)),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(60.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(DarkSurface),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Outlined.PlayCircle, null, tint = TextSecondary, modifier = Modifier.size(24.dp))
+                }
+            }
+            Column(modifier = Modifier.width(120.dp)) {
+                Text(
+                    item.title,
+                    style = UbuntuTypography.labelSmall,
+                    color = TextPrimary,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun CollectionSection(viewModel: MediaDetailViewModel, onNavigateToDetail: (contentId: String, contentType: String) -> Unit) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -402,7 +498,10 @@ private fun SimilarSection(viewModel: MediaDetailViewModel, onNavigateToDetail: 
     }
 
     val similar = uiState.similarContent
-    if (similar.isNullOrEmpty()) return
+    val excludeIds = uiState.seriesRelationshipTargetIds +
+        (uiState.collectionMovies?.map { it.id } ?: emptySet())
+    val filtered = similar?.filter { it.id !in excludeIds }
+    if (filtered.isNullOrEmpty()) return
 
     Column(
         modifier = Modifier
@@ -421,7 +520,7 @@ private fun SimilarSection(viewModel: MediaDetailViewModel, onNavigateToDetail: 
         androidx.compose.foundation.lazy.LazyRow(
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            items(similar) { item ->
+            items(filtered) { item ->
                 SimilarItemCard(item, onNavigateToDetail)
             }
         }
@@ -518,6 +617,7 @@ private fun FichaTab(content: Content, viewModel: MediaDetailViewModel, onNaviga
             item { ExternalLinksSection(content.externalLinks) }
         }
         item { CriticReviewsSection(viewModel) }
+        item { SeriesRelationshipsSection(viewModel, onNavigateToDetail) }
         item { CollectionSection(viewModel, onNavigateToDetail) }
         item { SimilarSection(viewModel, onNavigateToDetail) }
     }
@@ -1084,6 +1184,35 @@ private fun appendCinemaPlatform(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun StreamingSection(platforms: List<StreamingAvailability>) {
+    val cinemaPlatforms = platforms.filter { it.platformName.contains("Cine", ignoreCase = true) || it.platformName.contains("Estreno", ignoreCase = true) }
+    val subscription = platforms.filter { it.availabilityType == AvailabilityType.SUBSCRIPTION }
+    val ads = platforms.filter { it.availabilityType == AvailabilityType.ADS }
+    val rent = platforms.filter { it.availabilityType == AvailabilityType.RENT }
+    val buy = platforms.filter { it.availabilityType == AvailabilityType.BUY }
+    val free = platforms.filter { it.availabilityType == AvailabilityType.FREE }
+
+    if (platforms.isEmpty()) return
+
+    @Composable
+    fun platformRow(label: String, items: List<StreamingAvailability>) {
+        if (items.isEmpty()) return
+        Text(
+            label,
+            style = UbuntuTypography.labelSmall,
+            color = TextSecondary,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+        )
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items.forEach { platform ->
+                PlatformCard(platform)
+            }
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -1099,71 +1228,65 @@ private fun StreamingSection(platforms: List<StreamingAvailability>) {
         )
         Spacer(Modifier.height(8.dp))
 
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            platforms.forEach { platform ->
-                Column(
-                    modifier = Modifier.width(60.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    if (platform.platformName == "Cine") {
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .background(
-                                    DarkSurfaceVariant,
-                                    RoundedCornerShape(8.dp)
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                "\uD83C\uDFAC",
-                                fontSize = 20.sp
-                            )
-                        }
-                    } else if (platform.logoUrl != null) {
-                        val context = androidx.compose.ui.platform.LocalContext.current
-                        AsyncImage(
-                            model = ImageRequest.Builder(context)
-                                .data(platform.logoUrl)
-                                .crossfade(200)
-                                .build(),
-                            contentDescription = platform.platformName,
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(RoundedCornerShape(8.dp)),
-                            contentScale = ContentScale.Fit
-                        )
-                    } else {
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .background(
-                                    DarkSurfaceVariant,
-                                    RoundedCornerShape(8.dp)
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                platform.platformName.take(2),
-                                style = UbuntuTypography.labelSmall,
-                                color = TextSecondary
-                            )
-                        }
-                    }
-                    Text(
-                        platform.platformName,
-                        style = UbuntuTypography.labelSmall,
-                        color = if (platform.platformName == "Cine") EleganteRose else TextSecondary,
-                        fontSize = 9.sp,
-                        maxLines = 1
-                    )
-                }
+        platformRow("Cine", cinemaPlatforms)
+        platformRow("Subscripción", subscription)
+        platformRow("Anuncios", ads)
+        platformRow("Alquiler", rent)
+        platformRow("Compra", buy)
+        platformRow("Gratis", free)
+    }
+}
+
+@Composable
+private fun PlatformCard(platform: StreamingAvailability) {
+    Column(
+        modifier = Modifier.width(60.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        if (platform.platformName.contains("Cine", ignoreCase = true) || platform.platformName.contains("Estreno", ignoreCase = true)) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(DarkSurfaceVariant, RoundedCornerShape(8.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("\uD83C\uDFAC", fontSize = 20.sp)
+            }
+        } else if (platform.logoUrl != null) {
+            val context = androidx.compose.ui.platform.LocalContext.current
+            AsyncImage(
+                model = ImageRequest.Builder(context)
+                    .data(platform.logoUrl)
+                    .crossfade(200)
+                    .build(),
+                contentDescription = platform.platformName,
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(8.dp)),
+                contentScale = ContentScale.Fit
+            )
+        } else {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(DarkSurfaceVariant, RoundedCornerShape(8.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    platform.platformName.take(2),
+                    style = UbuntuTypography.labelSmall,
+                    color = TextSecondary
+                )
             }
         }
+        Text(
+            platform.platformName,
+            style = UbuntuTypography.labelSmall,
+            color = if (platform.platformName.contains("Cine", ignoreCase = true) || platform.platformName.contains("Estreno", ignoreCase = true)) EleganteRose else TextSecondary,
+            fontSize = 9.sp,
+            maxLines = 1
+        )
     }
 }
 

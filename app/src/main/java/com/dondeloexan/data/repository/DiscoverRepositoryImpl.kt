@@ -13,6 +13,8 @@ import com.dondeloexan.domain.model.CriticReview
 import com.dondeloexan.data.remote.api.BalloonerismmApi
 import com.dondeloexan.data.remote.api.OmdbApi
 import com.dondeloexan.data.remote.api.TmdbApi
+import com.dondeloexan.data.remote.api.WikidataApi
+import com.dondeloexan.data.remote.api.WikidataRelationship
 import com.dondeloexan.data.remote.dto.TmdbCompanySearchResult
 import com.dondeloexan.data.remote.dto.TmdbPersonSearchResult
 import com.dondeloexan.data.remote.mapper.toContentPreview
@@ -45,6 +47,7 @@ class DiscoverRepositoryImpl(
     private val imdbApi: BalloonerismmApi,
     private val tmdbApi: TmdbApi,
     private val omdbApi: OmdbApi,
+    private val wikidataApi: WikidataApi,
     private val userPlatformDao: UserPlatformDao,
     private val movieDao: MovieDao,
     private val tvShowDao: TvShowDao,
@@ -300,7 +303,8 @@ class DiscoverRepositoryImpl(
                         instagramId = social.instagramId,
                         twitterId = social.twitterId,
                         youtubeId = social.youtubeId,
-                        homepage = social.homepage
+                        homepage = social.homepage,
+                        wikidataId = social.wikidataId
                     )
                 }
             } catch (e: Exception) {
@@ -755,6 +759,51 @@ class DiscoverRepositoryImpl(
         } catch (e: Exception) {
             AppLogger.e("DiscoverRepo", "getRecommendations error for $contentId", e)
             emptyList()
+        }
+    }
+
+    override suspend fun getSeriesRelationships(wikidataId: String): Pair<List<ContentPreview>, Set<String>> {
+        return try {
+            val relationships = wikidataApi.getRelationships(wikidataId)
+            val results = mutableListOf<ContentPreview>()
+            val excludeIds = mutableSetOf<String>()
+
+            for (rel in relationships) {
+                val tmdbId = rel.tmdbTvId ?: rel.tmdbMovieId ?: continue
+                val isTv = rel.tmdbTvId != null
+                val type = if (isTv) ContentType.SERIES else ContentType.MOVIE
+                val contentId = "tmdb-$tmdbId"
+                excludeIds.add(contentId)
+                try {
+                    val detail = if (isTv) tmdbApi.getTvDetailLight(tmdbId) else tmdbApi.getMovieDetail(tmdbId)
+                    val posterPath = (detail as? com.dondeloexan.data.remote.dto.TmdbTvDetailDto)?.posterPath
+                        ?: (detail as? com.dondeloexan.data.remote.dto.TmdbMovieDto)?.posterPath
+                    results.add(
+                        ContentPreview(
+                            id = contentId,
+                            source = ContentSource.TMDB,
+                            tmdbId = tmdbId,
+                            title = rel.targetLabel,
+                            type = type,
+                            coverUrl = posterPath?.let { "https://image.tmdb.org/t/p/w500$it" }
+                        )
+                    )
+                } catch (e: Exception) {
+                    results.add(
+                        ContentPreview(
+                            id = contentId,
+                            source = ContentSource.TMDB,
+                            tmdbId = tmdbId,
+                            title = rel.targetLabel,
+                            type = type
+                        )
+                    )
+                }
+            }
+            results to excludeIds
+        } catch (e: Exception) {
+            AppLogger.e("DiscoverRepo", "getSeriesRelationships error for $wikidataId", e)
+            emptyList<ContentPreview>() to emptySet()
         }
     }
 }
