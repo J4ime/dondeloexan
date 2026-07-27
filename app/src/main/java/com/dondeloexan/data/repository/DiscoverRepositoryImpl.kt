@@ -665,8 +665,13 @@ class DiscoverRepositoryImpl(
     override suspend fun getCriticReviews(contentId: String, title: String, year: Int?): List<CriticReview> {
         val cacheTtlMs = 24 * 60 * 60 * 1000L
         val cached = criticReviewDao.getByContentId(contentId)
-        if (cached != null && System.currentTimeMillis() - cached.cachedAt < cacheTtlMs) {
-            return reviewsFromJson(cached.reviewsJson)
+        if (cached != null) {
+            val age = System.currentTimeMillis() - cached.cachedAt
+            val cachedReviews = reviewsFromJson(cached.reviewsJson)
+            AppLogger.i("DiscoverRepo", "getCriticReviews: cache hit for $title, age=${age}ms / ttl=${cacheTtlMs}ms, expired=${age >= cacheTtlMs}, cachedReviews=${cachedReviews.size}")
+            if (age < cacheTtlMs && cachedReviews.isNotEmpty()) {
+                return cachedReviews
+            }
         }
 
         val faId = filmaffinityScraper.searchMovieId(title, year)
@@ -674,6 +679,7 @@ class DiscoverRepositoryImpl(
             AppLogger.w("DiscoverRepo", "getCriticReviews: no FA id for $title")
             return emptyList()
         }
+        AppLogger.i("DiscoverRepo", "getCriticReviews: FA id=$faId, calling getProReviews")
         val reviews = filmaffinityScraper.getProReviews(faId)
         movieDao.updateFaId(contentId, faId)
         tvShowDao.updateFaId(contentId, faId)

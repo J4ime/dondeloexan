@@ -127,12 +127,13 @@ class MediaDetailViewModel(
             try {
                 val title = content.originalTitle ?: content.title
                 val year = content.year
+                AppLogger.i("DetailVM", "loadCriticReviews: calling getCriticReviews(id=${content.id}, title=$title, year=$year)")
                 val reviews = discoverRepository.getCriticReviews(content.id, title, year)
+                AppLogger.i("DetailVM", "loadCriticReviews: got ${reviews.size} reviews")
                 if (reviews.isNotEmpty()) {
-                    val faId = when (content.type) {
-                        ContentType.MOVIE -> movieDao.getByContentId(content.id)?.faId
-                        ContentType.SERIES -> tvShowDao.getByContentId(content.id)?.faId
-                    }
+                    val faId = movieDao.getByContentId(content.id)?.faId
+                        ?: tvShowDao.getByContentId(content.id)?.faId
+                    AppLogger.i("DetailVM", "loadCriticReviews: faId from entity = $faId")
                     if (faId != null) {
                         val faUrl = "https://www.filmaffinity.com/es/film$faId.html"
                         val currentLinks = _uiState.value.content?.externalLinks
@@ -141,6 +142,7 @@ class MediaDetailViewModel(
                         _uiState.value = _uiState.value.copy(
                             content = _uiState.value.content?.copy(externalLinks = updatedLinks)
                         )
+                        AppLogger.i("DetailVM", "loadCriticReviews: set FA URL = $faUrl")
                     }
                 }
                 _uiState.value = _uiState.value.copy(

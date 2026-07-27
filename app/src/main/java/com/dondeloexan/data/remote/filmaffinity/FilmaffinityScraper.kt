@@ -18,17 +18,57 @@ class FilmaffinityScraper(private val httpClient: HttpClient) {
         try {
             val query = title
             val encoded = URLEncoder.encode(query, "UTF-8")
-            val html = httpClient.get("https://www.filmaffinity.com/es/search.php?stext=$encoded&stype=title&em=1").bodyAsText()
+            val url = "https://www.filmaffinity.com/es/search.php?stext=$encoded&stype=title&em=1"
+            AppLogger.i("Filmaffinity", "searchMovieId: GET $url")
+            val html = httpClient.get(url).bodyAsText()
+            AppLogger.i("Filmaffinity", "searchMovieId: response length=${html.length}")
             val doc = Jsoup.parse(html)
-            val link = doc.selectFirst("a[href^=/es/film]")
-                ?: doc.selectFirst("link[rel=alternate][href^=/es/film]") ?: run {
-                AppLogger.w("Filmaffinity", "searchMovieId: no film link found for '$query'")
-                return@withContext null
+
+            val link = doc.selectFirst("a[href*=/es/film]")
+            if (link != null) {
+                val href = link.attr("href")
+                AppLogger.i("Filmaffinity", "searchMovieId: found a[href~=/es/film] -> $href")
+                val id = FILM_ID_REGEX.find(href)?.groupValues?.get(1)?.toIntOrNull()
+                if (id != null) {
+                    AppLogger.i("Filmaffinity", "searchMovieId: ✅ ID=$id from a tag")
+                    return@withContext id
+                }
+                AppLogger.w("Filmaffinity", "searchMovieId: could not parse id from a tag '$href'")
             }
-            val href = link.attr("href")
-            val id = FILM_ID_REGEX.find(href)?.groupValues?.get(1)?.toIntOrNull()
-            if (id == null) AppLogger.w("Filmaffinity", "searchMovieId: could not parse id from '$href'")
-            id
+
+            val link2 = doc.selectFirst("link[rel=alternate][href*=/es/film]")
+            if (link2 != null) {
+                val href = link2.attr("href")
+                AppLogger.i("Filmaffinity", "searchMovieId: found link[rel=alternate][href*=/es/film] -> $href")
+                val id = FILM_ID_REGEX.find(href)?.groupValues?.get(1)?.toIntOrNull()
+                if (id != null) {
+                    AppLogger.i("Filmaffinity", "searchMovieId: ✅ ID=$id from link tag")
+                    return@withContext id
+                }
+                AppLogger.w("Filmaffinity", "searchMovieId: could not parse id from link '$href'")
+            }
+
+            val cards = doc.select(".movie-card")
+            if (cards.isNotEmpty()) {
+                AppLogger.i("Filmaffinity", "searchMovieId: found ${cards.size} movie cards, searching by year=$year")
+                for (card in cards) {
+                    val cardYear = card.selectFirst(".mc-year")?.text()?.trim()?.toIntOrNull()
+                    val cardId = card.attr("data-movie-id").toIntOrNull()
+                    AppLogger.i("Filmaffinity", "searchMovieId: card id=$cardId year=$cardYear")
+                    if (cardId != null && (year == null || cardYear == year)) {
+                        AppLogger.i("Filmaffinity", "searchMovieId: ✅ ID=$cardId from movie-card (year match=${cardYear == year})")
+                        return@withContext cardId
+                    }
+                }
+                val firstId = cards.first().attr("data-movie-id").toIntOrNull()
+                if (firstId != null) {
+                    AppLogger.i("Filmaffinity", "searchMovieId: ✅ ID=$firstId from first movie-card (no year match)")
+                    return@withContext firstId
+                }
+            }
+
+            AppLogger.w("Filmaffinity", "searchMovieId: no id found for '$query'")
+            return@withContext null
         } catch (e: Exception) {
             AppLogger.e("Filmaffinity", "searchMovieId error for $title", e)
             null
@@ -37,12 +77,20 @@ class FilmaffinityScraper(private val httpClient: HttpClient) {
 
     suspend fun getProReviews(faMovieId: Int): List<CriticReview> = withContext(Dispatchers.IO) {
         try {
-            val html = httpClient.get("https://www.filmaffinity.com/es/pro-reviews.php?movie-id=$faMovieId").bodyAsText()
+            val url = "https://www.filmaffinity.com/es/pro-reviews.php?movie-id=$faMovieId"
+            AppLogger.i("Filmaffinity", "getProReviews: GET $url")
+            val html = httpClient.get(url).bodyAsText()
+            val hasTable = "pro-rev-table" in html
+            val tableIdx = html.indexOf("pro-rev-table")
+            AppLogger.i("Filmaffinity", "getProReviews: htmlLen=${html.length}, hasTable=$hasTable, tableIdx=$tableIdx, first200=${html.take(200).replace('\n', '¶')}")
             val doc = Jsoup.parse(html)
+            val tables = doc.select("table")
+            val proRevTables = doc.select("table.pro-rev-table")
             val rows = doc.select("table.pro-rev-table tbody tr")
+            AppLogger.i("Filmaffinity", "getProReviews: tables=${tables.size}, proRevTables=${proRevTables.size}, rows=${rows.size}, docChildren=${doc.children().size}")
             if (rows.isEmpty()) return@withContext emptyList()
 
-            rows.mapNotNull { row ->
+            rows.take(5).mapNotNull { row ->
                 try {
                     val authorEl = row.selectFirst("td.author .author-name a")
                     val publicationEl = row.selectFirst("td.author em a, td.author strong a")

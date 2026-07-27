@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -1081,6 +1083,7 @@ private fun appendCinemaPlatform(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun StreamingSection(platforms: List<StreamingAvailability>) {
     Column(
@@ -1098,12 +1101,13 @@ private fun StreamingSection(platforms: List<StreamingAvailability>) {
         )
         Spacer(Modifier.height(8.dp))
 
-        Row(
+        FlowRow(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             platforms.forEach { platform ->
                 Column(
+                    modifier = Modifier.width(60.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
@@ -1344,7 +1348,7 @@ private fun CriticReviewsSection(viewModel: MediaDetailViewModel) {
         HorizontalDivider(color = DarkSurfaceVariant.copy(alpha = 0.5f))
         Spacer(Modifier.height(8.dp))
         Text(
-            "Críticas de Filmaffinity",
+            "Crítica",
             style = UbuntuTypography.titleSmall,
             color = TextPrimary,
             fontWeight = FontWeight.Bold
