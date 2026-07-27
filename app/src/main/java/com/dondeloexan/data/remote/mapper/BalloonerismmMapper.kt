@@ -141,9 +141,8 @@ fun ImdbCountryProviders.toStreamingAvailability(): List<StreamingAvailability> 
                 availabilityType = AvailabilityType.FREE
             )
         }
-    ).flatten()
+    ).flatten().distinctBy { it.platformName }
 }
-
 fun ImdbDetailSeasonDto.toTmdbSeasonDto(): TmdbSeasonDto = TmdbSeasonDto(
     seasonNumber = seasonNumber ?: 0,
     airDate = null,

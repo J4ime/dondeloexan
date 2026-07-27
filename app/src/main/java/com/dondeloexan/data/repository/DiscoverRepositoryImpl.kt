@@ -670,7 +670,8 @@ class DiscoverRepositoryImpl(
             val cachedReviews = reviewsFromJson(cached.reviewsJson)
             AppLogger.i("DiscoverRepo", "getCriticReviews: cache hit for $title, age=${age}ms / ttl=${cacheTtlMs}ms, expired=${age >= cacheTtlMs}, cachedReviews=${cachedReviews.size}")
             if (age < cacheTtlMs && cachedReviews.isNotEmpty()) {
-                return cachedReviews
+                if (cachedReviews.size <= 5) return cachedReviews
+                criticReviewDao.deleteByContentId(contentId)
             }
         }
 

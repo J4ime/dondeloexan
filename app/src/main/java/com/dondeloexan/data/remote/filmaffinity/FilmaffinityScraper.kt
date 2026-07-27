@@ -115,7 +115,8 @@ class FilmaffinityScraper(private val httpClient: HttpClient) {
                 }
             }.let { reviews ->
                 val fromSpanish = reviews.filter { it.publication.normalize() in SPANISH_MEDIA }
-                if (fromSpanish.isNotEmpty()) fromSpanish.take(5) else reviews.take(5)
+                val nonSpanish = reviews.filter { it.publication.normalize() !in SPANISH_MEDIA }
+                fromSpanish.take(5) + nonSpanish.take((5 - fromSpanish.size).coerceAtLeast(0))
             }
         } catch (e: Exception) {
             AppLogger.e("Filmaffinity", "getProReviews error for $faMovieId", e)

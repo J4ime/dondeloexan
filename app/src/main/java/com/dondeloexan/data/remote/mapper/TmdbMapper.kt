@@ -193,5 +193,5 @@ fun TmdbCountryProviders.toStreamingAvailability(): List<StreamingAvailability> 
                 availabilityType = AvailabilityType.FREE
             )
         }
-    ).flatten()
+    ).flatten().distinctBy { it.platformName }
 }
