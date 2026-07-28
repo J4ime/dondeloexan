@@ -102,7 +102,12 @@ class MediaDetailViewModel(
         cast.forEach { person ->
             val tmdbId = person.tmdbId ?: return@forEach
             viewModelScope.launch {
-                val social = try { tmdbApi.getPersonExternalIds(tmdbId) } catch (e: Exception) { null }
+                val social = try {
+                    tmdbApi.getPersonExternalIds(tmdbId)
+                } catch (e: Exception) {
+                    AppLogger.w("DetailVM", "personExternalIds failed for tmdb=$tmdbId: ${e.message}")
+                    null
+                }
                 if (social != null) {
                     personSocialCache[tmdbId] = social
                     val url = social.instagramId?.let { "https://instagram.com/$it/" }

@@ -57,6 +57,7 @@ class WikidataApi(
                         imdbId = foundImdbId
                     )
                 } catch (e: Exception) {
+                    AppLogger.w("WikidataApi", "Failed to parse SPARQL binding: ${e.message}")
                     null
                 }
             }

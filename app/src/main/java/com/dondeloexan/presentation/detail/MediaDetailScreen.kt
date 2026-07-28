@@ -1168,12 +1168,14 @@ private fun appendCinemaPlatform(
         null
     }
 
-    return if (cinemaLabel != null) {
+    val hasSubscription = platforms.any { it.availabilityType == AvailabilityType.SUBSCRIPTION }
+    AppLogger.d("MediaDetailScreen", "appendCinemaPlatform: releaseDate=$releaseDate, cinemaLabel=$cinemaLabel, hasSubscription=$hasSubscription, platformCount=${platforms.size}")
+    return if (cinemaLabel != null && !hasSubscription) {
         val cinemaPlatform = StreamingAvailability(
             platformName = cinemaLabel,
             platformId = null,
             logoUrl = null,
-            availabilityType = com.dondeloexan.domain.model.AvailabilityType.SUBSCRIPTION
+            availabilityType = AvailabilityType.ADS
         )
         listOf(cinemaPlatform) + platforms
     } else {

@@ -214,7 +214,8 @@ class DiscoverRepositoryImpl(
                 instagramId = social.instagramId,
                 twitterId = social.twitterId,
                 youtubeId = social.youtubeId,
-                homepage = social.homepage
+                homepage = social.homepage,
+                wikidataId = social.wikidataId
             )
         } catch (e: Exception) {
             AppLogger.e("DiscoverRepo", "externalLinks for imdb $imdbId", e)
@@ -292,23 +293,32 @@ class DiscoverRepositoryImpl(
                 )
             }
 
-            val externalLinks = try {
-                val tvImdbId = tmdbApi.getTvExternalIds(tmdbId).imdbId
-                tvImdbId?.let { imdb ->
-                    val social = imdbApi.getTvExternalIds(imdb)
-                    ExternalLinks(
-                        imdbId = social.imdbId,
-                        wikipediaUrl = social.wikipediaUrl,
-                        facebookId = social.facebookId,
-                        instagramId = social.instagramId,
-                        twitterId = social.twitterId,
-                        youtubeId = social.youtubeId,
-                        homepage = social.homepage,
-                        wikidataId = social.wikidataId
-                    )
-                }
+            val tvImdbId = try {
+                tmdbApi.getTvExternalIds(tmdbId).imdbId
             } catch (e: Exception) {
-                AppLogger.e("DiscoverRepo", "externalLinks for tmdb $tmdbId", e)
+                AppLogger.e("DiscoverRepo", "TMDB externalIds failed for tmdb=$tmdbId", e)
+                null
+            }
+
+            val externalLinks = if (tvImdbId != null) {
+                val social = try {
+                    imdbApi.getTvExternalIds(tvImdbId)
+                } catch (e: Exception) {
+                    AppLogger.e("DiscoverRepo", "Balloonerismm externalIds failed for imdb=$tvImdbId", e)
+                    null
+                }
+                ExternalLinks(
+                    imdbId = social?.imdbId ?: tvImdbId,
+                    wikipediaUrl = social?.wikipediaUrl,
+                    facebookId = social?.facebookId,
+                    instagramId = social?.instagramId,
+                    twitterId = social?.twitterId,
+                    youtubeId = social?.youtubeId,
+                    homepage = social?.homepage,
+                    wikidataId = social?.wikidataId
+                )
+            } else {
+                AppLogger.w("DiscoverRepo", "No IMDb ID from TMDB for tmdb=$tmdbId")
                 null
             }
 
