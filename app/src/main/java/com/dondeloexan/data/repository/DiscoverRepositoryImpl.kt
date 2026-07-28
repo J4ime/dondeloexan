@@ -705,6 +705,7 @@ class DiscoverRepositoryImpl(
     }
 
     override suspend fun getCriticReviews(contentId: String, title: String, year: Int?): List<CriticReview> {
+        criticReviewDao.deleteAll()
         val cacheTtlMs = 24 * 60 * 60 * 1000L
         val cached = criticReviewDao.getByContentId(contentId)
         if (cached != null) {

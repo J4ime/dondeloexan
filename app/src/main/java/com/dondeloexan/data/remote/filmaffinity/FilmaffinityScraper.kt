@@ -86,7 +86,7 @@ class FilmaffinityScraper(private val httpClient: HttpClient) {
             rows.mapNotNull { row ->
                 try {
                     val authorEl = row.selectFirst("td.author .author-name a")
-                    val publicationEl = row.selectFirst("td.author em a, td.author strong a")
+                    val publicationEl = row.selectFirst("td.author em a, td.author strong a, td.author em, td.author strong")
                     val revTextEl = row.selectFirst("td.rev-text a, td.rev-text")
                     val biasEl = row.selectFirst("td.bias i")
 
@@ -116,7 +116,8 @@ class FilmaffinityScraper(private val httpClient: HttpClient) {
             }.let { reviews ->
                 val fromSpanish = reviews.filter { it.publication.normalize() in SPANISH_MEDIA }
                 val nonSpanish = reviews.filter { it.publication.normalize() !in SPANISH_MEDIA }
-                fromSpanish.take(5) + nonSpanish.take((5 - fromSpanish.size).coerceAtLeast(0))
+                val (priority, rest) = fromSpanish.partition { it.publication.normalize() in PRIORITY_MEDIA }
+                (priority + rest).take(5) + nonSpanish.take((5 - fromSpanish.size).coerceAtLeast(0))
             }
         } catch (e: Exception) {
             AppLogger.e("Filmaffinity", "getProReviews error for $faMovieId", e)
@@ -145,6 +146,7 @@ class FilmaffinityScraper(private val httpClient: HttpClient) {
         private val FILM_ID_REGEX = Regex("/es/film(\\d+)\\.html")
         private val STAR_RATING_REGEX = Regex("[★☆½]{1,10}(\\s*\\(sobre \\d+\\))?")
         private val NUMERIC_RATING_REGEX = Regex("\\d{1,2}(\\.\\d)?\\s*\\(sobre \\d+\\)")
+        private val PRIORITY_MEDIA = setOf("el pais")
         private val SPANISH_MEDIA = setOf(
             "el pais", "el mundo", "abc", "la vanguardia", "el periodico",
             "cinemania", "fotogramas", "sensacine", "el confidencial",
