@@ -65,6 +65,14 @@ class DiscoverRepositoryImpl(
     private val platformsCache = ConcurrentHashMap<String, CachedPlatforms>()
     private val CACHE_TTL_MS = 4 * 60 * 60 * 1000L
 
+    private data class CachedRelationships(
+        val previews: List<ContentPreview>,
+        val excludeIds: Set<String>,
+        val timestamp: Long
+    )
+    private val relationshipsCache = ConcurrentHashMap<String, CachedRelationships>()
+    private val RELATIONSHIPS_CACHE_TTL_MS = 24 * 60 * 60 * 1000L
+
     override suspend fun search(query: String): Flow<DataResult<List<ContentPreview>>> = search(query, 1)
 
     override suspend fun search(query: String, page: Int): Flow<DataResult<List<ContentPreview>>> = flow {
@@ -774,6 +782,12 @@ class DiscoverRepositoryImpl(
 
     override suspend fun getSeriesRelationships(wikidataId: String?, imdbId: String?): Pair<List<ContentPreview>, Set<String>> {
         AppLogger.d("DiscoverRepo", "getSeriesRelationships called — wikidataId=$wikidataId, imdbId=$imdbId")
+        val cacheKey = "${wikidataId.orEmpty()}|${imdbId.orEmpty()}"
+        val cached = relationshipsCache[cacheKey]
+        if (cached != null && (System.currentTimeMillis() - cached.timestamp) < RELATIONSHIPS_CACHE_TTL_MS) {
+            AppLogger.d("DiscoverRepo", "getSeriesRelationships cache hit for $cacheKey, returning ${cached.previews.size} previews")
+            return cached.previews to cached.excludeIds
+        }
         return try {
             val relationships = wikidataApi.getRelationships(wikidataId, imdbId)
             val results = mutableListOf<ContentPreview>()
@@ -812,7 +826,9 @@ class DiscoverRepositoryImpl(
                 }
             }
             AppLogger.d("DiscoverRepo", "getSeriesRelationships returning ${results.size} previews, ${excludeIds.size} excludeIds")
-            results to excludeIds
+            val pair = results to excludeIds
+            relationshipsCache[cacheKey] = CachedRelationships(results, excludeIds, System.currentTimeMillis())
+            pair
         } catch (e: Exception) {
             AppLogger.e("DiscoverRepo", "getSeriesRelationships error", e)
             emptyList<ContentPreview>() to emptySet()

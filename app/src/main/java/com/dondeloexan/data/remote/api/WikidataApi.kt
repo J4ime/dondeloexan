@@ -2,10 +2,12 @@ package com.dondeloexan.data.remote.api
 
 import com.dondeloexan.data.remote.dto.WikidataSparqlResponse
 import com.dondeloexan.util.AppLogger
+import com.dondeloexan.util.retryWithBackoff
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import kotlinx.serialization.json.Json
+import java.util.concurrent.ConcurrentHashMap
 
 data class WikidataRelationship(
     val relationType: String,
@@ -19,12 +21,14 @@ class WikidataApi(
     private val client: HttpClient,
     private val json: Json
 ) {
+    private val wikidataIdCache = ConcurrentHashMap<String, String?>()
+
     suspend fun getRelationships(wikidataId: String? = null, imdbId: String? = null): List<WikidataRelationship> {
         AppLogger.d("WikidataApi", "getRelationships called — wikidataId=$wikidataId, imdbId=$imdbId")
         val resolvedId = if (!wikidataId.isNullOrBlank()) {
             wikidataId
         } else if (!imdbId.isNullOrBlank()) {
-            resolveWikidataId(imdbId)
+            wikidataIdCache.getOrPut(imdbId) { resolveWikidataId(imdbId) }
         } else {
             AppLogger.d("WikidataApi", "No wikidataId nor imdbId provided")
             return emptyList()
@@ -38,7 +42,9 @@ class WikidataApi(
                 .removePrefix("https://www.wikidata.org/wiki/")
                 .trim()
             val query = buildQuery(cleanId)
-            val response = client.get("sparql?format=json&query=${encodeQuery(query)}")
+            val response = retryWithBackoff {
+                client.get("sparql?format=json&query=${encodeQuery(query)}")
+            }
             val body = response.bodyAsText()
             AppLogger.d("WikidataApi", "SPARQL response length=${body.length}")
             val parsed = json.decodeFromString<WikidataSparqlResponse>(body)
@@ -72,7 +78,9 @@ class WikidataApi(
     private suspend fun resolveWikidataId(imdbId: String): String? {
         return try {
             val query = "SELECT ?entity WHERE { ?entity wdt:P345 \"$imdbId\" }"
-            val response = client.get("sparql?format=json&query=${encodeQuery(query)}")
+            val response = retryWithBackoff {
+                client.get("sparql?format=json&query=${encodeQuery(query)}")
+            }
             val body = response.bodyAsText()
             val parsed = json.decodeFromString<WikidataSparqlResponse>(body)
             val bindings = parsed.results.bindings
