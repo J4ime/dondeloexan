@@ -303,7 +303,7 @@ private fun SeriesRelationshipsSection(viewModel: MediaDetailViewModel, onNaviga
         HorizontalDivider(color = DarkSurfaceVariant.copy(alpha = 0.5f))
         Spacer(Modifier.height(8.dp))
         Text(
-            "Relaciones",
+            "Spinoffs",
             style = UbuntuTypography.titleSmall,
             color = TextPrimary,
             fontWeight = FontWeight.Bold
@@ -604,13 +604,27 @@ private fun FichaTab(content: Content, viewModel: MediaDetailViewModel, onNaviga
         }
     }
 
+    val futureReleaseLabel = remember(content) {
+        if (content.type == ContentType.MOVIE && content.releaseDate != null) {
+            try {
+                val date = LocalDate.parse(content.releaseDate)
+                val now = LocalDate.now()
+                val daysUntilRelease = ChronoUnit.DAYS.between(now, date)
+                val hasSubscription = content.streamingPlatforms.any { it.availabilityType == AvailabilityType.SUBSCRIPTION }
+                if (daysUntilRelease > 0 && !hasSubscription) {
+                    date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+                } else null
+            } catch (e: Exception) { null }
+        } else null
+    }
+
     LazyColumn(
         modifier = Modifier.fillMaxSize()
     ) {
         item { HeroSection(content) }
         item { RatingRow(content) }
-        if (displayPlatforms.isNotEmpty()) {
-            item { StreamingSection(displayPlatforms) }
+        if (displayPlatforms.isNotEmpty() || futureReleaseLabel != null) {
+            item { StreamingSection(displayPlatforms, futureReleaseLabel) }
         }
         item { TechnicalInfoSection(content, viewModel) }
         if (content.externalLinks != null) {
@@ -1160,7 +1174,7 @@ private fun appendCinemaPlatform(
 
         when {
             daysSinceRelease in 0..90 -> "En cines → Fin: ${cinemaEnd.format(DateTimeFormatter.ofPattern("dd/MM"))}"
-            daysUntilRelease > 0 -> "Estreno: ${date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}"
+            daysUntilRelease > 0 -> null
             else -> null
         }
     } catch (e: Exception) {
@@ -1185,7 +1199,7 @@ private fun appendCinemaPlatform(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun StreamingSection(platforms: List<StreamingAvailability>) {
+private fun StreamingSection(platforms: List<StreamingAvailability>, futureReleaseLabel: String? = null) {
     val cinemaPlatforms = platforms.filter { it.platformName.contains("Cine", ignoreCase = true) || it.platformName.contains("Estreno", ignoreCase = true) }
     val subscription = platforms.filter { it.availabilityType == AvailabilityType.SUBSCRIPTION }
     val ads = platforms.filter { it.availabilityType == AvailabilityType.ADS }
@@ -1193,7 +1207,7 @@ private fun StreamingSection(platforms: List<StreamingAvailability>) {
     val buy = platforms.filter { it.availabilityType == AvailabilityType.BUY }
     val free = platforms.filter { it.availabilityType == AvailabilityType.FREE }
 
-    if (platforms.isEmpty()) return
+    if (platforms.isEmpty() && futureReleaseLabel == null) return
 
     @Composable
     fun platformRow(label: String, items: List<StreamingAvailability>) {
@@ -1229,6 +1243,15 @@ private fun StreamingSection(platforms: List<StreamingAvailability>) {
             fontWeight = FontWeight.Bold
         )
         Spacer(Modifier.height(8.dp))
+
+        if (futureReleaseLabel != null && platforms.isEmpty()) {
+            Text(
+                "Estreno: $futureReleaseLabel",
+                style = UbuntuTypography.bodyMedium,
+                color = EleganteRose,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
 
         platformRow("Cine", cinemaPlatforms)
         platformRow("Subscripción", subscription)
