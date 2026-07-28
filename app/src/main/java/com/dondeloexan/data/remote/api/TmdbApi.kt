@@ -13,6 +13,7 @@ import com.dondeloexan.data.remote.dto.TmdbPersonSearchResponse
 import com.dondeloexan.data.remote.dto.TmdbTrendingResponse
 import com.dondeloexan.data.remote.dto.TmdbTvDetailDto
 import com.dondeloexan.data.remote.dto.TmdbTvSeasonDetailDto
+import com.dondeloexan.data.remote.dto.TmdbMovieReleaseDatesResponse
 import com.dondeloexan.data.remote.dto.TmdbWatchProvidersResponse
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -78,6 +79,11 @@ class TmdbApi(private val client: HttpClient) {
 
     suspend fun getTvWatchProviders(tvId: Int): TmdbWatchProvidersResponse {
         val response = client.get("tv/$tvId/watch/providers")
+        return response.body()
+    }
+
+    suspend fun getMovieReleaseDates(movieId: Int): TmdbMovieReleaseDatesResponse {
+        val response = client.get("movie/$movieId/release_dates")
         return response.body()
     }
 

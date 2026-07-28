@@ -362,11 +362,31 @@ class DiscoverRepositoryImpl(
                 null
             }
 
-            val content = movie.toDomain(omdbRatings, platforms, credits, externalLinks)
+            val releaseDatesEs = try {
+                val rd = tmdbApi.getMovieReleaseDates(tmdbId)
+                val esRels = rd.results.firstOrNull { c -> c.isoCode == "ES" }
+                if (esRels != null) {
+                    fun pick(type: Int): String? =
+                        esRels.releaseDates.firstOrNull { r -> r.type == type }?.releaseDate
+                            ?.substringBefore("T")?.substringBefore(" ")
+                    Triple(pick(3), pick(4), pick(6))
+                } else Triple(null, null, null)
+            } catch (e: Exception) {
+                AppLogger.e("DiscoverRepo", "releaseDates for tmdb=$tmdbId", e)
+                Triple(null, null, null)
+            }
+
+            var content = movie.toDomain(omdbRatings, platforms, credits, externalLinks)
+            content = content.copy(
+                spanishReleaseDate = releaseDatesEs.first,
+                digitalReleaseDate = releaseDatesEs.second,
+                tvReleaseDate = releaseDatesEs.third
+            )
+
             if (movie.imdbId != null) {
                 try {
                     val omdb = omdbApi.getByImdbId(movie.imdbId)
-                    content.copy(
+                    content = content.copy(
                         ratingImdb = omdb.imdbRating?.toFloatOrNull(),
                         ratingRt = omdb.ratings?.find { it.source == "Rotten Tomatoes" }
                             ?.value?.removeSuffix("%")?.toIntOrNull(),
@@ -374,9 +394,9 @@ class DiscoverRepositoryImpl(
                     )
                 } catch (e: Exception) {
                     AppLogger.e("DiscoverRepo", "OMDB override for ${movie.imdbId}", e)
-                    content
                 }
-            } else content
+            }
+            content
         }
     }
 

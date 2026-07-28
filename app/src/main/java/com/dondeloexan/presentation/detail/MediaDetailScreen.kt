@@ -618,13 +618,34 @@ private fun FichaTab(content: Content, viewModel: MediaDetailViewModel, onNaviga
         } else null
     }
 
+    val futurePlatformInfo = remember(content) {
+        if (content.type != ContentType.MOVIE) null
+        else {
+            val now = LocalDate.now()
+            val items = mutableListOf<String>()
+            content.digitalReleaseDate?.let { d ->
+                try {
+                    val ld = LocalDate.parse(d.substringBefore("T").substringBefore(" "))
+                    if (ld.isAfter(now)) items.add("Digital: ${ld.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}")
+                } catch (_: Exception) {}
+            }
+            content.tvReleaseDate?.let { t ->
+                try {
+                    val ld = LocalDate.parse(t.substringBefore("T").substringBefore(" "))
+                    if (ld.isAfter(now)) items.add("TV/Streaming: ${ld.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}")
+                } catch (_: Exception) {}
+            }
+            items.ifEmpty { null }
+        }
+    }
+
     LazyColumn(
         modifier = Modifier.fillMaxSize()
     ) {
         item { HeroSection(content) }
         item { RatingRow(content) }
-        if (displayPlatforms.isNotEmpty() || futureReleaseLabel != null) {
-            item { StreamingSection(displayPlatforms, futureReleaseLabel) }
+        if (displayPlatforms.isNotEmpty() || futureReleaseLabel != null || futurePlatformInfo != null) {
+            item { StreamingSection(displayPlatforms, futureReleaseLabel, futurePlatformInfo) }
         }
         item { TechnicalInfoSection(content, viewModel) }
         if (content.externalLinks != null) {
@@ -1199,15 +1220,15 @@ private fun appendCinemaPlatform(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun StreamingSection(platforms: List<StreamingAvailability>, futureReleaseLabel: String? = null) {
+private fun StreamingSection(platforms: List<StreamingAvailability>, futureReleaseLabel: String? = null, futurePlatformInfo: List<String>? = null) {
     val cinemaPlatforms = platforms.filter { it.platformName.contains("Cine", ignoreCase = true) || it.platformName.contains("Estreno", ignoreCase = true) }
     val subscription = platforms.filter { it.availabilityType == AvailabilityType.SUBSCRIPTION }
-    val ads = platforms.filter { it.availabilityType == AvailabilityType.ADS }
+    val ads = platforms.filter { it.availabilityType == AvailabilityType.ADS && it !in cinemaPlatforms }
     val rent = platforms.filter { it.availabilityType == AvailabilityType.RENT }
     val buy = platforms.filter { it.availabilityType == AvailabilityType.BUY }
     val free = platforms.filter { it.availabilityType == AvailabilityType.FREE }
 
-    if (platforms.isEmpty() && futureReleaseLabel == null) return
+    if (platforms.isEmpty() && futureReleaseLabel == null && futurePlatformInfo == null) return
 
     @Composable
     fun platformRow(label: String, items: List<StreamingAvailability>) {
@@ -1244,13 +1265,26 @@ private fun StreamingSection(platforms: List<StreamingAvailability>, futureRelea
         )
         Spacer(Modifier.height(8.dp))
 
-        if (futureReleaseLabel != null && platforms.isEmpty()) {
+        if (futureReleaseLabel != null && platforms.isEmpty() && futurePlatformInfo == null) {
             Text(
                 "Estreno: $futureReleaseLabel",
                 style = UbuntuTypography.bodyMedium,
                 color = EleganteRose,
                 fontWeight = FontWeight.SemiBold
             )
+        }
+
+        if (futurePlatformInfo != null) {
+            futurePlatformInfo.forEach { info ->
+                Text(
+                    "Próximamente: $info",
+                    style = UbuntuTypography.bodySmall,
+                    color = EleganteRose,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(bottom = 2.dp)
+                )
+            }
+            if (platforms.isNotEmpty()) Spacer(Modifier.height(6.dp))
         }
 
         platformRow("Cine", cinemaPlatforms)

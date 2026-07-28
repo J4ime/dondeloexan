@@ -298,3 +298,21 @@ data class TmdbPersonExternalIdsDto(
     @SerialName("facebook_id") val facebookId: String? = null,
     @SerialName("youtube_id") val youtubeId: String? = null
 )
+
+@Serializable
+data class TmdbMovieReleaseDatesResponse(
+    val id: Int = 0,
+    val results: List<TmdbReleaseDateCountry> = emptyList()
+)
+
+@Serializable
+data class TmdbReleaseDateCountry(
+    @SerialName("iso_3166_1") val isoCode: String,
+    @SerialName("release_dates") val releaseDates: List<TmdbReleaseDateItem> = emptyList()
+)
+
+@Serializable
+data class TmdbReleaseDateItem(
+    @SerialName("release_date") val releaseDate: String,
+    val type: Int
+)
