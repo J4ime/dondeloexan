@@ -1,6 +1,7 @@
 package com.dondeloexan.data.repository
 
 import com.dondeloexan.data.local.dao.CriticReviewDao
+import com.dondeloexan.data.local.dao.FaMovieDataDao
 import com.dondeloexan.data.local.dao.MovieDao
 import com.dondeloexan.data.local.dao.TvShowDao
 import com.dondeloexan.data.local.dao.TvShowProgressDao
@@ -9,6 +10,7 @@ import com.dondeloexan.data.local.datastore.UserPreferencesDataStore
 import com.dondeloexan.data.remote.TmdbProviderIds
 import com.dondeloexan.data.remote.filmaffinity.FilmaffinityScraper
 import com.dondeloexan.data.local.entity.CriticReviewEntity
+import com.dondeloexan.data.local.entity.FaMovieDataEntity
 import com.dondeloexan.domain.model.CriticReview
 import com.dondeloexan.data.remote.api.BalloonerismmApi
 import com.dondeloexan.data.remote.api.OmdbApi
@@ -28,6 +30,7 @@ import com.dondeloexan.domain.model.ContentSource
 import com.dondeloexan.domain.model.ContentType
 import com.dondeloexan.domain.model.DataResult
 import com.dondeloexan.domain.model.ExternalLinks
+import com.dondeloexan.domain.model.PlatformReleaseDate
 import com.dondeloexan.domain.model.Sentiment
 import com.dondeloexan.domain.model.StreamingAvailability
 import com.dondeloexan.domain.repository.DiscoverRepository
@@ -54,7 +57,8 @@ class DiscoverRepositoryImpl(
     private val tvShowProgressDao: TvShowProgressDao? = null,
     private val userPreferencesDataStore: UserPreferencesDataStore,
     private val filmaffinityScraper: FilmaffinityScraper,
-    private val criticReviewDao: CriticReviewDao
+    private val criticReviewDao: CriticReviewDao,
+    private val faMovieDataDao: FaMovieDataDao
 ) : DiscoverRepository {
 
     private data class CachedPlatforms(
@@ -734,6 +738,66 @@ class DiscoverRepositoryImpl(
             )
         )
         return reviews
+    }
+
+    override suspend fun getFaMovieData(contentId: String, title: String, year: Int?): Pair<Float?, List<PlatformReleaseDate>> {
+        val cacheTtlMs = 24 * 60 * 60 * 1000L
+        val cached = faMovieDataDao.getByContentId(contentId)
+        if (cached != null) {
+            val age = System.currentTimeMillis() - cached.cachedAt
+            AppLogger.i("DiscoverRepo", "getFaMovieData: cache hit for $title, age=${age}ms")
+            if (age < cacheTtlMs) {
+                val releases = platformReleasesFromJson(cached.platformReleasesJson)
+                return Pair(cached.faRating, releases)
+            }
+        }
+
+        val faId = cached?.faId ?: filmaffinityScraper.searchMovieId(title, year)
+        if (faId == null) {
+            AppLogger.w("DiscoverRepo", "getFaMovieData: no FA id for $title")
+            return Pair(null, emptyList())
+        }
+
+        val pageData = filmaffinityScraper.getMoviePageData(faId)
+        faMovieDataDao.upsert(
+            FaMovieDataEntity(
+                contentId = contentId,
+                faId = faId,
+                faRating = pageData.rating,
+                platformReleasesJson = platformReleasesToJson(pageData.vodReleases)
+            )
+        )
+        return Pair(pageData.rating, pageData.vodReleases)
+    }
+
+    private fun platformReleasesToJson(releases: List<PlatformReleaseDate>): String {
+        val arr = JSONArray()
+        for (r in releases) {
+            val obj = JSONObject()
+            obj.put("platformName", r.platformName)
+            obj.put("dateLabel", r.dateLabel)
+            r.releaseDate?.let { obj.put("releaseDate", it) }
+            arr.put(obj)
+        }
+        return arr.toString()
+    }
+
+    private fun platformReleasesFromJson(json: String?): List<PlatformReleaseDate> {
+        if (json.isNullOrBlank()) return emptyList()
+        return try {
+            val arr = JSONArray(json)
+            (0 until arr.length()).map { i ->
+                val obj = arr.getJSONObject(i)
+                PlatformReleaseDate(
+                    platformName = obj.getString("platformName"),
+                    dateLabel = obj.optString("dateLabel", ""),
+                    releaseDate = obj.optString("releaseDate", null)
+                )
+            }
+        } catch (e: Exception) {
+            AppLogger.e("DiscoverRepo", "platformReleasesFromJson error", e)
+            emptyList()
+        }
     }
 
     private fun reviewsToJson(reviews: List<CriticReview>): String {

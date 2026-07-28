@@ -23,6 +23,7 @@ import com.dondeloexan.domain.model.ContentType
 import com.dondeloexan.domain.model.PersonInfo
 import com.dondeloexan.domain.model.DataResult
 import com.dondeloexan.domain.model.ExternalLinks
+import com.dondeloexan.domain.model.PlatformReleaseDate
 import com.dondeloexan.domain.repository.DiscoverRepository
 import com.dondeloexan.util.AppLogger
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -168,6 +169,27 @@ class MediaDetailViewModel(
         }
     }
 
+    private fun loadFaMovieData(content: Content) {
+        if (content.type != ContentType.MOVIE) return
+        viewModelScope.launch {
+            try {
+                val title = content.originalTitle ?: content.title
+                val (rating, releases) = discoverRepository.getFaMovieData(content.id, title, content.year)
+                if (rating != null || releases.isNotEmpty()) {
+                    _uiState.value = _uiState.value.copy(
+                        content = _uiState.value.content?.copy(
+                            ratingFilmaffinity = rating,
+                            platformReleaseDates = releases
+                        )
+                    )
+                }
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                AppLogger.e("DetailVM", "Error loading FA movie data", e)
+            }
+        }
+    }
+
     private fun loadCollection(content: Content) {
         if (content.type != ContentType.MOVIE) return
         val collectionId = content.collectionTmdbId ?: return
@@ -269,6 +291,7 @@ class MediaDetailViewModel(
                             }
                             loadCastSocialInfo(content.cast.take(10))
                             loadCriticReviews(content)
+                            loadFaMovieData(content)
                             loadCollection(content)
                             loadSimilar(content)
                             loadSeriesRelationships(content)

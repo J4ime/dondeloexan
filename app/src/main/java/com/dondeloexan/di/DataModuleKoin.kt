@@ -5,6 +5,7 @@ import com.dondeloexan.data.backup.BackupRepositoryImpl
 import com.dondeloexan.data.local.AppDatabase
 import com.dondeloexan.data.local.dao.BlacklistDao
 import com.dondeloexan.data.local.dao.CriticReviewDao
+import com.dondeloexan.data.local.dao.FaMovieDataDao
 import com.dondeloexan.data.local.dao.MovieDao
 import com.dondeloexan.data.local.dao.SearchHistoryDao
 import com.dondeloexan.data.local.dao.TvShowDao
@@ -38,6 +39,7 @@ val dataModule = module {
     single<UserPlatformDao> { get<AppDatabase>().userPlatformDao() }
     single<BlacklistDao> { get<AppDatabase>().blacklistDao() }
     single<CriticReviewDao> { get<AppDatabase>().criticReviewDao() }
+    single<FaMovieDataDao> { get<AppDatabase>().faMovieDataDao() }
 
     // Backup
     single { BackupManager(get(), androidContext().contentResolver) }
@@ -82,7 +84,8 @@ val dataModule = module {
             tvShowProgressDao = get(),
             userPreferencesDataStore = get(),
             filmaffinityScraper = get(),
-            criticReviewDao = get()
+            criticReviewDao = get(),
+            faMovieDataDao = get()
         )
     }
 

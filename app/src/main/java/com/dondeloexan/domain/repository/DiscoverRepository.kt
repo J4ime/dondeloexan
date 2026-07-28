@@ -7,6 +7,7 @@ import com.dondeloexan.domain.model.ContentPreview
 import com.dondeloexan.domain.model.ContentType
 import com.dondeloexan.domain.model.CriticReview
 import com.dondeloexan.domain.model.DataResult
+import com.dondeloexan.domain.model.PlatformReleaseDate
 import kotlinx.coroutines.flow.Flow
 
 interface DiscoverRepository {
@@ -29,4 +30,5 @@ interface DiscoverRepository {
     suspend fun getCollectionMovies(collectionId: Int): List<ContentPreview>
     suspend fun getRecommendations(contentId: String, contentType: ContentType = ContentType.MOVIE): List<ContentPreview>
     suspend fun getSeriesRelationships(wikidataId: String? = null, imdbId: String? = null): Pair<List<ContentPreview>, Set<String>>
+    suspend fun getFaMovieData(contentId: String, title: String, year: Int? = null): Pair<Float?, List<PlatformReleaseDate>>
 }

@@ -14,9 +14,11 @@ import com.dondeloexan.data.local.dao.TvShowDao
 import com.dondeloexan.data.local.dao.TvShowProgressDao
 import com.dondeloexan.data.local.dao.UserPlatformDao
 import com.dondeloexan.data.local.dao.CriticReviewDao
+import com.dondeloexan.data.local.dao.FaMovieDataDao
 import com.dondeloexan.data.local.entity.BlacklistedEntity
 import com.dondeloexan.data.local.entity.Converters
 import com.dondeloexan.data.local.entity.CriticReviewEntity
+import com.dondeloexan.data.local.entity.FaMovieDataEntity
 import com.dondeloexan.data.local.entity.MovieEntity
 import com.dondeloexan.data.local.entity.SearchHistoryEntity
 import com.dondeloexan.data.local.entity.TvShowEntity
@@ -31,9 +33,10 @@ import com.dondeloexan.data.local.entity.UserPlatformEntity
         SearchHistoryEntity::class,
         UserPlatformEntity::class,
         BlacklistedEntity::class,
-        CriticReviewEntity::class
+        CriticReviewEntity::class,
+        FaMovieDataEntity::class
     ],
-    version = 16,
+    version = 17,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -45,7 +48,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun searchHistoryDao(): SearchHistoryDao
     abstract fun userPlatformDao(): UserPlatformDao
     abstract fun blacklistDao(): BlacklistDao
-abstract fun criticReviewDao(): CriticReviewDao
+    abstract fun criticReviewDao(): CriticReviewDao
+    abstract fun faMovieDataDao(): FaMovieDataDao
 
     companion object {
         private const val DB_NAME = "dondeloexan.db"
@@ -187,9 +191,21 @@ abstract fun criticReviewDao(): CriticReviewDao
             db.execSQL("ALTER TABLE tv_shows_new RENAME TO tv_shows")
         }
 
+        private val MIGRATION_16_17 = Migration(16, 17) { db ->
+            db.execSQL("""
+                CREATE TABLE IF NOT EXISTS fa_movie_data (
+                    content_id TEXT PRIMARY KEY NOT NULL,
+                    fa_id INTEGER,
+                    fa_rating REAL,
+                    platform_releases_json TEXT,
+                    cached_at INTEGER NOT NULL
+                )
+            """)
+        }
+
         fun create(context: Context): AppDatabase {
             return Room.databaseBuilder(context, AppDatabase::class.java, DB_NAME)
-                .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16)
+                .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17)
                 .fallbackToDestructiveMigration()
                 .addCallback(seedCallback)
                 .build()

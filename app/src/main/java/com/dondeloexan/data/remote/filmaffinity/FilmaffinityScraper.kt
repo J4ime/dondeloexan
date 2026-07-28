@@ -1,6 +1,7 @@
 package com.dondeloexan.data.remote.filmaffinity
 
 import com.dondeloexan.domain.model.CriticReview
+import com.dondeloexan.domain.model.PlatformReleaseDate
 import com.dondeloexan.domain.model.Sentiment
 import com.dondeloexan.util.AppLogger
 import io.ktor.client.HttpClient
@@ -125,6 +126,68 @@ class FilmaffinityScraper(private val httpClient: HttpClient) {
         } catch (e: Exception) {
             AppLogger.e("Filmaffinity", "getProReviews error for $faMovieId", e)
             emptyList()
+        }
+    }
+
+    data class FaPageData(
+        val rating: Float?,
+        val vodReleases: List<PlatformReleaseDate>
+    )
+
+    suspend fun getMoviePageData(faMovieId: Int): FaPageData = withContext(Dispatchers.IO) {
+        try {
+            val url = "https://www.filmaffinity.com/es/film$faMovieId.html"
+            AppLogger.i("Filmaffinity", "getMoviePageData: GET $url")
+            val html = httpClient.get(url).bodyAsText()
+            val doc = Jsoup.parse(html)
+
+            val rating = doc.selectFirst("#movie-rat-avg")?.text()?.trim()
+                ?.replace(",", ".")?.toFloatOrNull()
+            AppLogger.i("Filmaffinity", "getMoviePageData: rating=$rating (raw=${doc.selectFirst("#movie-rat-avg")?.text()})")
+
+            val releases = mutableListOf<PlatformReleaseDate>()
+
+            val popover = doc.selectFirst("#movie-tabs-cats-popover-template")
+            if (popover != null) {
+                val items = popover.select("li a")
+                for (item in items) {
+                    val href = item.attr("href")
+                    val dateFromHash = href.substringAfter("#", "").takeIf { it.isNotBlank() }
+                    val dateLabel = item.selectFirst("strong")?.text()?.trim()
+                    val fullText = item.text()?.trim() ?: continue
+                    val platformName = if (dateLabel != null) {
+                        fullText.removeSuffix(dateLabel).trim()
+                    } else fullText
+                    if (platformName.isNotBlank()) {
+                        releases.add(PlatformReleaseDate(
+                            platformName = platformName,
+                            dateLabel = dateLabel ?: fullText,
+                            releaseDate = dateFromHash
+                        ))
+                    }
+                }
+            }
+
+            if (releases.isEmpty()) {
+                val vodCategory = doc.selectFirst(".movie-tabs-cats a.first-category[title*=\"VOD\" i], .movie-tabs-cats a.first-category[title*=\"alquiler\" i]")
+                if (vodCategory != null) {
+                    val dateEl = vodCategory.nextElementSibling()
+                    val dateLabel = dateEl?.selectFirst("strong")?.text()?.trim() ?: dateEl?.text()?.trim()
+                    if (dateLabel != null) {
+                        releases.add(PlatformReleaseDate(
+                            platformName = "VOD",
+                            dateLabel = dateLabel,
+                            releaseDate = null
+                        ))
+                    }
+                }
+            }
+
+            AppLogger.i("Filmaffinity", "getMoviePageData: ${releases.size} VOD releases")
+            FaPageData(rating = rating, vodReleases = releases)
+        } catch (e: Exception) {
+            AppLogger.e("Filmaffinity", "getMoviePageData error for $faMovieId", e)
+            FaPageData(rating = null, vodReleases = emptyList())
         }
     }
 

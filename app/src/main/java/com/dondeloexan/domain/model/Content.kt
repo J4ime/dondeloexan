@@ -37,6 +37,7 @@ data class Content(
     val ratingImdb: Float? = null,
     val ratingRt: Int? = null,
     val ratingMetacritic: Int? = null,
+    val ratingFilmaffinity: Float? = null,
     val certification: String? = null,
     val synopsis: String? = null,
     val coverUrl: String? = null,
@@ -50,6 +51,7 @@ data class Content(
     val genres: List<String> = emptyList(),
     val countries: List<String> = emptyList(),
     val streamingPlatforms: List<StreamingAvailability> = emptyList(),
+    val platformReleaseDates: List<PlatformReleaseDate> = emptyList(),
     val externalLinks: ExternalLinks? = null,
     val collectionTmdbId: Int? = null,
     val lastCachedAt: Long = System.currentTimeMillis()
@@ -72,6 +74,12 @@ data class ContentPreview(
     val totalEpisodes: Int? = null,
     val voteCount: Int? = null,
     val isAdult: Boolean = false
+)
+
+data class PlatformReleaseDate(
+    val platformName: String,
+    val dateLabel: String,
+    val releaseDate: String? = null
 )
 
 data class StreamingAvailability(

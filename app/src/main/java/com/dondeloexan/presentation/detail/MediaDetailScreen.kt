@@ -92,6 +92,7 @@ import com.dondeloexan.domain.model.CriticReview
 import com.dondeloexan.domain.model.Sentiment
 import com.dondeloexan.domain.model.StreamingAvailability
 import com.dondeloexan.domain.model.AvailabilityType
+import com.dondeloexan.domain.model.PlatformReleaseDate
 import com.dondeloexan.presentation.theme.DarkBackground
 import com.dondeloexan.presentation.theme.DarkSurface
 import com.dondeloexan.presentation.theme.DarkSurfaceVariant
@@ -644,8 +645,10 @@ private fun FichaTab(content: Content, viewModel: MediaDetailViewModel, onNaviga
     ) {
         item { HeroSection(content) }
         item { RatingRow(content) }
-        if (displayPlatforms.isNotEmpty() || futureReleaseLabel != null || futurePlatformInfo != null) {
-            item { StreamingSection(displayPlatforms, futureReleaseLabel, futurePlatformInfo) }
+        val vodReleaseDates = content.platformReleaseDates
+
+        if (displayPlatforms.isNotEmpty() || futureReleaseLabel != null || futurePlatformInfo != null || vodReleaseDates.isNotEmpty()) {
+            item { StreamingSection(displayPlatforms, futureReleaseLabel, futurePlatformInfo, vodReleaseDates) }
         }
         item { TechnicalInfoSection(content, viewModel) }
         if (content.externalLinks != null) {
@@ -888,7 +891,8 @@ private fun RatingRow(content: Content) {
         content.ratingTmdb?.let { "TMDB" to String.format("%.1f", it) },
         content.ratingImdb?.let { "IMDb" to String.format("%.1f", it) },
         content.ratingRt?.let { "RT" to "${it}%" },
-        content.ratingMetacritic?.let { "MC" to it.toString() }
+        content.ratingMetacritic?.let { "MC" to it.toString() },
+        content.ratingFilmaffinity?.let { "FA" to String.format("%.1f", it) }
     )
 
     if (ratings.isEmpty()) return
@@ -1220,7 +1224,12 @@ private fun appendCinemaPlatform(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun StreamingSection(platforms: List<StreamingAvailability>, futureReleaseLabel: String? = null, futurePlatformInfo: List<String>? = null) {
+private fun StreamingSection(
+    platforms: List<StreamingAvailability>,
+    futureReleaseLabel: String? = null,
+    futurePlatformInfo: List<String>? = null,
+    vodReleaseDates: List<PlatformReleaseDate> = emptyList()
+) {
     val cinemaPlatforms = platforms.filter { it.platformName.contains("Cine", ignoreCase = true) || it.platformName.contains("Estreno", ignoreCase = true) || it.platformName.startsWith("Fin:", ignoreCase = true) }
     val subscription = platforms.filter { it.availabilityType == AvailabilityType.SUBSCRIPTION }
     val ads = platforms.filter { it.availabilityType == AvailabilityType.ADS && it !in cinemaPlatforms }
@@ -1287,6 +1296,25 @@ private fun StreamingSection(platforms: List<StreamingAvailability>, futureRelea
             if (platforms.isNotEmpty()) Spacer(Modifier.height(6.dp))
         }
 
+        if (vodReleaseDates.isNotEmpty()) {
+            Text(
+                "Próximamente en streaming",
+                style = UbuntuTypography.labelSmall,
+                color = TextSecondary,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+            )
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                vodReleaseDates.forEach { release ->
+                    PlatformVodCard(release)
+                }
+            }
+            if (platforms.isNotEmpty()) Spacer(Modifier.height(6.dp))
+        }
+
         platformRow("Cine", cinemaPlatforms)
         platformRow("Subscripción", subscription)
         platformRow("Anuncios", ads)
@@ -1345,6 +1373,40 @@ private fun PlatformCard(platform: StreamingAvailability) {
             color = if (platform.platformName.contains("Cine", ignoreCase = true) || platform.platformName.contains("Estreno", ignoreCase = true) || platform.platformName.startsWith("Fin:", ignoreCase = true)) EleganteRose else TextSecondary,
             fontSize = 9.sp,
             maxLines = 1
+        )
+    }
+}
+
+@Composable
+private fun PlatformVodCard(release: PlatformReleaseDate) {
+    Column(
+        modifier = Modifier.width(60.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .background(EleganteRoseLight.copy(alpha = 0.2f), RoundedCornerShape(8.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("\uD83D\uDCC5", fontSize = 20.sp)
+        }
+        Text(
+            release.dateLabel,
+            style = UbuntuTypography.labelSmall,
+            color = EleganteRose,
+            fontSize = 9.sp,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
+        )
+        Text(
+            release.platformName.removeSuffix(" (próx.)"),
+            style = UbuntuTypography.labelSmall,
+            color = TextSecondary,
+            fontSize = 8.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }

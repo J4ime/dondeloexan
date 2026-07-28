@@ -1,6 +1,7 @@
 package com.dondeloexan.data.repository
 
 import com.dondeloexan.data.local.dao.CriticReviewDao
+import com.dondeloexan.data.local.dao.FaMovieDataDao
 import com.dondeloexan.data.local.dao.MovieDao
 import com.dondeloexan.data.local.dao.TvShowDao
 import com.dondeloexan.data.local.dao.TvShowProgressDao
@@ -38,6 +39,7 @@ class DiscoverRepositoryFilmographyTest {
     private val filmaffinityScraper: FilmaffinityScraper = mockk()
     private val criticReviewDao: CriticReviewDao = mockk()
     private val wikidataApi: WikidataApi = mockk()
+    private val faMovieDataDao: FaMovieDataDao = mockk()
 
     private val repo: DiscoverRepositoryImpl = DiscoverRepositoryImpl(
         imdbApi = imdbApi,
@@ -50,7 +52,8 @@ class DiscoverRepositoryFilmographyTest {
         tvShowProgressDao = tvShowProgressDao,
         userPreferencesDataStore = userPreferencesDataStore,
         filmaffinityScraper = filmaffinityScraper,
-        criticReviewDao = criticReviewDao
+        criticReviewDao = criticReviewDao,
+        faMovieDataDao = faMovieDataDao
     )
 
     @Test
