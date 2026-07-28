@@ -87,11 +87,14 @@ class FilmaffinityScraper(private val httpClient: HttpClient) {
                 try {
                     val authorEl = row.selectFirst("td.author .author-name a")
                     val publicationEl = row.selectFirst("td.author em a, td.author strong a, td.author em, td.author strong")
+                    val publicationOwnText = row.selectFirst("td.author")?.ownText()?.trim()
                     val revTextEl = row.selectFirst("td.rev-text a, td.rev-text")
                     val biasEl = row.selectFirst("td.bias i")
 
                     val author = authorEl?.text()?.trim() ?: return@mapNotNull null
-                    val publication = publicationEl?.text()?.trim() ?: ""
+                    val publication = publicationEl?.text()?.trim()
+                        ?: publicationOwnText?.takeIf { it.isNotBlank() }
+                        ?: ""
                     val text = revTextEl?.text()?.trim() ?: ""
                     val url = revTextEl?.attr("href")?.takeIf { it.startsWith("http") }
                     val sentiment = when {
@@ -137,6 +140,7 @@ class FilmaffinityScraper(private val httpClient: HttpClient) {
 
     private fun String.normalize(): String =
         lowercase()
+            .replace('\u00a0', ' ')
             .replace('á', 'a').replace('é', 'e').replace('í', 'i')
             .replace('ó', 'o').replace('ú', 'u').replace('ü', 'u')
             .replace('ñ', 'n')

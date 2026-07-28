@@ -243,16 +243,6 @@ fun LibraryItemCard(
             }
         }
 
-        if (releaseDate != null && totalEpisodes == null) {
-            MovieOverlayBadge(
-                releaseDate = releaseDate,
-                platforms = streamingPlatforms,
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(6.dp)
-            )
-        }
-
         Row(
             modifier = Modifier
                 .align(Alignment.TopEnd)
@@ -335,122 +325,6 @@ fun LibraryItemCard(
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold
                 )
-            }
-        }
-    }
-}
-
-private data class CinemaInfo(
-    val label: String,
-    val isActive: Boolean,
-    val endDate: LocalDate?,
-    val digitalRelease: LocalDate?,
-    val digitalPlatforms: List<StreamingAvailability>
-)
-
-@Composable
-private fun MovieOverlayBadge(
-    releaseDate: String,
-    platforms: List<StreamingAvailability>,
-    modifier: Modifier = Modifier
-) {
-    val hasNonCinemaPlatforms = platforms.any { it.platformName != "Cine" }
-
-    val cinemaInfo = if (!hasNonCinemaPlatforms) {
-        try {
-            val date = LocalDate.parse(releaseDate)
-            val now = LocalDate.now()
-            val daysSince = ChronoUnit.DAYS.between(date, now)
-            val daysUntil = ChronoUnit.DAYS.between(now, date)
-            val cinemaEnd = date.plusDays(90)
-            val futurePlatforms = platforms.filter { it.platformName != "Cine" }
-
-            when {
-                daysUntil > 0 -> {
-                    CinemaInfo(
-                        label = "Estreno: ${date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}",
-                        isActive = false,
-                        endDate = null,
-                        digitalRelease = null,
-                        digitalPlatforms = emptyList()
-                    )
-                }
-                daysSince in 0..90 -> {
-                    CinemaInfo(
-                        label = "En cines → Fin: ${cinemaEnd.format(DateTimeFormatter.ofPattern("dd/MM"))}",
-                        isActive = true,
-                        endDate = cinemaEnd,
-                        digitalRelease = null,
-                        digitalPlatforms = futurePlatforms
-                    )
-                }
-                else -> null
-            }
-        } catch (e: Exception) {
-            AppLogger.e("LibraryItemCard", "cinemaInfo: $releaseDate", e)
-            null
-        }
-    } else null
-
-    if (cinemaInfo != null) {
-        Column(modifier = modifier) {
-            Surface(
-                shape = RoundedCornerShape(6.dp),
-                color = Color.Black.copy(alpha = 0.75f)
-            ) {
-                Column(
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        if (cinemaInfo.isActive) {
-                            Text("\uD83C\uDFAC", fontSize = 12.sp)
-                        }
-                        Text(
-                            cinemaInfo.label,
-                            style = UbuntuTypography.labelSmall,
-                            color = if (cinemaInfo.isActive) Color(0xFFFF8F00) else TextSecondary,
-                            fontSize = 10.sp,
-                            fontWeight = if (cinemaInfo.isActive) FontWeight.Bold else FontWeight.Normal
-                        )
-                    }
-
-                    if (cinemaInfo.digitalPlatforms.isNotEmpty()) {
-                        Spacer(Modifier.height(2.dp))
-                        cinemaInfo.digitalPlatforms.forEach { platform ->
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                modifier = Modifier.padding(vertical = 1.dp)
-                            ) {
-                                if (platform.logoUrl != null) {
-                                    val context = LocalContext.current
-                                    AsyncImage(
-                                        model = ImageRequest.Builder(context)
-                                            .data(platform.logoUrl)
-                                            .crossfade(200)
-                                            .memoryCachePolicy(CachePolicy.ENABLED)
-                                            .build(),
-                                        contentDescription = platform.platformName,
-                                        modifier = Modifier
-                                            .size(14.dp)
-                                            .clip(CircleShape),
-                                        contentScale = ContentScale.Fit
-                                    )
-                                }
-                                Text(
-                                    platform.platformName,
-                                    style = UbuntuTypography.labelSmall,
-                                    color = TextSecondary,
-                                    fontSize = 9.sp,
-                                    maxLines = 1
-                                )
-                            }
-                        }
-                    }
-                }
             }
         }
     }

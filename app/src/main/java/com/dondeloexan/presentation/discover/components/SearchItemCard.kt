@@ -185,45 +185,6 @@ fun SearchItemCard(
                 )
             }
 
-            if (content.type.name == "MOVIE" && !content.releaseDate.isNullOrBlank()) {
-                val nonCinemaPlatforms = content.streamingPlatforms.none { it.platformName != "Cine" }
-                val cinemaInfo = remember(content.releaseDate, content.streamingPlatforms) {
-                    if (!nonCinemaPlatforms) return@remember null
-                    try {
-                        val date = java.time.LocalDate.parse(content.releaseDate)
-                        val now = java.time.LocalDate.now()
-                        val daysSince = java.time.temporal.ChronoUnit.DAYS.between(date, now)
-                        val daysUntil = java.time.temporal.ChronoUnit.DAYS.between(now, date)
-                        val cinemaEnd = date.plusDays(90)
-
-                        when {
-                            daysUntil > 0 -> "Estreno: ${date.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"))}" to false
-                            daysSince in 0..90 -> "En cines → Fin: ${cinemaEnd.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM"))}" to true
-                            else -> null
-                        }
-                    } catch (e: Exception) {
-                        AppLogger.e("SearchItemCard", "cinemaInfo: ${content.releaseDate}", e)
-                        null
-                    }
-                }
-                if (cinemaInfo != null) {
-                    val (label, isActive) = cinemaInfo
-                    Spacer(Modifier.height(4.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        if (isActive) {
-                            Text("\uD83C\uDFAC", fontSize = 11.sp)
-                        }
-                        Text(
-                            label,
-                            style = UbuntuTypography.labelSmall,
-                            color = if (isActive) Color(0xFFFF8F00) else TextSecondary,
-                            fontSize = 10.sp,
-                            fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal
-                        )
-                    }
-                }
-            }
-
             if (content.streamingPlatforms.isNotEmpty()) {
                 Spacer(Modifier.height(6.dp))
                 Row(
@@ -412,6 +373,8 @@ fun PlatformLogoRow(
                         .clip(CircleShape),
                     contentScale = ContentScale.Fit
                 )
+            } else if (platform.platformName == "Cine") {
+                Text("🎬", fontSize = 16.sp)
             } else {
                 Surface(
                     shape = RoundedCornerShape(4.dp),

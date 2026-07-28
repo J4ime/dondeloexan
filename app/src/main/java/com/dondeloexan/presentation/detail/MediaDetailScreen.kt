@@ -1194,7 +1194,7 @@ private fun appendCinemaPlatform(
         val cinemaEnd = date.plusDays(90)
 
         when {
-            daysSinceRelease in 0..90 -> "En cines → Fin: ${cinemaEnd.format(DateTimeFormatter.ofPattern("dd/MM"))}"
+            daysSinceRelease in 0..90 -> "Fin: ${cinemaEnd.format(DateTimeFormatter.ofPattern("dd/MM"))}"
             daysUntilRelease > 0 -> null
             else -> null
         }
@@ -1221,7 +1221,7 @@ private fun appendCinemaPlatform(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun StreamingSection(platforms: List<StreamingAvailability>, futureReleaseLabel: String? = null, futurePlatformInfo: List<String>? = null) {
-    val cinemaPlatforms = platforms.filter { it.platformName.contains("Cine", ignoreCase = true) || it.platformName.contains("Estreno", ignoreCase = true) }
+    val cinemaPlatforms = platforms.filter { it.platformName.contains("Cine", ignoreCase = true) || it.platformName.contains("Estreno", ignoreCase = true) || it.platformName.startsWith("Fin:", ignoreCase = true) }
     val subscription = platforms.filter { it.availabilityType == AvailabilityType.SUBSCRIPTION }
     val ads = platforms.filter { it.availabilityType == AvailabilityType.ADS && it !in cinemaPlatforms }
     val rent = platforms.filter { it.availabilityType == AvailabilityType.RENT }
@@ -1303,7 +1303,7 @@ private fun PlatformCard(platform: StreamingAvailability) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        if (platform.platformName.contains("Cine", ignoreCase = true) || platform.platformName.contains("Estreno", ignoreCase = true)) {
+        if (platform.platformName.contains("Cine", ignoreCase = true) || platform.platformName.contains("Estreno", ignoreCase = true) || platform.platformName.startsWith("Fin:", ignoreCase = true)) {
             Box(
                 modifier = Modifier
                     .size(40.dp)
@@ -1342,7 +1342,7 @@ private fun PlatformCard(platform: StreamingAvailability) {
         Text(
             platform.platformName,
             style = UbuntuTypography.labelSmall,
-            color = if (platform.platformName.contains("Cine", ignoreCase = true) || platform.platformName.contains("Estreno", ignoreCase = true)) EleganteRose else TextSecondary,
+            color = if (platform.platformName.contains("Cine", ignoreCase = true) || platform.platformName.contains("Estreno", ignoreCase = true) || platform.platformName.startsWith("Fin:", ignoreCase = true)) EleganteRose else TextSecondary,
             fontSize = 9.sp,
             maxLines = 1
         )
