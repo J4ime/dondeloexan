@@ -82,7 +82,7 @@ fun LibraryItemCard(
     seriesStatus: String? = null,
     inProduction: Boolean? = null,
     @Suppress("UNUSED_PARAMETER") numberOfSeasons: Int? = null,
-    @Suppress("UNUSED_PARAMETER") releaseDate: String? = null,
+    releaseDate: String? = null,
     isLiked: Boolean = false,
     isWatched: Boolean,
     watchedAt: Long? = null,
@@ -240,6 +240,28 @@ fun LibraryItemCard(
             if (streamingPlatforms.isNotEmpty()) {
                 Spacer(Modifier.height(4.dp))
                 PlatformBadgeRow(platforms = streamingPlatforms)
+            } else if (!releaseDate.isNullOrBlank()) {
+                val cinemaLabel = try {
+                    val date = LocalDate.parse(releaseDate)
+                    val now = LocalDate.now()
+                    val daysUntilRelease = ChronoUnit.DAYS.between(now, date)
+                    val daysSinceRelease = ChronoUnit.DAYS.between(date, now)
+                    when {
+                        daysUntilRelease > 0 -> "Estreno ${date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}"
+                        daysSinceRelease in 0..90 -> "En cines desde ${date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}"
+                        else -> null
+                    }
+                } catch (e: Exception) { null }
+                if (cinemaLabel != null) {
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        cinemaLabel,
+                        style = UbuntuTypography.labelSmall,
+                        color = EleganteRose,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
             }
         }
 

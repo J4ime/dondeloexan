@@ -246,6 +246,60 @@ fun SearchItemCard(
                     )
                 }
             }
+
+            if (content.platformReleaseDates.isNotEmpty()) {
+                Spacer(Modifier.height(6.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    content.platformReleaseDates.take(3).forEach { release ->
+                        val logo = content.streamingPlatforms.find { p ->
+                            release.platformName.contains(p.platformName, ignoreCase = true) ||
+                            p.platformName.contains(release.platformName, ignoreCase = true)
+                        }?.logoUrl
+                        if (logo != null) {
+                            val ctx = LocalContext.current
+                            AsyncImage(
+                                model = ImageRequest.Builder(ctx)
+                                    .data(logo)
+                                    .crossfade(200)
+                                    .memoryCachePolicy(CachePolicy.ENABLED)
+                                    .build(),
+                                contentDescription = release.platformName,
+                                modifier = Modifier
+                                    .size(20.dp)
+                                    .clip(CircleShape),
+                                contentScale = ContentScale.Fit
+                            )
+                        } else {
+                            Text(
+                                release.platformName.take(2),
+                                style = UbuntuTypography.labelSmall,
+                                color = EleganteRose,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        Text(
+                            release.dateLabel,
+                            style = UbuntuTypography.labelSmall,
+                            color = Color(0xFFFF8F00),
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    val remaining = content.platformReleaseDates.size - 3
+                    if (remaining > 0) {
+                        Text(
+                            "+$remaining",
+                            style = UbuntuTypography.labelSmall,
+                            color = TextSecondary,
+                            fontSize = 10.sp
+                        )
+                    }
+                }
+            }
         }
 
         IconButton(
@@ -270,21 +324,23 @@ fun SearchItemCard(
                 .padding(8.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            IconButton(
-                onClick = onFavoriteClick,
-                modifier = Modifier
-                    .size(48.dp)
-                    .background(
-                        Color.Black.copy(alpha = 0.5f),
-                        RoundedCornerShape(8.dp)
+            if (isLiked) {
+                IconButton(
+                    onClick = onFavoriteClick,
+                    modifier = Modifier
+                        .size(48.dp)
+                        .background(
+                            Color.Black.copy(alpha = 0.5f),
+                            RoundedCornerShape(8.dp)
+                        )
+                ) {
+                    Icon(
+                        Icons.Filled.Favorite,
+                        contentDescription = "Favorita",
+                        tint = EleganteRose,
+                        modifier = Modifier.size(24.dp)
                     )
-            ) {
-                Icon(
-                    if (isLiked) Icons.Filled.Favorite else Icons.Outlined.Add,
-                    contentDescription = if (isLiked) "Favorita" else "Añadir",
-                    tint = if (isLiked) EleganteRose else TextPrimary,
-                    modifier = Modifier.size(24.dp)
-                )
+                }
             }
 
             if (!isWatched) {

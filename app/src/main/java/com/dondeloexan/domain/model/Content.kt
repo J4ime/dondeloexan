@@ -71,6 +71,7 @@ data class ContentPreview(
     val ratingImdb: Float? = null,
     val genres: List<String> = emptyList(),
     val streamingPlatforms: List<StreamingAvailability> = emptyList(),
+    val platformReleaseDates: List<PlatformReleaseDate> = emptyList(),
     val totalEpisodes: Int? = null,
     val voteCount: Int? = null,
     val isAdult: Boolean = false

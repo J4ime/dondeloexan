@@ -3,6 +3,7 @@ package com.dondeloexan.presentation.discover
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dondeloexan.data.local.dao.BlacklistDao
+import com.dondeloexan.data.local.dao.FaMovieDataDao
 import com.dondeloexan.data.local.dao.MovieDao
 import com.dondeloexan.data.local.dao.TvShowDao
 import com.dondeloexan.data.local.dao.TvShowProgressDao
@@ -17,12 +18,14 @@ import com.dondeloexan.data.remote.mapper.toStreamingAvailability
 import com.dondeloexan.domain.model.ContentPreview
 import com.dondeloexan.domain.model.ContentSource
 import com.dondeloexan.domain.model.DataResult
+import com.dondeloexan.domain.model.PlatformReleaseDate
 import com.dondeloexan.domain.model.StreamingAvailability
 import com.dondeloexan.domain.repository.DiscoverRepository
 import com.dondeloexan.presentation.feedback.FeedbackManager
 import com.dondeloexan.util.AppLogger
 import com.dondeloexan.util.PersonFlagUtil
 import java.time.LocalDate
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
@@ -42,6 +45,9 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.json.JSONArray
+import org.json.JSONObject
 
 class DiscoverViewModel(
     private val discoverRepository: DiscoverRepository,
@@ -51,7 +57,8 @@ class DiscoverViewModel(
     private val tvShowProgressDao: TvShowProgressDao,
     private val blacklistDao: BlacklistDao,
     private val tmdbApi: TmdbApi,
-    private val feedbackManager: FeedbackManager
+    private val feedbackManager: FeedbackManager,
+    private val faMovieDataDao: FaMovieDataDao
 ) : ViewModel() {
 
     private suspend fun enrichTvShowFromTmdb(entity: TvShowEntity) {
@@ -148,7 +155,7 @@ class DiscoverViewModel(
             watchedIds.drop(1).collect { newWatched ->
                 cachedResults = cachedResults.filter { it.id !in newWatched }
                 if (_uiState.value is DiscoverUiState.Success) {
-                    _uiState.value = DiscoverUiState.Success(cachedResults)
+                    emitWithFaData(DiscoverUiState.Success(cachedResults))
                 }
             }
         }
@@ -156,7 +163,7 @@ class DiscoverViewModel(
             likedIds.drop(1).collect { newLiked ->
                 cachedResults = cachedResults.filter { it.id !in newLiked }
                 if (_uiState.value is DiscoverUiState.Success) {
-                    _uiState.value = DiscoverUiState.Success(cachedResults)
+                    emitWithFaData(DiscoverUiState.Success(cachedResults))
                 }
             }
         }
@@ -380,17 +387,17 @@ class DiscoverViewModel(
             }
 
             cachedResults = page
-            _uiState.value = if (cachedResults.isEmpty() && suggestions.isEmpty()) {
-                DiscoverUiState.Empty(query)
+            if (cachedResults.isEmpty() && suggestions.isEmpty()) {
+                _uiState.value = DiscoverUiState.Empty(query)
             } else {
-                DiscoverUiState.Success(cachedResults, personSuggestions = suggestions)
+                emitWithFaData(DiscoverUiState.Success(cachedResults, personSuggestions = suggestions))
             }
         }
     }
     private fun removeAndEmit(contentId: String) {
         cachedResults = cachedResults.filter { it.id != contentId }
         if (_uiState.value is DiscoverUiState.Success) {
-            _uiState.value = DiscoverUiState.Success(cachedResults)
+            emitWithFaData(DiscoverUiState.Success(cachedResults))
         }
     }
 
@@ -758,10 +765,10 @@ class DiscoverViewModel(
             fillPagesUntil(target)
             isFilling = false
             _isLoadingMore.value = false
-            _uiState.value = if (cachedResults.isEmpty()) {
-                DiscoverUiState.Empty(_searchQuery.value)
+            if (cachedResults.isEmpty()) {
+                _uiState.value = DiscoverUiState.Empty(_searchQuery.value)
             } else {
-                DiscoverUiState.Success(cachedResults)
+                emitWithFaData(DiscoverUiState.Success(cachedResults))
             }
         }
     }
@@ -786,10 +793,10 @@ class DiscoverViewModel(
                 if (hasMorePages) currentPage++
                 fillPagesUntil(10)
                 if (cachedResults.isEmpty()) currentPage = 1
-                _uiState.value = when {
-                    cachedResults.isNotEmpty() -> DiscoverUiState.Success(cachedResults)
-                    hasError -> DiscoverUiState.Error("No se pudo conectar con el servidor, prueba a deslizar para reintentar")
-                    else -> DiscoverUiState.Empty("")
+                when {
+                    cachedResults.isNotEmpty() -> emitWithFaData(DiscoverUiState.Success(cachedResults))
+                    hasError -> _uiState.value = DiscoverUiState.Error("No se pudo conectar con el servidor, prueba a deslizar para reintentar")
+                    else -> _uiState.value = DiscoverUiState.Empty("")
                 }
             }
         } else {
@@ -824,10 +831,10 @@ class DiscoverViewModel(
 
             fillPagesUntil(10)
 
-            _uiState.value = when {
-                cachedResults.isNotEmpty() -> DiscoverUiState.Success(cachedResults)
-                hasError -> DiscoverUiState.Error("No se pudo conectar con el servidor, prueba a deslizar para reintentar")
-                else -> DiscoverUiState.Empty("")
+            when {
+                cachedResults.isNotEmpty() -> emitWithFaData(DiscoverUiState.Success(cachedResults))
+                hasError -> _uiState.value = DiscoverUiState.Error("No se pudo conectar con el servidor, prueba a deslizar para reintentar")
+                else -> _uiState.value = DiscoverUiState.Empty("")
             }
         }
     }
@@ -880,6 +887,40 @@ class DiscoverViewModel(
             AppLogger.e("DiscoverVM", "fetchTrendingPage error page=$page", e)
             hasError = true
             emptyList()
+        }
+    }
+    private fun faReleasesFromJson(json: String?): List<PlatformReleaseDate> {
+        if (json.isNullOrBlank()) return emptyList()
+        return try {
+            val arr = JSONArray(json)
+            (0 until arr.length()).map { i ->
+                val obj = arr.getJSONObject(i)
+                PlatformReleaseDate(
+                    platformName = obj.getString("platformName"),
+                    dateLabel = obj.optString("dateLabel", ""),
+                    releaseDate = obj.optString("releaseDate", "").ifEmpty { null }
+                )
+            }
+        } catch (e: Exception) { emptyList() }
+    }
+
+    private fun emitWithFaData(state: DiscoverUiState.Success) {
+        _uiState.value = state
+        viewModelScope.launch {
+            val enriched = state.results.map { preview ->
+                val faData = faMovieDataDao.getByContentId(preview.id)
+                if (faData != null) {
+                    val releases = faReleasesFromJson(faData.platformReleasesJson)
+                    if (releases.isNotEmpty()) preview.copy(platformReleaseDates = releases) else preview
+                } else preview
+            }
+            if (enriched.any { it.platformReleaseDates.isNotEmpty() }) {
+                cachedResults = enriched
+                _uiState.value = when (state) {
+                    is DiscoverUiState.Success -> state.copy(results = enriched, personSuggestions = state.personSuggestions)
+                    else -> state
+                }
+            }
         }
     }
 }

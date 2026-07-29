@@ -1297,21 +1297,44 @@ private fun StreamingSection(
         }
 
         if (vodReleaseDates.isNotEmpty()) {
-            Text(
-                "Próximamente en lanzamiento digital",
-                style = UbuntuTypography.labelSmall,
-                color = TextSecondary,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
-            )
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 vodReleaseDates.forEach { release ->
-                    Text(
-                        "${release.platformName} → ${release.dateLabel}",
-                        style = UbuntuTypography.bodySmall,
-                        color = EleganteRose,
-                        fontWeight = FontWeight.Medium
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        val logo = platforms.find { p ->
+                            release.platformName.contains(p.platformName, ignoreCase = true) ||
+                            p.platformName.contains(release.platformName, ignoreCase = true)
+                        }?.logoUrl
+                        if (logo != null) {
+                            AsyncImage(
+                                model = ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
+                                    .data(logo)
+                                    .crossfade(200)
+                                    .build(),
+                                contentDescription = release.platformName,
+                                modifier = Modifier
+                                    .size(20.dp)
+                                    .clip(RoundedCornerShape(4.dp)),
+                                contentScale = ContentScale.Fit
+                            )
+                        } else {
+                            Text(
+                                release.platformName.take(2),
+                                style = UbuntuTypography.labelSmall,
+                                color = EleganteRose,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        Text(
+                            release.dateLabel,
+                            style = UbuntuTypography.bodySmall,
+                            color = EleganteRose,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
                 }
             }
             if (platforms.isNotEmpty()) Spacer(Modifier.height(6.dp))
