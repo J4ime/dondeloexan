@@ -745,9 +745,9 @@ class DiscoverRepositoryImpl(
         val cached = faMovieDataDao.getByContentId(contentId)
         if (cached != null) {
             val age = System.currentTimeMillis() - cached.cachedAt
-            AppLogger.i("DiscoverRepo", "getFaMovieData: cache hit for $title, age=${age}ms")
-            if (age < cacheTtlMs) {
-                val releases = platformReleasesFromJson(cached.platformReleasesJson)
+            val releases = platformReleasesFromJson(cached.platformReleasesJson)
+            AppLogger.i("DiscoverRepo", "getFaMovieData: cache hit for $title, age=${age}ms, releases=${releases.size}")
+            if (age < cacheTtlMs && releases.isNotEmpty()) {
                 return Pair(cached.faRating, releases)
             }
         }
