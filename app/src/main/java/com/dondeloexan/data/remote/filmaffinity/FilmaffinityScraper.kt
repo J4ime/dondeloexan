@@ -159,9 +159,14 @@ class FilmaffinityScraper(private val httpClient: HttpClient) {
                     AppLogger.i("Filmaffinity", "getMoviePageData:   popover item href='$href' dateFromHash='$dateFromHash' dateLabel='$dateLabel' fullText='$fullText'")
                     if (dateLabel == null || fullText == null) continue
                     val platformName = fullText.removeSuffix(dateLabel).trim()
+                    if (platformName.startsWith("Cartelera", ignoreCase = true)) {
+                        AppLogger.i("Filmaffinity", "getMoviePageData:     skipping cinema entry '$platformName'")
+                        continue
+                    }
                     if (platformName.isNotBlank()) {
+                        val cleanName = platformName.removeSuffix(" (próx.)").trim()
                         releases.add(PlatformReleaseDate(
-                            platformName = platformName,
+                            platformName = cleanName,
                             dateLabel = dateLabel,
                             releaseDate = dateFromHash
                         ))
@@ -172,9 +177,7 @@ class FilmaffinityScraper(private val httpClient: HttpClient) {
             }
 
             if (releases.isEmpty()) {
-                val dateLink = doc.selectFirst(".movie-tabs-cats > a[href*=rdcat.php] > strong")
-                val dateLabel = dateLink?.text()?.trim()
-                AppLogger.w("Filmaffinity", "getMoviePageData: releases empty, fallback dateLink=$dateLink dateLabel='$dateLabel'")
+                AppLogger.w("Filmaffinity", "getMoviePageData: no VOD releases found for faId=$faMovieId")
             }
 
             AppLogger.i("Filmaffinity", "getMoviePageData: ${releases.size} VOD releases for faId=$faMovieId")

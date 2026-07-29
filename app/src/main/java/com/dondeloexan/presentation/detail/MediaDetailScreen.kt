@@ -1298,18 +1298,20 @@ private fun StreamingSection(
 
         if (vodReleaseDates.isNotEmpty()) {
             Text(
-                "Próximamente en streaming",
+                "Próximamente en lanzamiento digital",
                 style = UbuntuTypography.labelSmall,
                 color = TextSecondary,
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
             )
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 vodReleaseDates.forEach { release ->
-                    PlatformVodCard(release)
+                    Text(
+                        "${release.platformName} → ${release.dateLabel}",
+                        style = UbuntuTypography.bodySmall,
+                        color = EleganteRose,
+                        fontWeight = FontWeight.Medium
+                    )
                 }
             }
             if (platforms.isNotEmpty()) Spacer(Modifier.height(6.dp))
@@ -1373,40 +1375,6 @@ private fun PlatformCard(platform: StreamingAvailability) {
             color = if (platform.platformName.contains("Cine", ignoreCase = true) || platform.platformName.contains("Estreno", ignoreCase = true) || platform.platformName.startsWith("Fin:", ignoreCase = true)) EleganteRose else TextSecondary,
             fontSize = 9.sp,
             maxLines = 1
-        )
-    }
-}
-
-@Composable
-private fun PlatformVodCard(release: PlatformReleaseDate) {
-    Column(
-        modifier = Modifier.width(60.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-        Box(
-            modifier = Modifier
-                .size(40.dp)
-                .background(EleganteRoseLight.copy(alpha = 0.2f), RoundedCornerShape(8.dp)),
-            contentAlignment = Alignment.Center
-        ) {
-            Text("\uD83D\uDCC5", fontSize = 20.sp)
-        }
-        Text(
-            release.dateLabel,
-            style = UbuntuTypography.labelSmall,
-            color = EleganteRose,
-            fontSize = 9.sp,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis
-        )
-        Text(
-            release.platformName.removeSuffix(" (próx.)"),
-            style = UbuntuTypography.labelSmall,
-            color = TextSecondary,
-            fontSize = 8.sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
         )
     }
 }
