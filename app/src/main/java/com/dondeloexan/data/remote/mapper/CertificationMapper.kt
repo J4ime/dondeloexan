@@ -2,7 +2,7 @@ package com.dondeloexan.data.remote.mapper
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.GppBad
-import androidx.compose.material.icons.filled.HelpOutline
+import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.SentimentSatisfied
 import androidx.compose.material.icons.filled.Shield
@@ -22,6 +22,6 @@ fun String?.toCertificationDisplay(): CertificationDisplay? = when (this) {
     "PG-13" -> CertificationDisplay("Mayores de 13", Icons.Filled.Person, Color(0xFFFF5722))
     "R", "TV-14" -> CertificationDisplay("Mayores de 16", Icons.Filled.Shield, Color(0xFFF44336))
     "NC-17", "TV-MA", "18" -> CertificationDisplay("Mayores de 18", Icons.Filled.GppBad, Color(0xFFB71C1C))
-    "Not Rated", "NR", "Unrated", "Approved" -> CertificationDisplay("Sin clasificar", Icons.Filled.HelpOutline, Color(0xFF9E9E9E))
+    "Not Rated", "NR", "Unrated", "Approved" -> CertificationDisplay("Sin clasificar", Icons.AutoMirrored.Filled.HelpOutline, Color(0xFF9E9E9E))
     else -> null
 }

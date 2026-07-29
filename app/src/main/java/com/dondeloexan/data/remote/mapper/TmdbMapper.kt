@@ -137,8 +137,7 @@ fun TmdbMultiSearchResult.toContentPreview(): ContentPreview = ContentPreview(
 )
 
 private fun TmdbProvider.normalizedPlatformName(): String {
-    val providerId = this.providerId ?: return this.providerName
-    return TmdbProviderIds.providerIdToName[providerId] ?: this.providerName
+    return TmdbProviderIds.providerIdToName[this.providerId] ?: this.providerName
 }
 
 fun TmdbCountryProviders.toStreamingAvailability(): List<StreamingAvailability> {
@@ -146,7 +145,7 @@ fun TmdbCountryProviders.toStreamingAvailability(): List<StreamingAvailability> 
         flatrate?.map {
             StreamingAvailability(
                 platformName = it.normalizedPlatformName(),
-                platformId = it.providerId?.toString(),
+                platformId = it.providerId.toString(),
                 logoUrl = it.logoPath?.let { path ->
                     "https://image.tmdb.org/t/p/w92$path"
                 },
@@ -156,7 +155,7 @@ fun TmdbCountryProviders.toStreamingAvailability(): List<StreamingAvailability> 
         rent?.map {
             StreamingAvailability(
                 platformName = it.normalizedPlatformName(),
-                platformId = it.providerId?.toString(),
+                platformId = it.providerId.toString(),
                 logoUrl = it.logoPath?.let { path ->
                     "https://image.tmdb.org/t/p/w92$path"
                 },
@@ -166,7 +165,7 @@ fun TmdbCountryProviders.toStreamingAvailability(): List<StreamingAvailability> 
         buy?.map {
             StreamingAvailability(
                 platformName = it.normalizedPlatformName(),
-                platformId = it.providerId?.toString(),
+                platformId = it.providerId.toString(),
                 logoUrl = it.logoPath?.let { path ->
                     "https://image.tmdb.org/t/p/w92$path"
                 },
@@ -176,7 +175,7 @@ fun TmdbCountryProviders.toStreamingAvailability(): List<StreamingAvailability> 
         ads?.map {
             StreamingAvailability(
                 platformName = it.normalizedPlatformName(),
-                platformId = it.providerId?.toString(),
+                platformId = it.providerId.toString(),
                 logoUrl = it.logoPath?.let { path ->
                     "https://image.tmdb.org/t/p/w92$path"
                 },
@@ -186,7 +185,7 @@ fun TmdbCountryProviders.toStreamingAvailability(): List<StreamingAvailability> 
         free?.map {
             StreamingAvailability(
                 platformName = it.normalizedPlatformName(),
-                platformId = it.providerId?.toString(),
+                platformId = it.providerId.toString(),
                 logoUrl = it.logoPath?.let { path ->
                     "https://image.tmdb.org/t/p/w92$path"
                 },

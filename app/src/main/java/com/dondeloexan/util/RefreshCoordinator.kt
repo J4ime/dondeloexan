@@ -13,7 +13,7 @@ class RefreshCoordinator {
     private val consecutiveFailures = AtomicInteger(0)
     private val batchCancelled = AtomicBoolean(false)
 
-    suspend fun <T> execute(context: CoroutineContext, tmdbId: Int, block: suspend () -> T): T {
+    suspend fun <T> execute(context: CoroutineContext, @Suppress("UNUSED_PARAMETER") tmdbId: Int, block: suspend () -> T): T {
         return withContext(context) {
             if (batchCancelled.get()) throw BatchCancelledException()
 

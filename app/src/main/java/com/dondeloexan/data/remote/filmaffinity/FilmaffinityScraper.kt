@@ -61,7 +61,7 @@ class FilmaffinityScraper(private val httpClient: HttpClient) {
                         return@withContext cardId
                     }
                 }
-                val firstId = cards.first().attr("data-movie-id").toIntOrNull()
+                val firstId = cards.firstOrNull()?.attr("data-movie-id")?.toIntOrNull()
                 if (firstId != null) {
                     AppLogger.i("Filmaffinity", "searchMovieId: ✅ ID=$firstId from first movie-card (no year match)")
                     return@withContext firstId
@@ -97,7 +97,7 @@ class FilmaffinityScraper(private val httpClient: HttpClient) {
                         ?: publicationOwnText?.takeIf { it.isNotBlank() }
                         ?: ""
                     val text = revTextEl?.text()?.trim() ?: ""
-                    val url = revTextEl?.attr("href")?.takeIf { it.startsWith("http") }
+                    val reviewUrl = revTextEl?.attr("href")?.takeIf { it.startsWith("http") }
                     val sentiment = when {
                         biasEl?.hasClass("pos") == true -> Sentiment.POSITIVE
                         biasEl?.hasClass("neg") == true -> Sentiment.NEGATIVE
@@ -110,7 +110,7 @@ class FilmaffinityScraper(private val httpClient: HttpClient) {
                         publication = publication,
                         text = text.removeSurrounding("\""),
                         rating = rating,
-                        url = url,
+                        url = reviewUrl,
                         sentiment = sentiment
                     )
                 } catch (e: Exception) {
@@ -155,9 +155,9 @@ class FilmaffinityScraper(private val httpClient: HttpClient) {
                     val href = item.attr("href")
                     val dateFromHash = href.substringAfter("#", "").takeIf { it.isNotBlank() }
                     val dateLabel = item.selectFirst("strong")?.text()?.trim()
-                    val fullText = item.text()?.trim()
+                    val fullText = item.text().trim()
                     AppLogger.i("Filmaffinity", "getMoviePageData:   popover item href='$href' dateFromHash='$dateFromHash' dateLabel='$dateLabel' fullText='$fullText'")
-                    if (dateLabel == null || fullText == null) continue
+                    if (dateLabel == null) continue
                     val platformName = fullText.removeSuffix(dateLabel).trim()
                     if (platformName.startsWith("Cartelera", ignoreCase = true)) {
                         AppLogger.i("Filmaffinity", "getMoviePageData:     skipping cinema entry '$platformName'")

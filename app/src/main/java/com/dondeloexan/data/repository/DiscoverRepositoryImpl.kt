@@ -207,7 +207,7 @@ class DiscoverRepositoryImpl(
             ContentType.MOVIE -> imdbApi.getMovieWatchProviders(imdbId)
             ContentType.SERIES -> imdbApi.getTvWatchProviders(imdbId)
         }
-        val platforms = providers.results?.get("ES")?.imdbToStreaming().orEmpty()
+        val platforms = providers.results["ES"]?.imdbToStreaming().orEmpty()
 
         val omdbRating = try { omdbApi.getByImdbId(imdbId) } catch (e: Exception) {
             AppLogger.e("DiscoverRepo", "OMDB rating for $imdbId", e)
@@ -431,7 +431,7 @@ class DiscoverRepositoryImpl(
                         } else {
                             imdbApi.getMovieWatchProviders(imdbId)
                         }
-                        providerResponse.results?.get("ES")?.imdbToStreaming().orEmpty()
+                        providerResponse.results["ES"]?.imdbToStreaming().orEmpty()
                     } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
                         AppLogger.w("DiscoverRepo", "IMDB platforms for ${preview.id} (timeout): ${e.message}")
                         emptyList()
@@ -803,7 +803,7 @@ class DiscoverRepositoryImpl(
                 PlatformReleaseDate(
                     platformName = obj.getString("platformName"),
                     dateLabel = obj.optString("dateLabel", ""),
-                    releaseDate = obj.optString("releaseDate", null)
+                    releaseDate = obj.optString("releaseDate", "")
                 )
             }
         } catch (e: Exception) {
@@ -835,8 +835,8 @@ class DiscoverRepositoryImpl(
                 author = obj.getString("author"),
                 publication = obj.optString("publication", ""),
                 text = obj.optString("text", ""),
-                rating = obj.optString("rating", null),
-                url = obj.optString("url", null),
+                rating = obj.optString("rating", ""),
+                url = obj.optString("url", ""),
                 sentiment = Sentiment.valueOf(obj.optString("sentiment", "NEUTRAL"))
             )
         }
@@ -897,7 +897,7 @@ class DiscoverRepositoryImpl(
                 val contentId = "tmdb-$tmdbId"
                 excludeIds.add(contentId)
                 try {
-                    val detail = if (isTv) tmdbApi.getTvDetailLight(tmdbId) else tmdbApi.getMovieDetail(tmdbId)
+                    val detail: Any = if (isTv) tmdbApi.getTvDetailLight(tmdbId) else tmdbApi.getMovieDetail(tmdbId)
                     val posterPath = (detail as? com.dondeloexan.data.remote.dto.TmdbTvDetailDto)?.posterPath
                         ?: (detail as? com.dondeloexan.data.remote.dto.TmdbMovieDto)?.posterPath
                     results.add(

@@ -26,9 +26,9 @@ fun String?.toStreamingPlatforms(): List<StreamingAvailability> {
         val result = (0 until jsonArray.length()).mapNotNull { i ->
             val obj = jsonArray.optJSONObject(i) ?: return@mapNotNull null
             StreamingAvailability(
-                platformName = obj.optString("platformName", null)?.takeIf { it.isNotEmpty() } ?: return@mapNotNull null,
-                platformId = obj.optString("platformId", null),
-                logoUrl = obj.optString("logoUrl", null)?.takeIf { it.isNotEmpty() },
+                platformName = obj.optString("platformName", "").takeIf { it.isNotEmpty() } ?: return@mapNotNull null,
+                platformId = obj.optString("platformId", ""),
+                logoUrl = obj.optString("logoUrl", "").takeIf { it.isNotEmpty() },
                 availabilityType = try {
                     AvailabilityType.valueOf(obj.optString("availabilityType", "SUBSCRIPTION"))
                 } catch (e: Exception) {
@@ -40,7 +40,7 @@ fun String?.toStreamingPlatforms(): List<StreamingAvailability> {
         AppLogger.d("Converters", "toStreamingPlatforms: parsed ${result.size} platforms, len=${this.length}, preview=${this.take(120)}")
         result
     } catch (e: Exception) {
-        AppLogger.w("Converters", "toStreamingPlatforms fallback for: ${this?.take(200)}")
+        AppLogger.w("Converters", "toStreamingPlatforms fallback for: ${this.take(200)}")
         tryFallbackParse(this) ?: emptyList()
     }
 }
