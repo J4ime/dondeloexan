@@ -341,26 +341,25 @@ fun SearchItemCard(
                         modifier = Modifier.size(24.dp)
                     )
                 }
-            }
-
-            if (!isWatched) {
-                IconButton(
-                    onClick = onWatchedClick,
-                    modifier = Modifier
-                        .size(48.dp)
-                        .background(
-                            Color.Black.copy(alpha = 0.5f),
-                            RoundedCornerShape(8.dp)
-                        )
-                ) {
-                    Icon(
-                        Icons.Outlined.CheckCircleOutline,
-                        contentDescription = "Visto",
-                        tint = TextPrimary,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
             } else {
+                if (!isWatched) {
+                    IconButton(
+                        onClick = onFavoriteClick,
+                        modifier = Modifier
+                            .size(48.dp)
+                            .background(
+                                Color.Black.copy(alpha = 0.5f),
+                                RoundedCornerShape(8.dp)
+                            )
+                    ) {
+                        Icon(
+                            Icons.Outlined.Add,
+                            contentDescription = "Añadir",
+                            tint = TextPrimary,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
                 IconButton(
                     onClick = onWatchedClick,
                     modifier = Modifier
@@ -371,9 +370,9 @@ fun SearchItemCard(
                         )
                 ) {
                     Icon(
-                        Icons.Filled.CheckCircle,
+                        if (isWatched) Icons.Filled.CheckCircle else Icons.Outlined.CheckCircleOutline,
                         contentDescription = "Visto",
-                        tint = RatingHigh,
+                        tint = if (isWatched) RatingHigh else TextPrimary,
                         modifier = Modifier.size(24.dp)
                     )
                 }
