@@ -247,7 +247,7 @@ fun SearchItemCard(
                 }
             }
 
-            if (content.platformReleaseDates.isNotEmpty()) {
+            if (content.platformReleaseDates.isNotEmpty() && content.streamingPlatforms.isEmpty()) {
                 Spacer(Modifier.height(6.dp))
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -274,7 +274,7 @@ fun SearchItemCard(
                             )
                         } else {
                             Text(
-                                release.platformName.take(2),
+                                release.platformName,
                                 style = UbuntuTypography.labelSmall,
                                 color = EleganteRose,
                                 fontSize = 9.sp,

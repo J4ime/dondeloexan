@@ -36,7 +36,7 @@ import com.dondeloexan.data.local.entity.UserPlatformEntity
         CriticReviewEntity::class,
         FaMovieDataEntity::class
     ],
-    version = 18,
+    version = 19,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -207,9 +207,14 @@ abstract class AppDatabase : RoomDatabase() {
             db.execSQL("DELETE FROM fa_movie_data")
         }
 
+        private val MIGRATION_18_19 = Migration(18, 19) { db ->
+            db.execSQL("UPDATE movies SET liked = 0 WHERE liked = 1 AND status != 'YA_VISTA'")
+            db.execSQL("UPDATE tv_shows SET liked = 0 WHERE liked = 1 AND status != 'YA_VISTA'")
+        }
+
         fun create(context: Context): AppDatabase {
             return Room.databaseBuilder(context, AppDatabase::class.java, DB_NAME)
-                .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18)
+                .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19)
                 .fallbackToDestructiveMigration()
                 .addCallback(seedCallback)
                 .build()

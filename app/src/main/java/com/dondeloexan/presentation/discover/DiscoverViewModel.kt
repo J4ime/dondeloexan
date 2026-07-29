@@ -563,6 +563,7 @@ class DiscoverViewModel(
                             movieDao.update(
                                 existing.copy(
                                     status = newStatus,
+                                    liked = if (wasWatched) false else existing.liked,
                                     watchedAt = if (wasWatched) null else System.currentTimeMillis()
                                 )
                             )
@@ -600,7 +601,7 @@ class DiscoverViewModel(
                             val wasWatched = existing.status == WatchStatus.YA_VISTA
                             if (wasWatched) {
                                 tvShowProgressDao.deleteByTvShowId(existing.id)
-                                tvShowDao.update(existing.copy(status = WatchStatus.POR_VER))
+                                tvShowDao.update(existing.copy(status = WatchStatus.POR_VER, liked = false))
                                 feedbackManager.emit("Serie quitada de vistos")
                             } else {
                                 tvShowProgressDao.deleteByTvShowId(existing.id)

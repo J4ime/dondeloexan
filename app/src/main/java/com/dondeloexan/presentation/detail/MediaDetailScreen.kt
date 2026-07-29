@@ -1236,6 +1236,7 @@ private fun StreamingSection(
     val rent = platforms.filter { it.availabilityType == AvailabilityType.RENT }
     val buy = platforms.filter { it.availabilityType == AvailabilityType.BUY }
     val free = platforms.filter { it.availabilityType == AvailabilityType.FREE }
+    val hasRealPlatforms = subscription.isNotEmpty() || ads.isNotEmpty() || rent.isNotEmpty() || buy.isNotEmpty() || free.isNotEmpty()
 
     if (platforms.isEmpty() && futureReleaseLabel == null && futurePlatformInfo == null && vodReleaseDates.isEmpty()) return
 
@@ -1296,7 +1297,7 @@ private fun StreamingSection(
             if (platforms.isNotEmpty()) Spacer(Modifier.height(6.dp))
         }
 
-        if (vodReleaseDates.isNotEmpty()) {
+        if (vodReleaseDates.isNotEmpty() && !hasRealPlatforms) {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 vodReleaseDates.forEach { release ->
                     Row(
@@ -1321,7 +1322,7 @@ private fun StreamingSection(
                             )
                         } else {
                             Text(
-                                release.platformName.take(2),
+                                release.platformName,
                                 style = UbuntuTypography.labelSmall,
                                 color = EleganteRose,
                                 fontSize = 11.sp,
