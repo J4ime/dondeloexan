@@ -326,7 +326,7 @@ fun SearchItemCard(
                 .padding(8.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            if (isLiked) {
+            if (content.type == com.dondeloexan.domain.model.ContentType.MOVIE && isLiked) {
                 IconButton(
                     onClick = onFavoriteClick,
                     modifier = Modifier
