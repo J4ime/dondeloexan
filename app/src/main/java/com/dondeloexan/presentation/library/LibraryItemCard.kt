@@ -85,6 +85,7 @@ fun LibraryItemCard(
     releaseDate: String? = null,
     isLiked: Boolean = false,
     isWatched: Boolean,
+    isSeries: Boolean = false,
     watchedAt: Long? = null,
     showLikeButton: Boolean = true,
     onLikeClick: () -> Unit = {},
@@ -293,7 +294,6 @@ fun LibraryItemCard(
                             .size(48.dp)
                             .background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
                     ) {
-                        val isSeries = totalEpisodes != null
                         Icon(
                             if (isLiked) {
                                 if (isSeries) Icons.Filled.Close else Icons.Filled.Favorite
