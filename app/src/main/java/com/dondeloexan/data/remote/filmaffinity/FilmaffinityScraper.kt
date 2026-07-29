@@ -149,19 +149,17 @@ class FilmaffinityScraper(private val httpClient: HttpClient) {
 
             val popover = doc.selectFirst("#movie-tabs-cats-popover-template")
             if (popover != null) {
-                val items = popover.select("li a")
+                val items = popover.select("li a[href*=rdcat.php]")
                 for (item in items) {
                     val href = item.attr("href")
                     val dateFromHash = href.substringAfter("#", "").takeIf { it.isNotBlank() }
-                    val dateLabel = item.selectFirst("strong")?.text()?.trim()
+                    val dateLabel = item.selectFirst("strong")?.text()?.trim() ?: continue
                     val fullText = item.text()?.trim() ?: continue
-                    val platformName = if (dateLabel != null) {
-                        fullText.removeSuffix(dateLabel).trim()
-                    } else fullText
+                    val platformName = fullText.removeSuffix(dateLabel).trim()
                     if (platformName.isNotBlank()) {
                         releases.add(PlatformReleaseDate(
                             platformName = platformName,
-                            dateLabel = dateLabel ?: fullText,
+                            dateLabel = dateLabel,
                             releaseDate = dateFromHash
                         ))
                     }
@@ -169,17 +167,14 @@ class FilmaffinityScraper(private val httpClient: HttpClient) {
             }
 
             if (releases.isEmpty()) {
-                val vodCategory = doc.selectFirst(".movie-tabs-cats a.first-category[title*=\"VOD\" i], .movie-tabs-cats a.first-category[title*=\"alquiler\" i]")
-                if (vodCategory != null) {
-                    val dateEl = vodCategory.nextElementSibling()
-                    val dateLabel = dateEl?.selectFirst("strong")?.text()?.trim() ?: dateEl?.text()?.trim()
-                    if (dateLabel != null) {
-                        releases.add(PlatformReleaseDate(
-                            platformName = "VOD",
-                            dateLabel = dateLabel,
-                            releaseDate = null
-                        ))
-                    }
+                val dateLink = doc.selectFirst(".movie-tabs-cats > a[href*=rdcat.php] > strong")
+                val dateLabel = dateLink?.text()?.trim()
+                if (dateLabel != null) {
+                    releases.add(PlatformReleaseDate(
+                        platformName = "VOD",
+                        dateLabel = dateLabel,
+                        releaseDate = null
+                    ))
                 }
             }
 

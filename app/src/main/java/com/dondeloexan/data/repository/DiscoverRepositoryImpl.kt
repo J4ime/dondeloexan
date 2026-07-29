@@ -752,7 +752,10 @@ class DiscoverRepositoryImpl(
             }
         }
 
-        val faId = cached?.faId ?: filmaffinityScraper.searchMovieId(title, year)
+        val faId = cached?.faId
+            ?: movieDao.getByContentId(contentId)?.faId
+            ?: tvShowDao.getByContentId(contentId)?.faId
+            ?: filmaffinityScraper.searchMovieId(title, year)
         if (faId == null) {
             AppLogger.w("DiscoverRepo", "getFaMovieData: no FA id for $title")
             return Pair(null, emptyList())
