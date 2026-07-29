@@ -1237,7 +1237,7 @@ private fun StreamingSection(
     val buy = platforms.filter { it.availabilityType == AvailabilityType.BUY }
     val free = platforms.filter { it.availabilityType == AvailabilityType.FREE }
 
-    if (platforms.isEmpty() && futureReleaseLabel == null && futurePlatformInfo == null) return
+    if (platforms.isEmpty() && futureReleaseLabel == null && futurePlatformInfo == null && vodReleaseDates.isEmpty()) return
 
     @Composable
     fun platformRow(label: String, items: List<StreamingAvailability>) {

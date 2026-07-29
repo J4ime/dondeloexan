@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.dondeloexan.domain.model.ContentPreview
+import com.dondeloexan.domain.model.ContentType
 import com.dondeloexan.domain.model.StreamingAvailability
 import com.dondeloexan.presentation.theme.DarkSurfaceVariant
 import com.dondeloexan.presentation.theme.EleganteRose
@@ -58,6 +59,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import coil.request.CachePolicy
 import com.dondeloexan.util.AppLogger
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -198,9 +202,9 @@ fun SearchItemCard(
                     if (!content.releaseDate.isNullOrBlank()) {
                         val isFuture = remember(content.releaseDate) {
                             try {
-                                val date = java.time.LocalDate.parse(content.releaseDate)
-                                val now = java.time.LocalDate.now()
-                                java.time.temporal.ChronoUnit.DAYS.between(now, date) > 0
+                                val date = LocalDate.parse(content.releaseDate)
+                                val now = LocalDate.now()
+                                ChronoUnit.DAYS.between(now, date) > 0
                             } catch (e: Exception) {
                                 AppLogger.e("SearchItemCard", "isFuture: ${content.releaseDate}", e)
                                 false
@@ -216,6 +220,30 @@ fun SearchItemCard(
                             )
                         }
                     }
+                }
+            } else if (!content.releaseDate.isNullOrBlank() && content.type == ContentType.MOVIE) {
+                val cinemaLabel = remember(content.releaseDate) {
+                    try {
+                        val date = LocalDate.parse(content.releaseDate)
+                        val now = LocalDate.now()
+                        val daysUntilRelease = ChronoUnit.DAYS.between(now, date)
+                        val daysSinceRelease = ChronoUnit.DAYS.between(date, now)
+                        when {
+                            daysUntilRelease > 0 -> "Estreno ${date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}"
+                            daysSinceRelease in 0..90 -> "En cines desde ${date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}"
+                            else -> null
+                        }
+                    } catch (e: Exception) { null }
+                }
+                if (cinemaLabel != null) {
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        cinemaLabel,
+                        style = UbuntuTypography.labelSmall,
+                        color = EleganteRose,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
                 }
             }
         }
