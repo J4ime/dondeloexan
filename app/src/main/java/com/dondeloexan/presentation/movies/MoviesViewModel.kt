@@ -84,17 +84,11 @@ class MoviesViewModel(
     fun toggleLike(movie: MovieEntity) {
         viewModelScope.launch {
             val wasLiked = movie.liked
-            if (wasLiked) {
-                movieDao.update(movie.copy(liked = false))
-                feedbackManager.emit("Película quitada de favoritas")
-            } else {
-                movieDao.update(movie.copy(
-                    liked = true,
-                    status = WatchStatus.YA_VISTA,
-                    watchedAt = movie.watchedAt ?: System.currentTimeMillis()
-                ))
-                feedbackManager.emit("Película marcada como favorita")
-            }
+            movieDao.update(movie.copy(liked = !wasLiked))
+            feedbackManager.emit(
+                if (!wasLiked) "Película marcada como favorita"
+                else "Película quitada de favoritas"
+            )
         }
     }
 

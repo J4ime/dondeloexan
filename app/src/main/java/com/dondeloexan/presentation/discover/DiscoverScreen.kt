@@ -102,6 +102,7 @@ fun DiscoverScreen(
     val filmographyView by viewModel.filmographyView.collectAsState()
     val likedIds by viewModel.likedIds.collectAsState()
     val watchedIds by viewModel.watchedIds.collectAsState()
+    val allIds by viewModel.allIds.collectAsState()
     val blacklistedIds by viewModel.blacklistedIds.collectAsState()
     val filterByPlatforms by viewModel.filterByPlatforms.collectAsState()
 
@@ -219,6 +220,7 @@ fun DiscoverScreen(
                 view = activeFilmographyView,
                 likedIds = likedIds,
                 watchedIds = watchedIds,
+                allIds = allIds,
                 blacklistedIds = blacklistedIds,
                 isGridView = isGridView,
                 onItemClick = { contentId, contentType ->
@@ -227,6 +229,7 @@ fun DiscoverScreen(
                 onFavoriteClick = viewModel::onToggleFavorite,
                 onWatchedClick = viewModel::onToggleWatched,
                 onBlacklistClick = viewModel::onToggleBlacklist,
+                onAddClick = viewModel::onToggleAdd,
                 onLoadMore = viewModel::onFilmographyLoadMore,
                 onBack = viewModel::onFilmographyBack
             )
@@ -237,6 +240,7 @@ fun DiscoverScreen(
                 searchQuery = searchQuery,
                 likedIds = likedIds,
                 watchedIds = watchedIds,
+                allIds = allIds,
                 blacklistedIds = blacklistedIds,
                 isGridView = isGridView,
                 onItemClick = { contentId, contentType ->
@@ -244,6 +248,7 @@ fun DiscoverScreen(
                 },
                 onFavoriteClick = viewModel::onToggleFavorite,
                 onWatchedClick = viewModel::onToggleWatched,
+                onAddClick = viewModel::onToggleAdd,
                 onBlacklistClick = viewModel::onToggleBlacklist,
                 onLoadNextPage = viewModel::loadNextPage,
                 onRetry = viewModel::onRetry,
@@ -261,11 +266,13 @@ fun DiscoverContent(
     searchQuery: String,
     likedIds: Set<String>,
     watchedIds: Set<String>,
+    allIds: Set<String>,
     blacklistedIds: Set<String>,
     isGridView: Boolean = false,
     onItemClick: (String, String) -> Unit,
     onFavoriteClick: (ContentPreview) -> Unit,
     onWatchedClick: (ContentPreview) -> Unit,
+    onAddClick: (ContentPreview) -> Unit = {},
     onBlacklistClick: (ContentPreview) -> Unit,
     onLoadNextPage: () -> Unit,
     onRetry: () -> Unit,
@@ -320,9 +327,11 @@ fun DiscoverContent(
                                     content = content,
                                     isLiked = likedIds.contains(content.id),
                                     isWatched = watchedIds.contains(content.id),
+                                    isInDb = allIds.contains(content.id),
                                     isBlacklisted = blacklistedIds.contains(content.id),
                                     onFavoriteClick = { onFavoriteClick(content) },
                                     onWatchedClick = { onWatchedClick(content) },
+                                    onAddClick = { onAddClick(content) },
                                     onBlacklistClick = { onBlacklistClick(content) },
                                     onClick = { onItemClick(content.id, content.type.name.lowercase()) }
                                 )
@@ -389,9 +398,11 @@ fun DiscoverContent(
                                     content = content,
                                     isLiked = likedIds.contains(content.id),
                                     isWatched = watchedIds.contains(content.id),
+                                    isInDb = allIds.contains(content.id),
                                     isBlacklisted = blacklistedIds.contains(content.id),
                                     onFavoriteClick = { onFavoriteClick(content) },
                                     onWatchedClick = { onWatchedClick(content) },
+                                    onAddClick = { onAddClick(content) },
                                     onBlacklistClick = { onBlacklistClick(content) },
                                     onClick = { onItemClick(content.id, content.type.name.lowercase()) }
                                 )
@@ -503,11 +514,13 @@ fun FilmographyContent(
     view: FilmographyView,
     likedIds: Set<String>,
     watchedIds: Set<String>,
+    allIds: Set<String>,
     blacklistedIds: Set<String>,
     isGridView: Boolean,
     onItemClick: (String, String) -> Unit,
     onFavoriteClick: (ContentPreview) -> Unit,
     onWatchedClick: (ContentPreview) -> Unit,
+    onAddClick: (ContentPreview) -> Unit = {},
     onBlacklistClick: (ContentPreview) -> Unit,
     onLoadMore: () -> Unit,
     onBack: () -> Unit
@@ -546,6 +559,7 @@ fun FilmographyContent(
                     movies = view.movies,
                     likedIds = likedIds,
                     watchedIds = watchedIds,
+                    allIds = allIds,
                     blacklistedIds = blacklistedIds,
                     isGridView = isGridView,
                     onItemClick = onItemClick,
@@ -643,11 +657,13 @@ private fun FilmographyMoviesGrid(
     movies: List<ContentPreview>,
     likedIds: Set<String>,
     watchedIds: Set<String>,
+    allIds: Set<String>,
     blacklistedIds: Set<String>,
     isGridView: Boolean,
     onItemClick: (String, String) -> Unit,
     onFavoriteClick: (ContentPreview) -> Unit,
     onWatchedClick: (ContentPreview) -> Unit,
+    onAddClick: (ContentPreview) -> Unit = {},
     onBlacklistClick: (ContentPreview) -> Unit,
     hasMore: Boolean,
     onLoadMore: () -> Unit
@@ -709,9 +725,11 @@ private fun FilmographyMoviesGrid(
                     content = content,
                     isLiked = likedIds.contains(content.id),
                     isWatched = watchedIds.contains(content.id),
+                    isInDb = allIds.contains(content.id),
                     isBlacklisted = blacklistedIds.contains(content.id),
                     onFavoriteClick = { onFavoriteClick(content) },
                     onWatchedClick = { onWatchedClick(content) },
+                    onAddClick = { onAddClick(content) },
                     onBlacklistClick = { onBlacklistClick(content) },
                     onClick = { onItemClick(content.id, content.type.name.lowercase()) }
                 )

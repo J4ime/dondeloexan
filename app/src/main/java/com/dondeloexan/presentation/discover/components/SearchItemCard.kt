@@ -69,6 +69,7 @@ fun SearchItemCard(
     content: ContentPreview,
     isLiked: Boolean = false,
     isWatched: Boolean = false,
+    isInDb: Boolean = false,
     isBlacklisted: Boolean = false,
     watchedCount: Int = 0,
     totalEpisodes: Int? = null,
@@ -76,6 +77,7 @@ fun SearchItemCard(
     inProduction: Boolean? = null,
     onFavoriteClick: () -> Unit = {},
     onWatchedClick: () -> Unit = {},
+    onAddClick: () -> Unit = {},
     onBlacklistClick: () -> Unit = {},
     onClick: () -> Unit = {}
 ) {
@@ -341,10 +343,44 @@ fun SearchItemCard(
                         modifier = Modifier.size(24.dp)
                     )
                 }
+            } else if (isWatched) {
+                IconButton(
+                    onClick = onWatchedClick,
+                    modifier = Modifier
+                        .size(48.dp)
+                        .background(
+                            Color.Black.copy(alpha = 0.5f),
+                            RoundedCornerShape(8.dp)
+                        )
+                ) {
+                    Icon(
+                        Icons.Filled.CheckCircle,
+                        contentDescription = "Visto",
+                        tint = RatingHigh,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            } else if (isInDb) {
+                IconButton(
+                    onClick = onWatchedClick,
+                    modifier = Modifier
+                        .size(48.dp)
+                        .background(
+                            Color.Black.copy(alpha = 0.5f),
+                            RoundedCornerShape(8.dp)
+                        )
+                ) {
+                    Icon(
+                        Icons.Outlined.CheckCircleOutline,
+                        contentDescription = "Visto",
+                        tint = TextPrimary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
             } else {
-                if (!isWatched) {
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     IconButton(
-                        onClick = onFavoriteClick,
+                        onClick = onAddClick,
                         modifier = Modifier
                             .size(48.dp)
                             .background(
@@ -359,22 +395,22 @@ fun SearchItemCard(
                             modifier = Modifier.size(24.dp)
                         )
                     }
-                }
-                IconButton(
-                    onClick = onWatchedClick,
-                    modifier = Modifier
-                        .size(48.dp)
-                        .background(
-                            Color.Black.copy(alpha = 0.5f),
-                            RoundedCornerShape(8.dp)
+                    IconButton(
+                        onClick = onWatchedClick,
+                        modifier = Modifier
+                            .size(48.dp)
+                            .background(
+                                Color.Black.copy(alpha = 0.5f),
+                                RoundedCornerShape(8.dp)
+                            )
+                    ) {
+                        Icon(
+                            Icons.Outlined.CheckCircleOutline,
+                            contentDescription = "Visto",
+                            tint = TextPrimary,
+                            modifier = Modifier.size(24.dp)
                         )
-                ) {
-                    Icon(
-                        if (isWatched) Icons.Filled.CheckCircle else Icons.Outlined.CheckCircleOutline,
-                        contentDescription = "Visto",
-                        tint = if (isWatched) RatingHigh else TextPrimary,
-                        modifier = Modifier.size(24.dp)
-                    )
+                    }
                 }
             }
         }

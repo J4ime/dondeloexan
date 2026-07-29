@@ -125,6 +125,13 @@ class DiscoverViewModel(
         .distinctUntilChanged()
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
 
+    val allIds: StateFlow<Set<String>> = combine(
+        movieDao.getAllFlow().map { list -> list.mapNotNull { it.contentId }.toSet() },
+        tvShowDao.getAllFlow().map { list -> list.mapNotNull { it.contentId }.toSet() }
+    ) { movieIds, tvIds -> movieIds + tvIds }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
+
     private var currentPage = 1
     private var hasMorePages = true
     private var isFilling = false
@@ -473,15 +480,13 @@ class DiscoverViewModel(
                             val newLiked = !existing.liked
                             movieDao.update(existing.copy(
                                 liked = newLiked,
-                                status = if (newLiked) WatchStatus.YA_VISTA else existing.status,
-                                watchedAt = if (newLiked) (existing.watchedAt ?: System.currentTimeMillis()) else existing.watchedAt,
                                 ratingImdb = preview.ratingImdb ?: existing.ratingImdb,
                                 streamingPlatforms = if (platformsStr.isNullOrEmpty() || platformsStr == "[]") existing.streamingPlatforms else platformsStr,
                                 releaseDate = preview.releaseDate ?: existing.releaseDate
                             ))
                             feedbackManager.emit(
-                                if (newLiked) "Película añadida"
-                                else "Película quitada"
+                                if (newLiked) "Película marcada como favorita"
+                                else "Película quitada de favoritas"
                             )
                             if (newLiked) removeAndEmit(preview.id)
                         } else {
@@ -497,11 +502,10 @@ class DiscoverViewModel(
                                     ratingImdb = preview.ratingImdb,
                                     streamingPlatforms = platformsStr,
                                     liked = true,
-                                    status = WatchStatus.YA_VISTA,
-                                    watchedAt = System.currentTimeMillis()
+                                    status = WatchStatus.POR_VER
                                 )
                             )
-                            feedbackManager.emit("Película añadida")
+                            feedbackManager.emit("Película marcada como favorita")
                             removeAndEmit(preview.id)
                         }
                     }
@@ -542,6 +546,65 @@ class DiscoverViewModel(
                 }
             } catch (e: Exception) {
                 AppLogger.e("DiscoverVM", "Toggle favorite error", e)
+            }
+        }
+    }
+
+    fun onToggleAdd(preview: ContentPreview) {
+        viewModelScope.launch {
+            try {
+                val info = resolveContentForSave(preview)
+                val platforms = fetchPlatformsIfEmpty(preview)
+                val platformsStr = platforms.toPlatformsString()
+                when (preview.type) {
+                    com.dondeloexan.domain.model.ContentType.MOVIE -> {
+                        val existing = movieDao.getByContentId(info.contentId)
+                            ?: (info.tmdbId?.let { movieDao.getByTmdbId(it) }
+                                ?: info.imdbId?.let { movieDao.getByImdbId(it) })
+                        if (existing == null) {
+                            movieDao.insert(
+                                MovieEntity(
+                                    contentId = info.contentId,
+                                    tmdbId = info.tmdbId,
+                                    imdbId = info.imdbId,
+                                    title = preview.title,
+                                    year = preview.year,
+                                    releaseDate = preview.releaseDate,
+                                    posterUrl = preview.coverUrl,
+                                    ratingImdb = preview.ratingImdb,
+                                    streamingPlatforms = platformsStr,
+                                    liked = false,
+                                    status = WatchStatus.POR_VER
+                                )
+                            )
+                            feedbackManager.emit("Película añadida a pendientes")
+                        }
+                    }
+                    com.dondeloexan.domain.model.ContentType.SERIES -> {
+                        val existing = tvShowDao.getByContentId(info.contentId)
+                            ?: (info.tmdbId?.let { tvShowDao.getByTmdbId(it) }
+                                ?: info.imdbId?.let { tvShowDao.getByImdbId(it) })
+                        if (existing == null) {
+                            tvShowDao.insert(
+                                TvShowEntity(
+                                    contentId = info.contentId,
+                                    tmdbId = info.tmdbId,
+                                    imdbId = info.imdbId,
+                                    title = preview.title,
+                                    year = preview.year,
+                                    posterUrl = preview.coverUrl,
+                                    ratingImdb = preview.ratingImdb,
+                                    streamingPlatforms = platformsStr,
+                                    liked = false,
+                                    status = WatchStatus.POR_VER
+                                )
+                            )
+                            feedbackManager.emit("Serie añadida a pendientes")
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                AppLogger.e("DiscoverVM", "Toggle add error", e)
             }
         }
     }

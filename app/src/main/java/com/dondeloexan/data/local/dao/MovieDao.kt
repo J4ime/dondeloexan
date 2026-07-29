@@ -49,7 +49,7 @@ interface MovieDao {
     @Query("SELECT * FROM movies WHERE liked = 1 ORDER BY added_at DESC")
     fun getLiked(): Flow<List<MovieEntity>>
 
-    @Query("SELECT * FROM movies WHERE liked = 1 AND status != 'YA_VISTA' ORDER BY release_date DESC")
+    @Query("SELECT * FROM movies WHERE status = 'POR_VER' ORDER BY release_date DESC")
     fun getPendingFlow(): Flow<List<MovieEntity>>
 
     @Query("SELECT * FROM movies WHERE liked = 1 AND status = 'YA_VISTA' ORDER BY watched_at DESC")

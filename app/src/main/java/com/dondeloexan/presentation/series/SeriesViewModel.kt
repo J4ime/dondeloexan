@@ -80,7 +80,7 @@ class SeriesViewModel(
     }
 
     val pending: StateFlow<List<SeriesWithProgress>> = seriesWithProgress.map { list ->
-        list.filter { s -> s.show.liked && s.watchedCount == 0 }
+        list.filter { s -> (s.show.status == WatchStatus.POR_VER || s.show.liked) && s.watchedCount == 0 }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val inProgress: StateFlow<List<SeriesWithProgress>> = seriesWithProgress.map { list ->
