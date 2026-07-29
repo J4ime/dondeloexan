@@ -741,27 +741,36 @@ class DiscoverRepositoryImpl(
     }
 
     override suspend fun getFaMovieData(contentId: String, title: String, year: Int?): Pair<Float?, List<PlatformReleaseDate>> {
+        AppLogger.i("DiscoverRepo", "getFaMovieData: title='$title' contentId='$contentId' year=$year")
+        faMovieDataDao.deleteAll()
         val cacheTtlMs = 24 * 60 * 60 * 1000L
         val cached = faMovieDataDao.getByContentId(contentId)
         if (cached != null) {
             val age = System.currentTimeMillis() - cached.cachedAt
             val releases = platformReleasesFromJson(cached.platformReleasesJson)
-            AppLogger.i("DiscoverRepo", "getFaMovieData: cache hit for $title, age=${age}ms, releases=${releases.size}")
+            AppLogger.i("DiscoverRepo", "getFaMovieData: cache hit for $title, age=${age}ms, releases.size=${releases.size}")
+            for ((i, r) in releases.withIndex()) {
+                AppLogger.i("DiscoverRepo", "getFaMovieData:   release[$i] platform='${r.platformName}' dateLabel='${r.dateLabel}' releaseDate='${r.releaseDate}'")
+            }
             if (age < cacheTtlMs && releases.isNotEmpty()) {
                 return Pair(cached.faRating, releases)
             }
         }
 
         val faId = cached?.faId
-            ?: movieDao.getByContentId(contentId)?.faId
-            ?: tvShowDao.getByContentId(contentId)?.faId
-            ?: filmaffinityScraper.searchMovieId(title, year)
+            ?: movieDao.getByContentId(contentId)?.faId?.also { AppLogger.i("DiscoverRepo", "getFaMovieData: faId=$it from movieDao") }
+            ?: tvShowDao.getByContentId(contentId)?.faId?.also { AppLogger.i("DiscoverRepo", "getFaMovieData: faId=$it from tvShowDao") }
+            ?: filmaffinityScraper.searchMovieId(title, year)?.also { AppLogger.i("DiscoverRepo", "getFaMovieData: faId=$it from searchMovieId") }
         if (faId == null) {
             AppLogger.w("DiscoverRepo", "getFaMovieData: no FA id for $title")
             return Pair(null, emptyList())
         }
 
         val pageData = filmaffinityScraper.getMoviePageData(faId)
+        AppLogger.i("DiscoverRepo", "getFaMovieData: pageData rating=${pageData.rating} releases=${pageData.vodReleases.size}")
+        for ((i, r) in pageData.vodReleases.withIndex()) {
+            AppLogger.i("DiscoverRepo", "getFaMovieData:   release[$i] platform='${r.platformName}' dateLabel='${r.dateLabel}' releaseDate='${r.releaseDate}'")
+        }
         faMovieDataDao.upsert(
             FaMovieDataEntity(
                 contentId = contentId,

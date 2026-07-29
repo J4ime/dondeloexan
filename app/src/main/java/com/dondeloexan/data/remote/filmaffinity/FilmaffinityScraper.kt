@@ -150,11 +150,14 @@ class FilmaffinityScraper(private val httpClient: HttpClient) {
             val popover = doc.selectFirst("#movie-tabs-cats-popover-template")
             if (popover != null) {
                 val items = popover.select("li a[href*=rdcat.php]")
+                AppLogger.i("Filmaffinity", "getMoviePageData: found ${items.size} popover items with rdcat.php")
                 for (item in items) {
                     val href = item.attr("href")
                     val dateFromHash = href.substringAfter("#", "").takeIf { it.isNotBlank() }
-                    val dateLabel = item.selectFirst("strong")?.text()?.trim() ?: continue
-                    val fullText = item.text()?.trim() ?: continue
+                    val dateLabel = item.selectFirst("strong")?.text()?.trim()
+                    val fullText = item.text()?.trim()
+                    AppLogger.i("Filmaffinity", "getMoviePageData:   popover item href='$href' dateFromHash='$dateFromHash' dateLabel='$dateLabel' fullText='$fullText'")
+                    if (dateLabel == null || fullText == null) continue
                     val platformName = fullText.removeSuffix(dateLabel).trim()
                     if (platformName.isNotBlank()) {
                         releases.add(PlatformReleaseDate(
@@ -164,21 +167,17 @@ class FilmaffinityScraper(private val httpClient: HttpClient) {
                         ))
                     }
                 }
+            } else {
+                AppLogger.w("Filmaffinity", "getMoviePageData: popover #movie-tabs-cats-popover-template not found")
             }
 
             if (releases.isEmpty()) {
                 val dateLink = doc.selectFirst(".movie-tabs-cats > a[href*=rdcat.php] > strong")
                 val dateLabel = dateLink?.text()?.trim()
-                if (dateLabel != null) {
-                    releases.add(PlatformReleaseDate(
-                        platformName = "VOD",
-                        dateLabel = dateLabel,
-                        releaseDate = null
-                    ))
-                }
+                AppLogger.w("Filmaffinity", "getMoviePageData: releases empty, fallback dateLink=$dateLink dateLabel='$dateLabel'")
             }
 
-            AppLogger.i("Filmaffinity", "getMoviePageData: ${releases.size} VOD releases")
+            AppLogger.i("Filmaffinity", "getMoviePageData: ${releases.size} VOD releases for faId=$faMovieId")
             FaPageData(rating = rating, vodReleases = releases)
         } catch (e: Exception) {
             AppLogger.e("Filmaffinity", "getMoviePageData error for $faMovieId", e)
