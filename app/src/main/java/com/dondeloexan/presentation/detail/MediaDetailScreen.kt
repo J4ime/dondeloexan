@@ -890,7 +890,7 @@ private fun RatingRow(content: Content) {
     val ratings = listOfNotNull(
         content.ratingTmdb?.let { "TMDB" to String.format("%.1f", it) },
         content.ratingImdb?.let { "IMDb" to String.format("%.1f", it) },
-        content.ratingRt?.let { "RT" to "${it}%" },
+        content.ratingRt?.let { "\uD83C\uDF45" to "${it}%" },
         content.ratingMetacritic?.let { "MC" to it.toString() },
         content.ratingFilmaffinity?.let { "FA" to String.format("%.1f", it) }
     )

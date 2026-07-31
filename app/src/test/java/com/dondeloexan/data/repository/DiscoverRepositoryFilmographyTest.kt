@@ -77,6 +77,32 @@ class DiscoverRepositoryFilmographyTest {
     }
 
     @Test
+    fun `getPersonMovieCredits maps type to MOVIE even when mediaType is null`() = runTest {
+        val credits = listOf(
+            TmdbPersonCredit(id = 1, title = "Movie", releaseDate = "2020-01-01", mediaType = null)
+        )
+        coEvery { tmdbApi.getPersonMovieCredits(123) } returns TmdbPersonCreditsResponse(id = 123, cast = credits)
+
+        val result = repo.getPersonMovieCredits(123)
+
+        assert(result.size == 1)
+        assert(result[0].type == ContentType.MOVIE)
+    }
+
+    @Test
+    fun `getPersonTvCredits maps type to SERIES even when mediaType is null`() = runTest {
+        val credits = listOf(
+            TmdbPersonCredit(id = 1, name = "Series", firstAirDate = "2020-01-01", mediaType = null)
+        )
+        coEvery { tmdbApi.getPersonTvCredits(123) } returns TmdbPersonCreditsResponse(id = 123, cast = credits)
+
+        val result = repo.getPersonTvCredits(123)
+
+        assert(result.size == 1)
+        assert(result[0].type == ContentType.SERIES)
+    }
+
+    @Test
     fun `searchPerson returns results`() = runTest {
         val results = listOf(
             TmdbPersonSearchResult(id = 1, name = "Steven Spielberg", knownForDepartment = "Directing")

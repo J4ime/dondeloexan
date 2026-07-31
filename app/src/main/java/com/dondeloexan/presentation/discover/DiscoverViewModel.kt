@@ -208,7 +208,7 @@ class DiscoverViewModel(
                                 filtered
                                     .filter { it.releaseDate != null }
                                     .distinctBy { it.id }
-                                    .map { it.toContentPreview() }
+                                    .map { it.toContentPreview(forceType = com.dondeloexan.domain.model.ContentType.MOVIE) }
                             } else emptyList()
                             val tvList = if (tvCredits != null) {
                                 val filtered = when (entity.role) {
@@ -219,7 +219,7 @@ class DiscoverViewModel(
                                 filtered
                                     .filter { it.firstAirDate != null }
                                     .distinctBy { it.id }
-                                    .map { it.toContentPreview() }
+                                    .map { it.toContentPreview(forceType = com.dondeloexan.domain.model.ContentType.SERIES) }
                             } else emptyList()
                             (movieList + tvList).sortedByDescending { it.releaseDate }
                         } else {

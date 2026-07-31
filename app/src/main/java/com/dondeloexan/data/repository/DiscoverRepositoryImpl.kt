@@ -651,7 +651,7 @@ class DiscoverRepositoryImpl(
                 .filter { it.firstAirDate != null }
                 .distinctBy { it.id }
                 .sortedByDescending { it.firstAirDate }
-                .map { it.toContentPreview() }
+                .map { it.toContentPreview(forceType = ContentType.SERIES) }
         } catch (e: Exception) {
             AppLogger.e("DiscoverRepo", "getPersonTvCredits error for $personId", e)
             emptyList()
@@ -665,7 +665,7 @@ class DiscoverRepositoryImpl(
                 .filter { it.releaseDate != null }
                 .distinctBy { it.id }
                 .sortedByDescending { it.releaseDate }
-                .map { it.toContentPreview() }
+                .map { it.toContentPreview(forceType = ContentType.MOVIE) }
         } catch (e: Exception) {
             AppLogger.e("DiscoverRepo", "getPersonMovieCredits error for $personId", e)
             emptyList()
