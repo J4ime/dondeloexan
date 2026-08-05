@@ -1,0 +1,1098 @@
+{
+  "nodes": [
+    {
+      "id": "node_donde_lo_exan_app",
+      "label": "DondeLoExanApp",
+      "layer": "Background",
+      "package": "com.dondeloexan",
+      "description": "Clase Application principal de la app. Inicializa el grafo de inyección Koin, crea canales de notificación y programa tareas en segundo plano.",
+      "technologies": ["Android Application", "Koin DI", "Coroutines"],
+      "responsibilities": [
+        "Inicializar Koin con networkModule, dataModule y viewModelModule",
+        "Crear el canal de notificaciones para SeriesCheckWorker",
+        "Iniciar WorkScheduler para tareas en segundo plano",
+        "Ejecutar auto-refresco diario de la biblioteca al arrancar"
+      ]
+    },
+    {
+      "id": "node_main_activity",
+      "label": "MainActivity",
+      "layer": "UI",
+      "package": "com.dondeloexan",
+      "description": "Punto de entrada de interfaz (Single Activity) que configura Compose UI, el tema global y el NavGraph.",
+      "technologies": ["ComponentActivity", "Jetpack Compose", "Material3"],
+      "responsibilities": [
+        "Establecer el contenido UI mediante Compose",
+        "Alojar el DondeLoExanNavGraph y gestionar la navegación raíz"
+      ]
+    },
+    {
+      "id": "node_nav_graph",
+      "label": "DondeLoExanNavGraph",
+      "layer": "UI",
+      "package": "com.dondeloexan.presentation.navigation",
+      "description": "Grafo de navegación principal con HorizontalPager para pestañas e integración de NavHost para pantallas secundarias.",
+      "technologies": ["Navigation Compose", "HorizontalPager", "Jetpack Compose"],
+      "responsibilities": [
+        "Coordinar la navegación entre Pager principal y pantallas secundarias",
+        "Gestionar cambio de vista cuadrícula/lista",
+        "Conectar ViewModels globales de Series y Películas"
+      ]
+    },
+    {
+      "id": "node_discover_screen",
+      "label": "DiscoverScreen",
+      "layer": "UI",
+      "package": "com.dondeloexan.presentation.discover",
+      "description": "Pantalla de descubrimiento y búsqueda pura con scroll infinito, filtrado por plataformas y sección de Cines.",
+      "technologies": ["Jetpack Compose", "Material3", "Coroutines Flow"],
+      "responsibilities": [
+        "Mostrar catálogo popular y resultados de búsqueda",
+        "Permitir filtrado dinámico por plataformas activas",
+        "Gestionar estado de carga, errores y añadir a lista/black list"
+      ]
+    },
+    {
+      "id": "node_media_detail_screen",
+      "label": "MediaDetailScreen",
+      "layer": "UI",
+      "package": "com.dondeloexan.presentation.detail",
+      "description": "Pantalla detallada de película o serie. Muestra temporadas, episodios, reparto con enlaces sociales, críticas de Filmaffinity y sagas/relacionados.",
+      "technologies": ["Jetpack Compose", "Flow", "Coil"],
+      "responsibilities": [
+        "Visualizar metadatos detallados y proveedores de streaming",
+        "Permitir marcado individual y en cascada de episodios",
+        "Renderizar críticas de Filmaffinity y sagas de Wikidata/TMDB"
+      ]
+    },
+    {
+      "id": "node_series_tabs",
+      "label": "SeriesTabs (Pending/InProgress/Agenda/Finished)",
+      "layer": "UI",
+      "package": "com.dondeloexan.presentation.navigation",
+      "description": "Conjunto de pestañas para seguimiento de series (Pendientes, En Curso, Agenda de próximos episodios y Terminadas).",
+      "technologies": ["Jetpack Compose", "LazyColumn", "LazyVerticalGrid"],
+      "responsibilities": [
+        "Presentar series clasificadas por estado de visión y progreso",
+        "Acceso directo a marcado rápido de vistos y navegación a detalles"
+      ]
+    },
+    {
+      "id": "node_movies_tabs",
+      "label": "MoviesTabs (Pending/Watched/Favorites)",
+      "layer": "UI",
+      "package": "com.dondeloexan.presentation.navigation",
+      "description": "Conjunto de pestañas para la biblioteca de películas (Pendientes con notas IMDb, Vistas y Favoritas).",
+      "technologies": ["Jetpack Compose", "LazyColumn", "LazyVerticalGrid"],
+      "responsibilities": [
+        "Mostrar películas pendientes con ratings de IMDb y fechas de cartelera",
+        "Gestionar estado de favorita y eliminaciones de biblioteca"
+      ]
+    },
+    {
+      "id": "node_settings_screen",
+      "label": "SettingsScreen",
+      "layer": "UI",
+      "package": "com.dondeloexan.presentation.settings",
+      "description": "Pantalla de ajustes del sistema: gestión de plataformas, filtros comerciales, backup/restauración, visor de logs y actualizaciones.",
+      "technologies": ["Jetpack Compose", "Material3Dialog", "SAF Storage Access Framework"],
+      "responsibilities": [
+        "Proporcionar acceso a subpantallas de configuración",
+        "Iniciar exportación e importación de backups JSON",
+        "Disparar comprobación de actualizaciones de la app"
+      ]
+    },
+    {
+      "id": "node_platforms_screen",
+      "label": "PlatformsScreen",
+      "layer": "UI",
+      "package": "com.dondeloexan.presentation.platforms",
+      "description": "Pantalla para selección y activación/desactivación de plataformas de streaming del usuario.",
+      "technologies": ["Jetpack Compose", "LazyVerticalGrid"],
+      "responsibilities": [
+        "Mostrar catálogo de plataformas disponibles con logos",
+        "Guardar preferencias de plataformas activas del usuario"
+      ]
+    },
+    {
+      "id": "node_availability_screen",
+      "label": "AvailabilityScreen",
+      "layer": "UI",
+      "package": "com.dondeloexan.presentation.availability",
+      "description": "Pantalla de selección de tipos de disponibilidad comercial (SUBSCRIPTION, RENT, BUY, FREE, ADS).",
+      "technologies": ["Jetpack Compose", "Switch/Checkbox"],
+      "responsibilities": [
+        "Permitir al usuario filtrar resultados según modelo de negocio de las plataformas"
+      ]
+    },
+    {
+      "id": "node_blacklist_screen",
+      "label": "BlacklistScreen",
+      "layer": "UI",
+      "package": "com.dondeloexan.presentation.blacklist",
+      "description": "Pantalla para gestionar la lista negra de contenidos ocultos.",
+      "technologies": ["Jetpack Compose", "LazyColumn"],
+      "responsibilities": [
+        "Listar contenidos ocultados por el usuario",
+        "Permitir des-ocultar contenidos para restaurar su visibilidad"
+      ]
+    },
+    {
+      "id": "node_log_viewer_screen",
+      "label": "LogViewerScreen",
+      "layer": "UI",
+      "package": "com.dondeloexan.presentation.settings",
+      "description": "Visor de logs internos en tiempo real para depuración y diagnóstico.",
+      "technologies": ["Jetpack Compose", "LazyColumn"],
+      "responsibilities": [
+        "Mostrar registros capturados por AppLogger",
+        "Permitir copiar o limpiar logs del sistema"
+      ]
+    },
+    {
+      "id": "node_discover_view_model",
+      "label": "DiscoverViewModel",
+      "layer": "ViewModel",
+      "package": "com.dondeloexan.presentation.discover",
+      "description": "ViewModel para la pestaña Descubrir. Gestionar búsquedas, paginación, filtros de plataformas y listas negras.",
+      "technologies": ["Android ViewModel", "StateFlow", "Coroutines"],
+      "responsibilities": [
+        "Ejecutar búsquedas reactivas con debounce",
+        "Cargar catálogo popular paginado",
+        "Procesar adición a Black List y sincronizar con repositorio"
+      ]
+    },
+    {
+      "id": "node_media_detail_view_model",
+      "label": "MediaDetailViewModel",
+      "layer": "ViewModel",
+      "package": "com.dondeloexan.presentation.detail",
+      "description": "ViewModel que consolida metadatos, temporadas, episodios, críticas de Filmaffinity, enlaces a redes sociales de actores y sagas.",
+      "technologies": ["Android ViewModel", "StateFlow", "Coroutines Async"],
+      "responsibilities": [
+        "Cargar detalles completos de película o serie desde DiscoverRepository",
+        "Cargar y gestionar episodios de temporadas",
+        "Ejecutar marcado en cascada de episodios",
+        "Obtener críticas de Filmaffinity y relaciones de Wikidata"
+      ]
+    },
+    {
+      "id": "node_series_view_model",
+      "label": "SeriesViewModel",
+      "layer": "ViewModel",
+      "package": "com.dondeloexan.presentation.series",
+      "description": "ViewModel para la biblioteca de series. Agrupa series por estados (Pending, InProgress, Agenda, Finished).",
+      "technologies": ["Android ViewModel", "StateFlow", "Room Coroutines Flow"],
+      "responsibilities": [
+        "Exponer listas reactivas de series con su progreso de episodios",
+        "Actualizar estado de visionado y favoritos de series"
+      ]
+    },
+    {
+      "id": "node_movies_view_model",
+      "label": "MoviesViewModel",
+      "layer": "ViewModel",
+      "package": "com.dondeloexan.presentation.movies",
+      "description": "ViewModel para la biblioteca de películas. Gestionar pendientes, vistas y favoritas.",
+      "technologies": ["Android ViewModel", "StateFlow", "Room Coroutines Flow"],
+      "responsibilities": [
+        "Exponer listas reactivas de películas de la base de datos",
+        "Alternar estados de visto/pendiente y favorito",
+        "Eliminar películas de la biblioteca local"
+      ]
+    },
+    {
+      "id": "node_settings_view_model",
+      "label": "SettingsViewModel",
+      "layer": "ViewModel",
+      "package": "com.dondeloexan.presentation.settings",
+      "description": "ViewModel para la gestión de configuración, actualización de la app e import/export de backups.",
+      "technologies": ["Android ViewModel", "StateFlow", "SAF Uri"],
+      "responsibilities": [
+        "Comprobar releases en GitHub mediante SettingsRepository",
+        "Coordinar la exportación e importación de copias de seguridad",
+        "Disparar descarga silenciosa e instalación de APK"
+      ]
+    },
+    {
+      "id": "node_platforms_view_model",
+      "label": "PlatformsViewModel",
+      "layer": "ViewModel",
+      "package": "com.dondeloexan.presentation.platforms",
+      "description": "ViewModel encargado de gestionar las plataformas habilitadas en la base de datos.",
+      "technologies": ["Android ViewModel", "StateFlow"],
+      "responsibilities": [
+        "Cargar y conmutar el estado activo de cada plataforma en UserPlatformDao"
+      ]
+    },
+    {
+      "id": "node_availability_view_model",
+      "label": "AvailabilityViewModel",
+      "layer": "ViewModel",
+      "package": "com.dondeloexan.presentation.availability",
+      "description": "ViewModel para gestionar las preferencias de tipos de disponibilidad comercial.",
+      "technologies": ["Android ViewModel", "DataStore Flow"],
+      "responsibilities": [
+        "Leer y guardar preferencias de disponibilidad en UserPreferencesDataStore"
+      ]
+    },
+    {
+      "id": "node_blacklist_view_model",
+      "label": "BlacklistViewModel",
+      "layer": "ViewModel",
+      "package": "com.dondeloexan.presentation.blacklist",
+      "description": "ViewModel para consultar y restaurar elementos de la Black List.",
+      "technologies": ["Android ViewModel", "StateFlow"],
+      "responsibilities": [
+        "Cargar contenidos en lista negra desde BlacklistDao",
+        "Eliminar elementos de la lista negra para reactivarlos"
+      ]
+    },
+    {
+      "id": "node_log_viewer_view_model",
+      "label": "LogViewerViewModel",
+      "layer": "ViewModel",
+      "package": "com.dondeloexan.presentation.settings",
+      "description": "ViewModel que expone el flujo de logs capturados en memoria por AppLogger.",
+      "technologies": ["Android ViewModel", "StateFlow"],
+      "responsibilities": [
+        "Transmitir logs a la interfaz y permitir su borrado"
+      ]
+    },
+    {
+      "id": "node_discover_repository",
+      "label": "DiscoverRepository (Interface)",
+      "layer": "Domain",
+      "package": "com.dondeloexan.domain.repository",
+      "description": "Contrato de dominio para operaciones de búsqueda, descubrimiento, obtención de detalles y gestión de catálogo.",
+      "technologies": ["Kotlin Interface", "Coroutines Flow"],
+      "responsibilities": [
+        "Definir firma de métodos para search, getDetails, getPopular, getReviews, getRelationships"
+      ]
+    },
+    {
+      "id": "node_settings_repository",
+      "label": "SettingsRepository (Interface)",
+      "layer": "Domain",
+      "package": "com.dondeloexan.domain.repository",
+      "description": "Contrato de dominio para consultar versiones y updates del sistema.",
+      "technologies": ["Kotlin Interface"],
+      "responsibilities": [
+        "Definir firma para comprobar actualizaciones en GitHub"
+      ]
+    },
+    {
+      "id": "node_backup_repository",
+      "label": "BackupRepository (Interface)",
+      "layer": "Domain",
+      "package": "com.dondeloexan.domain.repository",
+      "description": "Contrato de dominio para operaciones de exportación e importación de la base de datos.",
+      "technologies": ["Kotlin Interface"],
+      "responsibilities": [
+        "Definir operaciones de copia de seguridad con Uri de Android"
+      ]
+    },
+    {
+      "id": "node_discover_repository_impl",
+      "label": "DiscoverRepositoryImpl",
+      "layer": "Repository",
+      "package": "com.dondeloexan.data.repository",
+      "description": "Implementación central del repositorio. Integra APIs de TMDB, OMDb, IMDb (Balloonerismm), Wikidata, Scraper de Filmaffinity, Room DAOs y DataStore. Aplica caché en memoria de plataformas (4h) y relaciones (24h).",
+      "technologies": ["Kotlin Coroutines Async", "ConcurrentHashMap", "DataStore", "Room DAOs"],
+      "responsibilities": [
+        "Buscar y enriquecer resultados combinando múltiples fuentes externas",
+        "Filtrar contenidos según plataformas activas y disponibilidades del usuario",
+        "Consolidar metadatos completos y almacenar en caché local crítica y FA",
+        "Filtrar elementos presentes en la Black List"
+      ]
+    },
+    {
+      "id": "node_settings_repository_impl",
+      "label": "SettingsRepositoryImpl",
+      "layer": "Repository",
+      "package": "com.dondeloexan.data.repository",
+      "description": "Implementación de repositorio para consultar la API de GitHub Releases.",
+      "technologies": ["Ktor Client", "GitHub API"],
+      "responsibilities": [
+        "Obtener la última release de GitHub y mapearla a AppVersion"
+      ]
+    },
+    {
+      "id": "node_backup_repository_impl",
+      "label": "BackupRepositoryImpl",
+      "layer": "Repository",
+      "package": "com.dondeloexan.data.repository",
+      "description": "Implementación del repositorio de backups que delega en BackupManager.",
+      "technologies": ["Kotlin Coroutines"],
+      "responsibilities": [
+        "Invocar exportBackup e importBackup pasando el Uri de almacenamiento"
+      ]
+    },
+    {
+      "id": "node_backup_manager",
+      "label": "BackupManager",
+      "layer": "LocalData",
+      "package": "com.dondeloexan.data.backup",
+      "description": "Gestor de serialización JSON de la base de datos completa. Lee y escribe directamente a través de ContentResolver (SAF).",
+      "technologies": ["kotlinx.serialization", "ContentResolver", "Room DAOs"],
+      "responsibilities": [
+        "Extraer entidades de Movie, TvShow, Progress, SearchHistory, UserPlatform",
+        "Serializar y deserializar archivo JSON estructurado de backup"
+      ]
+    },
+    {
+      "id": "node_app_database",
+      "label": "AppDatabase (Room)",
+      "layer": "LocalData",
+      "package": "com.dondeloexan.data.local",
+      "description": "Base de datos SQLite administrada con Room. Mantiene esquemas versionados con migraciones.",
+      "technologies": ["Room Database", "SQLite"],
+      "responsibilities": [
+        "Proporcionar acceso a todas las tablas DAOs del sistema",
+        "Ejecutar migraciones de esquema de base de datos"
+      ]
+    },
+    {
+      "id": "node_movie_dao",
+      "label": "MovieDao & MovieEntity",
+      "layer": "LocalData",
+      "package": "com.dondeloexan.data.local.dao",
+      "description": "DAO y Entidad para la tabla de películas guardadas en la biblioteca local.",
+      "technologies": ["Room DAO", "SQLite Entity"],
+      "responsibilities": [
+        "Persistir películas pendientes, vistas y favoritas",
+        "Ofrecer consultas reactivas Flow<List<MovieEntity>>"
+      ]
+    },
+    {
+      "id": "node_tv_show_dao",
+      "label": "TvShowDao & TvShowEntity",
+      "layer": "LocalData",
+      "package": "com.dondeloexan.data.local.dao",
+      "description": "DAO y Entidad para la tabla de series guardadas.",
+      "technologies": ["Room DAO", "SQLite Entity"],
+      "responsibilities": [
+        "Persistir series y metadatos de episodios/temporadas",
+        "Exponer Flow de series con conteos de episodios"
+      ]
+    },
+    {
+      "id": "node_tv_show_progress_dao",
+      "label": "TvShowProgressDao & TvShowProgressEntity",
+      "layer": "LocalData",
+      "package": "com.dondeloexan.data.local.dao",
+      "description": "DAO y Entidad para el seguimiento individual episodio por episodio de las series.",
+      "technologies": ["Room DAO", "SQLite Entity"],
+      "responsibilities": [
+        "Registrar marcados individuales de episodios vistos",
+        "Soportar borrado y marcado masivo en cascada"
+      ]
+    },
+    {
+      "id": "node_user_platform_dao",
+      "label": "UserPlatformDao & UserPlatformEntity",
+      "layer": "LocalData",
+      "package": "com.dondeloexan.data.local.dao",
+      "description": "DAO y Entidad de plataformas de streaming del usuario (Netflix, Prime, Disney+, etc.).",
+      "technologies": ["Room DAO", "SQLite Entity"],
+      "responsibilities": [
+        "Almacenar el estado activo/inactivo de cada plataforma de streaming"
+      ]
+    },
+    {
+      "id": "node_blacklist_dao",
+      "label": "BlacklistDao & BlacklistedEntity",
+      "layer": "LocalData",
+      "package": "com.dondeloexan.data.local.dao",
+      "description": "DAO y Entidad para gestionar la lista negra de contenidos ignorados.",
+      "technologies": ["Room DAO", "SQLite Entity"],
+      "responsibilities": [
+        "Almacenar IDs de contenidos bloqueados y filtrar búsquedas en tiempo real"
+      ]
+    },
+    {
+      "id": "node_critic_review_dao",
+      "label": "CriticReviewDao & CriticReviewEntity",
+      "layer": "LocalData",
+      "package": "com.dondeloexan.data.local.dao",
+      "description": "DAO y Entidad para la caché de críticas profesionales escrapeadas de Filmaffinity.",
+      "technologies": ["Room DAO", "SQLite Entity"],
+      "responsibilities": [
+        "Almacenar y servir críticas de cine en caché local"
+      ]
+    },
+    {
+      "id": "node_fa_movie_data_dao",
+      "label": "FaMovieDataDao & FaMovieDataEntity",
+      "layer": "LocalData",
+      "package": "com.dondeloexan.data.local.dao",
+      "description": "DAO y Entidad para la nota y número de votos de Filmaffinity guardados en caché.",
+      "technologies": ["Room DAO", "SQLite Entity"],
+      "responsibilities": [
+        "Almacenar puntuación de Filmaffinity para visualización rápida"
+      ]
+    },
+    {
+      "id": "node_user_preferences_datastore",
+      "label": "UserPreferencesDataStore",
+      "layer": "LocalData",
+      "package": "com.dondeloexan.data.local.datastore",
+      "description": "Almacenamiento de preferencias con DataStore (tipos de disponibilidad, timestamps de actualización).",
+      "technologies": ["Preferences DataStore", "Coroutines Flow"],
+      "responsibilities": [
+        "Persistir banderas de SUBSCRIPTION, RENT, BUY, FREE, ADS",
+        "Guardar marca temporal del último refresco automático de la biblioteca"
+      ]
+    },
+    {
+      "id": "node_balloonerismm_api",
+      "label": "BalloonerismmApi (IMDb Worker)",
+      "layer": "RemoteData",
+      "package": "com.dondeloexan.data.remote.api",
+      "description": "Cliente HTTP Ktor para el proxy worker en Cloudflare de IMDb (api.balloonerismm.workers.dev).",
+      "technologies": ["Ktor Client", "OkHttp Engine", "Cloudflare Workers"],
+      "responsibilities": [
+        "Ejecutar búsquedas multi-contenido en la base de datos de IMDb",
+        "Obtener contenidos en tendencia y disponibilidad de plataformas según IMDb"
+      ]
+    },
+    {
+      "id": "node_tmdb_api",
+      "label": "TmdbApi",
+      "layer": "RemoteData",
+      "package": "com.dondeloexan.data.remote.api",
+      "description": "Cliente REST para The Movie Database API v3 con autenticación Bearer Token.",
+      "technologies": ["Ktor Client", "OkHttp Engine", "TMDB REST API"],
+      "responsibilities": [
+        "Obtener metadatos completos de películas y series",
+        "Consultar watch/providers por país (ES)",
+        "Obtener detalles de temporadas, episodios y créditos/redes sociales del reparto"
+      ]
+    },
+    {
+      "id": "node_omdb_api",
+      "label": "OmdbApi",
+      "layer": "RemoteData",
+      "package": "com.dondeloexan.data.remote.api",
+      "description": "Cliente HTTP para OMDb API. Obtiene puntuaciones de IMDb, Rotten Tomatoes y Metacritic.",
+      "technologies": ["Ktor Client", "OMDb API"],
+      "responsibilities": [
+        "Consultar ratings exactos de IMDb y Tomatoes por ID o título"
+      ]
+    },
+    {
+      "id": "node_wikidata_api",
+      "label": "WikidataApi",
+      "layer": "RemoteData",
+      "package": "com.dondeloexan.data.remote.api",
+      "description": "Cliente SPARQL para query.wikidata.org. Descubre relaciones entre obras (precuelas, secuelas, spin-offs).",
+      "technologies": ["Ktor Client", "SPARQL Protocol"],
+      "responsibilities": [
+        "Ejecutar consultas SPARQL para hallar relaciones conceptuales entre películas y series"
+      ]
+    },
+    {
+      "id": "node_filmaffinity_scraper",
+      "label": "FilmaffinityScraper",
+      "layer": "RemoteData",
+      "package": "com.dondeloexan.data.remote.filmaffinity",
+      "description": "Scraper web en HTML plano para la web de Filmaffinity en español.",
+      "technologies": ["Ktor Plain HTML Client", "Regex / JSoup Parser"],
+      "responsibilities": [
+        "Scrapear nota media de Filmaffinity",
+        "Extraer críticas de la prensa especializada en español con análisis de sentimiento"
+      ]
+    },
+    {
+      "id": "node_github_api",
+      "label": "GitHubApi",
+      "layer": "RemoteData",
+      "package": "com.dondeloexan.data.remote.api",
+      "description": "Cliente HTTP para la API de Releases de GitHub.",
+      "technologies": ["Ktor Client", "GitHub REST API"],
+      "responsibilities": [
+        "Consultar la versión más reciente en GitHub del repositorio dondeloexan"
+      ]
+    },
+    {
+      "id": "node_work_scheduler",
+      "label": "WorkScheduler",
+      "layer": "Background",
+      "package": "com.dondeloexan.worker",
+      "description": "Planificador de tareas en segundo plano mediante Android WorkManager.",
+      "technologies": ["WorkManager", "PeriodicWorkRequest"],
+      "responsibilities": [
+        "Programar la ejecución periódica diaria a las 08:00 AM del SeriesCheckWorker"
+      ]
+    },
+    {
+      "id": "node_series_check_worker",
+      "label": "SeriesCheckWorker",
+      "layer": "Background",
+      "package": "com.dondeloexan.worker",
+      "description": "Worker de ejecución en segundo plano para verificar nuevos estrenos de episodios y notificar al usuario.",
+      "technologies": ["CoroutineWorker", "WorkManager", "NotificationManager"],
+      "responsibilities": [
+        "Sincronizar series en seguimiento con TMDB/IMDb",
+        "Detectar nuevos episodios emitidos en el día",
+        "Lanzar notificaciones locales de barra de estado"
+      ]
+    },
+    {
+      "id": "node_library_refresher",
+      "label": "LibraryRefresher",
+      "layer": "Background",
+      "package": "com.dondeloexan.presentation.settings",
+      "description": "Coordinador de refresco integral de la biblioteca guardada en el dispositivo.",
+      "technologies": ["Coroutines Async", "Room DAOs", "RefreshCoordinator"],
+      "responsibilities": [
+        "Re-consultar APIs remotas para todas las series y películas guardadas",
+        "Actualizar proximas fechas de emision y notas en base de datos local"
+      ]
+    },
+    {
+      "id": "node_silent_update_manager",
+      "label": "SilentUpdateManager",
+      "layer": "Background",
+      "package": "com.dondeloexan.data.update",
+      "description": "Gestor de descargas de APK de actualizaciones desde GitHub Releases.",
+      "technologies": ["DownloadManager", "PackageInstaller Intent"],
+      "responsibilities": [
+        "Descargar el APK compilado en segundo plano",
+        "Solicitar la instalación del paquete al sistema Android"
+      ]
+    },
+    {
+      "id": "node_network_module_koin",
+      "label": "networkModule (Koin DI)",
+      "layer": "DI",
+      "package": "com.dondeloexan.di",
+      "description": "Módulo Koin que configura los clientes Ktor con OkHttp Engine, políticas de connection pool y timeouts.",
+      "technologies": ["Koin DSL", "Ktor", "OkHttp ConnectionPool"],
+      "responsibilities": [
+        "Inyectar clientes HTTP preconfigurados para TMDB, OMDb, Balloonerismm, Wikidata, GitHub y Filmaffinity"
+      ]
+    },
+    {
+      "id": "node_data_module_koin",
+      "label": "dataModule (Koin DI)",
+      "layer": "DI",
+      "package": "com.dondeloexan.di",
+      "description": "Módulo Koin que provee instancias de Room Database, DAOs, Repositorios, DataStore y Managers.",
+      "technologies": ["Koin DSL"],
+      "responsibilities": [
+        "Proveer AppDatabase, DAOs, DiscoverRepositoryImpl, SettingsRepositoryImpl, BackupManager, etc."
+      ]
+    },
+    {
+      "id": "node_view_model_module_koin",
+      "label": "viewModelModule (Koin DI)",
+      "layer": "DI",
+      "package": "com.dondeloexan.di",
+      "description": "Módulo Koin que define la fábrica de ViewModels e inyecta sus dependencias.",
+      "technologies": ["Koin ViewModel DSL"],
+      "responsibilities": [
+        "Proveer DiscoverViewModel, MediaDetailViewModel, SeriesViewModel, MoviesViewModel, SettingsViewModel, etc."
+      ]
+    }
+  ],
+  "edges": [
+    { "id": "e_app_koin_net", "source": "node_donde_lo_exan_app", "target": "node_network_module_koin", "label": "Registra Koin Module", "type": "dependency" },
+    { "id": "e_app_koin_data", "source": "node_donde_lo_exan_app", "target": "node_data_module_koin", "label": "Registra Koin Module", "type": "dependency" },
+    { "id": "e_app_koin_vm", "source": "node_donde_lo_exan_app", "target": "node_view_model_module_koin", "label": "Registra Koin Module", "type": "dependency" },
+    { "id": "e_app_scheduler", "source": "node_donde_lo_exan_app", "target": "node_work_scheduler", "label": "Schedules Work", "type": "invocation" },
+    { "id": "e_app_refresher", "source": "node_donde_lo_exan_app", "target": "node_library_refresher", "label": "Auto-refresh biblioteca", "type": "invocation" },
+
+    { "id": "e_main_act_nav", "source": "node_main_activity", "target": "node_nav_graph", "label": "Renderiza Compose NavGraph", "type": "invocation" },
+
+    { "id": "e_nav_discover", "source": "node_nav_graph", "target": "node_discover_screen", "label": "Ruta Nav: main (pestaña 7)", "type": "invocation" },
+    { "id": "e_nav_detail", "source": "node_nav_graph", "target": "node_media_detail_screen", "label": "Ruta Nav: detail/{id}/{type}", "type": "invocation" },
+    { "id": "e_nav_series", "source": "node_nav_graph", "target": "node_series_tabs", "label": "Ruta Nav: main (pestañas 0-3)", "type": "invocation" },
+    { "id": "e_nav_movies", "source": "node_nav_graph", "target": "node_movies_tabs", "label": "Ruta Nav: main (pestañas 4-6)", "type": "invocation" },
+    { "id": "e_nav_settings", "source": "node_nav_graph", "target": "node_settings_screen", "label": "Ruta Nav: main (pestaña 8)", "type": "invocation" },
+    { "id": "e_nav_platforms", "source": "node_nav_graph", "target": "node_platforms_screen", "label": "Ruta Nav: settings_platforms", "type": "invocation" },
+    { "id": "e_nav_avail", "source": "node_nav_graph", "target": "node_availability_screen", "label": "Ruta Nav: settings_availability", "type": "invocation" },
+    { "id": "e_nav_blacklist", "source": "node_nav_graph", "target": "node_blacklist_screen", "label": "Ruta Nav: settings_blacklist", "type": "invocation" },
+    { "id": "e_nav_logs", "source": "node_nav_graph", "target": "node_log_viewer_screen", "label": "Ruta Nav: settings_logs", "type": "invocation" },
+
+    { "id": "e_discover_screen_vm", "source": "node_discover_screen", "target": "node_discover_view_model", "label": "Observa StateFlow / Dispara acciones", "type": "data_flow" },
+    { "id": "e_detail_screen_vm", "source": "node_media_detail_screen", "target": "node_media_detail_view_model", "label": "Observa StateFlow / Marca episodios", "type": "data_flow" },
+    { "id": "e_series_tabs_vm", "source": "node_series_tabs", "target": "node_series_view_model", "label": "Observa series con progreso", "type": "data_flow" },
+    { "id": "e_movies_tabs_vm", "source": "node_movies_tabs", "target": "node_movies_view_model", "label": "Observa listas de películas", "type": "data_flow" },
+    { "id": "e_settings_screen_vm", "source": "node_settings_screen", "target": "node_settings_view_model", "label": "Inicia Backup / Updates", "type": "data_flow" },
+    { "id": "e_platforms_screen_vm", "source": "node_platforms_screen", "target": "node_platforms_view_model", "label": "Conmuta plataformas", "type": "data_flow" },
+    { "id": "e_avail_screen_vm", "source": "node_availability_screen", "target": "node_availability_view_model", "label": "Conmuta modelos de disponibilidad", "type": "data_flow" },
+    { "id": "e_blacklist_screen_vm", "source": "node_blacklist_screen", "target": "node_blacklist_view_model", "label": "Restaura items ocultos", "type": "data_flow" },
+    { "id": "e_logs_screen_vm", "source": "node_log_viewer_screen", "target": "node_log_viewer_view_model", "label": "Lee/Limpia logs", "type": "data_flow" },
+
+    { "id": "e_discover_vm_repo", "source": "node_discover_view_model", "target": "node_discover_repository", "label": "Invoca search / getPopular / blacklist", "type": "invocation" },
+    { "id": "e_detail_vm_repo", "source": "node_media_detail_view_model", "target": "node_discover_repository", "label": "Obtiene metadatos, reviews y relaciones", "type": "invocation" },
+    { "id": "e_detail_vm_movie_dao", "source": "node_media_detail_view_model", "target": "node_movie_dao", "label": "Guarda / Lee estado de película", "type": "invocation" },
+    { "id": "e_detail_vm_tv_dao", "source": "node_media_detail_view_model", "target": "node_tv_show_dao", "label": "Guarda / Lee estado de serie", "type": "invocation" },
+    { "id": "e_detail_vm_progress_dao", "source": "node_media_detail_view_model", "target": "node_tv_show_progress_dao", "label": "Inserta/Elimina marcados de episodios", "type": "invocation" },
+    { "id": "e_detail_vm_tmdb", "source": "node_media_detail_view_model", "target": "node_tmdb_api", "label": "Obtiene redes sociales de actores y temporadas", "type": "invocation" },
+
+    { "id": "e_series_vm_tv_dao", "source": "node_series_view_model", "target": "node_tv_show_dao", "label": "Consulta Flow<List<TvShowEntity>>", "type": "data_flow" },
+    { "id": "e_series_vm_progress_dao", "source": "node_series_view_model", "target": "node_tv_show_progress_dao", "label": "Consulta progreso por episodio", "type": "data_flow" },
+    { "id": "e_movies_vm_movie_dao", "source": "node_movies_view_model", "target": "node_movie_dao", "label": "Consulta Flow<List<MovieEntity>>", "type": "data_flow" },
+
+    { "id": "e_settings_vm_settings_repo", "source": "node_settings_view_model", "target": "node_settings_repository", "label": "Comprueba updates de GitHub", "type": "invocation" },
+    { "id": "e_settings_vm_backup_repo", "source": "node_settings_view_model", "target": "node_backup_repository", "label": "Exporta / Importa backup", "type": "invocation" },
+    { "id": "e_settings_vm_silent_update", "source": "node_settings_view_model", "target": "node_silent_update_manager", "label": "Dispara descarga de APK", "type": "invocation" },
+
+    { "id": "e_platforms_vm_dao", "source": "node_platforms_view_model", "target": "node_user_platform_dao", "label": "Actualiza plataformas en DB", "type": "invocation" },
+    { "id": "e_avail_vm_datastore", "source": "node_availability_view_model", "target": "node_user_preferences_datastore", "label": "Actualiza switches en DataStore", "type": "invocation" },
+    { "id": "e_blacklist_vm_dao", "source": "node_blacklist_view_model", "target": "node_blacklist_dao", "label": "Elimina de BlacklistDao", "type": "invocation" },
+
+    { "id": "e_discover_repo_impl_interface", "source": "node_discover_repository_impl", "target": "node_discover_repository", "label": "Implementa contrato", "type": "dependency" },
+    { "id": "e_settings_repo_impl_interface", "source": "node_settings_repository_impl", "target": "node_settings_repository", "label": "Implementa contrato", "type": "dependency" },
+    { "id": "e_backup_repo_impl_interface", "source": "node_backup_repository_impl", "target": "node_backup_repository", "label": "Implementa contrato", "type": "dependency" },
+
+    { "id": "e_discover_repo_balloonerismm", "source": "node_discover_repository_impl", "target": "node_balloonerismm_api", "label": "Multi-Search IMDb & Trending", "type": "invocation" },
+    { "id": "e_discover_repo_tmdb", "source": "node_discover_repository_impl", "target": "node_tmdb_api", "label": "Fallback Search, Providers, Credits", "type": "invocation" },
+    { "id": "e_discover_repo_omdb", "source": "node_discover_repository_impl", "target": "node_omdb_api", "label": "Puntuaciones IMDb/Rotten Tomatoes", "type": "invocation" },
+    { "id": "e_discover_repo_wikidata", "source": "node_discover_repository_impl", "target": "node_wikidata_api", "label": "Relaciones SPARQL (Precuelas/Secuelas)", "type": "invocation" },
+    { "id": "e_discover_repo_fa_scraper", "source": "node_discover_repository_impl", "target": "node_filmaffinity_scraper", "label": "Scrapea nota y críticas en ES", "type": "invocation" },
+    { "id": "e_discover_repo_platform_dao", "source": "node_discover_repository_impl", "target": "node_user_platform_dao", "label": "Filtra por plataformas activas del usuario", "type": "data_flow" },
+    { "id": "e_discover_repo_blacklist_dao", "source": "node_discover_repository_impl", "target": "node_blacklist_dao", "label": "Filtra contenidos bloqueados", "type": "data_flow" },
+    { "id": "e_discover_repo_datastore", "source": "node_discover_repository_impl", "target": "node_user_preferences_datastore", "label": "Filtra por modelos de disponibilidad", "type": "data_flow" },
+    { "id": "e_discover_repo_fa_dao", "source": "node_discover_repository_impl", "target": "node_fa_movie_data_dao", "label": "Guarda / Lee nota FA de caché local", "type": "data_flow" },
+    { "id": "e_discover_repo_critic_dao", "source": "node_discover_repository_impl", "target": "node_critic_review_dao", "label": "Guarda / Lee críticas FA de caché local", "type": "data_flow" },
+
+    { "id": "e_settings_repo_github", "source": "node_settings_repository_impl", "target": "node_github_api", "label": "Consulta releases en GitHub", "type": "invocation" },
+    { "id": "e_backup_repo_manager", "source": "node_backup_repository_impl", "target": "node_backup_manager", "label": "Delega exportación/importación", "type": "invocation" },
+
+    { "id": "e_backup_manager_db", "source": "node_backup_manager", "target": "node_app_database", "label": "Lee/Escribe todas las tablas DAO", "type": "data_flow" },
+
+    { "id": "e_db_movie_dao", "source": "node_app_database", "target": "node_movie_dao", "label": "Provee MovieDao", "type": "dependency" },
+    { "id": "e_db_tv_dao", "source": "node_app_database", "target": "node_tv_show_dao", "label": "Provee TvShowDao", "type": "dependency" },
+    { "id": "e_db_progress_dao", "source": "node_app_database", "target": "node_tv_show_progress_dao", "label": "Provee TvShowProgressDao", "type": "dependency" },
+    { "id": "e_db_platform_dao", "source": "node_app_database", "target": "node_user_platform_dao", "label": "Provee UserPlatformDao", "type": "dependency" },
+    { "id": "e_db_blacklist_dao", "source": "node_app_database", "target": "node_blacklist_dao", "label": "Provee BlacklistDao", "type": "dependency" },
+    { "id": "e_db_critic_dao", "source": "node_app_database", "target": "node_critic_review_dao", "label": "Provee CriticReviewDao", "type": "dependency" },
+    { "id": "e_db_fa_dao", "source": "node_app_database", "target": "node_fa_movie_data_dao", "label": "Provee FaMovieDataDao", "type": "dependency" },
+
+    { "id": "e_scheduler_worker", "source": "node_work_scheduler", "target": "node_series_check_worker", "label": "Instancia Worker a las 08:00 AM", "type": "invocation" },
+    { "id": "e_worker_refresher", "source": "node_series_check_worker", "target": "node_library_refresher", "label": "Ejecuta sincronización de biblioteca", "type": "invocation" },
+    { "id": "e_refresher_tmdb", "source": "node_library_refresher", "target": "node_tmdb_api", "label": "Consulta proximas fechas y episodios", "type": "invocation" },
+    { "id": "e_refresher_tv_dao", "source": "node_library_refresher", "target": "node_tv_show_dao", "label": "Actualiza entidades con nuevos estrenos", "type": "data_flow" }
+  ],
+  "flows": [
+    {
+      "id": "flow_catalog_search",
+      "name": "Búsqueda y Descubrimiento Multifuente con Filtros",
+      "description": "Flujo de usuario buscando o navegando el catálogo en la pestaña Descubrir. Combina resultados de IMDb y TMDB, aplica la lista negra y filtra por plataformas activas y disponibilidad comercial.",
+      "path": [
+        "node_discover_screen",
+        "node_discover_view_model",
+        "node_discover_repository_impl",
+        "node_balloonerismm_api",
+        "node_tmdb_api",
+        "node_user_platform_dao",
+        "node_blacklist_dao",
+        "node_user_preferences_datastore"
+      ],
+      "steps": [
+        {
+          "step": 1,
+          "from": "node_discover_screen",
+          "to": "node_discover_view_model",
+          "action": "Input de búsqueda",
+          "description": "El usuario escribe un término de búsqueda o hace scroll en la pantalla de Descubrir."
+        },
+        {
+          "step": 2,
+          "from": "node_discover_view_model",
+          "to": "node_discover_repository_impl",
+          "action": "Invocación search(query, page)",
+          "description": "DiscoverViewModel invoca search() en el DiscoverRepository con debounce."
+        },
+        {
+          "step": 3,
+          "from": "node_discover_repository_impl",
+          "to": "node_balloonerismm_api",
+          "action": "Consulta API principal (IMDb Worker)",
+          "description": "DiscoverRepositoryImpl consulta la API Balloonerismm en Cloudflare Workers."
+        },
+        {
+          "step": 4,
+          "from": "node_discover_repository_impl",
+          "to": "node_tmdb_api",
+          "action": "Fallback o enriquecimiento de proveedores",
+          "description": "Si IMDb no devuelve resultados o requiere proveedores detallados, se consulta TMDB API."
+        },
+        {
+          "step": 5,
+          "from": "node_discover_repository_impl",
+          "to": "node_user_platform_dao",
+          "action": "Filtrado por plataformas del usuario",
+          "description": "Se obtienen las plataformas seleccionadas por el usuario (ej. Netflix, Disney+) para excluir contenido no disponible."
+        },
+        {
+          "step": 6,
+          "from": "node_discover_repository_impl",
+          "to": "node_user_preferences_datastore",
+          "action": "Filtrado por modelos comerciales",
+          "description": "Se descartan resultados que no coincidan con las preferencias de disponibilidad (SUBSCRIPTION, RENT, BUY, FREE, ADS)."
+        },
+        {
+          "step": 7,
+          "from": "node_discover_repository_impl",
+          "to": "node_blacklist_dao",
+          "action": "Exclusión de Black List",
+          "description": "Se filtran los contenidos que el usuario ha mandado a la Black List (lista negra)."
+        },
+        {
+          "step": 8,
+          "from": "node_discover_repository_impl",
+          "to": "node_discover_screen",
+          "action": "Retorno de DataResult.Success(List<ContentPreview>)",
+          "description": "Los resultados enriquecidos y filtrados se emiten hacia la UI para su renderizado."
+        }
+      ]
+    },
+    {
+      "id": "flow_media_detail",
+      "name": "Consulta Detallada y Agregación Multicapa de Contenido",
+      "description": "Carga completa de la ficha de una película o serie. Agrega datos de TMDB (detalles/temporadas/actores), OMDb (ratings), Filmaffinity (críticas y nota media), Wikidata (sagas/relaciones) y Room local (progreso guardado).",
+      "path": [
+        "node_media_detail_screen",
+        "node_media_detail_view_model",
+        "node_discover_repository_impl",
+        "node_tmdb_api",
+        "node_omdb_api",
+        "node_filmaffinity_scraper",
+        "node_wikidata_api",
+        "node_movie_dao",
+        "node_tv_show_dao",
+        "node_tv_show_progress_dao"
+      ],
+      "steps": [
+        {
+          "step": 1,
+          "from": "node_media_detail_screen",
+          "to": "node_media_detail_view_model",
+          "action": "Abrir ficha con contentId y contentType",
+          "description": "Navegación a la pantalla de detalle."
+        },
+        {
+          "step": 2,
+          "from": "node_media_detail_view_model",
+          "to": "node_discover_repository_impl",
+          "action": "getDetails(id, type)",
+          "description": "Solicita metadatos completos del contenido."
+        },
+        {
+          "step": 3,
+          "from": "node_discover_repository_impl",
+          "to": "node_tmdb_api",
+          "action": "Metadatos, reparto y temporadas",
+          "description": "Consulta TMDB para sinopsis, imágenes, elenco y episodios por temporada."
+        },
+        {
+          "step": 4,
+          "from": "node_discover_repository_impl",
+          "to": "node_omdb_api",
+          "action": "Puntuaciones adicionales",
+          "description": "Consulta OMDb para obtener la nota exacta de IMDb y Rotten Tomatoes."
+        },
+        {
+          "step": 5,
+          "from": "node_discover_repository_impl",
+          "to": "node_filmaffinity_scraper",
+          "action": "Web Scraping de críticas en español",
+          "description": "Descarga la página de Filmaffinity en HTML, extrae la nota FA y las reseñas especializadas."
+        },
+        {
+          "step": 6,
+          "from": "node_discover_repository_impl",
+          "to": "node_wikidata_api",
+          "action": "Consulta SPARQL de sagas",
+          "description": "Consulta Wikidata para identificar precuelas, secuelas y obras derivadas."
+        },
+        {
+          "step": 7,
+          "from": "node_media_detail_view_model",
+          "to": "node_tv_show_progress_dao",
+          "action": "Verificación de episodios vistos locales",
+          "description": "Carga la lista de episodios que el usuario ya ha marcado como vistos en la BD local."
+        },
+        {
+          "step": 8,
+          "from": "node_media_detail_view_model",
+          "to": "node_media_detail_screen",
+          "action": "Emisión de DetailUiState",
+          "description": "Renderizado completo de la ficha con carrusel de actores, temporadas, selector de episodios, críticas y sagas."
+        }
+      ]
+    },
+    {
+      "id": "node_flow_episode_tracking",
+      "name": "Seguimiento y Marcado de Episodios (Individual y en Cascada)",
+      "description": "Marcado de episodios vistos en series de TV. Admite clic individual o sugerencia automática de marcado en cascada (marcar todos los episodios anteriores hasta el seleccionado).",
+      "path": [
+        "node_media_detail_screen",
+        "node_media_detail_view_model",
+        "node_tv_show_progress_dao",
+        "node_tv_show_dao",
+        "node_series_tabs",
+        "node_series_view_model"
+      ],
+      "steps": [
+        {
+          "step": 1,
+          "from": "node_media_detail_screen",
+          "to": "node_media_detail_view_model",
+          "action": "Clic en un episodio S02E05",
+          "description": "El usuario marca el episodio 5 de la temporada 2 como visto."
+        },
+        {
+          "step": 2,
+          "from": "node_media_detail_view_model",
+          "to": "node_media_detail_view_model",
+          "action": "Evaluación de propuesta en cascada",
+          "description": "Si hay episodios no vistos anteriores (ej. S01E01 a S02E04), se muestra un diálogo de marcado masivo en cascada."
+        },
+        {
+          "step": 3,
+          "from": "node_media_detail_view_model",
+          "to": "node_tv_show_progress_dao",
+          "action": "Inserción masiva o individual de TvShowProgressEntity",
+          "description": "Se guardan en Room las filas correspondientes con el timestamp de visualización."
+        },
+        {
+          "step": 4,
+          "from": "node_media_detail_view_model",
+          "to": "node_tv_show_dao",
+          "action": "Actualización de la entidad de la serie",
+          "description": "Se recalcula el estado de la serie (ej. transición de 'PENDIENTE' a 'EN_CURSO' o 'TERMINADA')."
+        },
+        {
+          "step": 5,
+          "from": "node_tv_show_dao",
+          "to": "node_series_view_model",
+          "action": "Notificación reactiva de Flow",
+          "description": "Room emite los datos actualizados a SeriesViewModel."
+        },
+        {
+          "step": 6,
+          "from": "node_series_view_model",
+          "to": "node_series_tabs",
+          "action": "Re-clasificación automática en pestañas",
+          "description": "La serie se mueve automáticamente a la pestaña correspondiente (En curso, Agenda o Terminadas)."
+        }
+      ]
+    },
+    {
+      "id": "flow_daily_sync",
+      "name": "Sincronización Diaria en Segundo Plano y Notificación de Estrenos",
+      "description": "Tarea en segundo plano ejecutada diariamente a las 08:00 AM mediante WorkManager. Comprueba si hay nuevos episodios emitidos de las series en seguimiento y lanza notificaciones.",
+      "path": [
+        "node_work_scheduler",
+        "node_series_check_worker",
+        "node_library_refresher",
+        "node_tmdb_api",
+        "node_tv_show_dao",
+        "node_donde_lo_exan_app"
+      ],
+      "steps": [
+        {
+          "step": 1,
+          "from": "node_work_scheduler",
+          "to": "node_series_check_worker",
+          "action": "Disparo programado a las 08:00 AM",
+          "description": "Android WorkManager despierta a SeriesCheckWorker."
+        },
+        {
+          "step": 2,
+          "from": "node_series_check_worker",
+          "to": "node_library_refresher",
+          "action": "Ejecución de refresh()",
+          "description": "Se activa la actualización de la biblioteca guardada."
+        },
+        {
+          "step": 3,
+          "from": "node_library_refresher",
+          "to": "node_tv_show_dao",
+          "action": "Consulta de series activas",
+          "description": "Obtiene las series que no están terminadas o en producción."
+        },
+        {
+          "step": 4,
+          "from": "node_library_refresher",
+          "to": "node_tmdb_api",
+          "action": "Consulta de nuevos episodios emitidos hoy",
+          "description": "Obtiene datos actualizados de TMDB sobre fechas de emisión del día."
+        },
+        {
+          "step": 5,
+          "from": "node_library_refresher",
+          "to": "node_tv_show_dao",
+          "action": "Actualización de entidades",
+          "description": "Persiste en SQLite los nuevos números de episodio y fechas."
+        },
+        {
+          "step": 6,
+          "from": "node_series_check_worker",
+          "to": "node_donde_lo_exan_app",
+          "action": "Publicación de Notificación Local",
+          "description": "Muestra una notificación en la barra de estado de Android indicando los estrenos del día."
+        }
+      ]
+    },
+    {
+      "id": "flow_backup_restore",
+      "name": "Copia de Seguridad y Restauración de Datos (JSON + SAF)",
+      "description": "Proceso de exportación e importación de la base de datos a un archivo JSON en el almacenamiento del usuario mediante Storage Access Framework.",
+      "path": [
+        "node_settings_screen",
+        "node_settings_view_model",
+        "node_backup_repository_impl",
+        "node_backup_manager",
+        "node_app_database"
+      ],
+      "steps": [
+        {
+          "step": 1,
+          "from": "node_settings_screen",
+          "to": "node_settings_view_model",
+          "action": "Selección de archivo con SAF",
+          "description": "El usuario elige exportar o importar un backup seleccionando una ubicación con el selector de archivos nativo de Android."
+        },
+        {
+          "step": 2,
+          "from": "node_settings_view_model",
+          "to": "node_backup_repository_impl",
+          "action": "exportBackup(uri) / importBackup(uri)",
+          "description": "El ViewModel delega la operación pasando el Uri obtenido."
+        },
+        {
+          "step": 3,
+          "from": "node_backup_repository_impl",
+          "to": "node_backup_manager",
+          "action": "Procesamiento de I/O en Dispatchers.IO",
+          "description": "BackupManager abre InputStream/OutputStream en ContentResolver."
+        },
+        {
+          "step": 4,
+          "from": "node_backup_manager",
+          "to": "node_app_database",
+          "action": "Lectura o Inserción de todas las tablas",
+          "description": "Para exportar, consulta todas las filas de MovieDao, TvShowDao, TvShowProgressDao, SearchHistoryDao y UserPlatformDao. Para importar, las decodifica e inserta en la base de datos."
+        },
+        {
+          "step": 5,
+          "from": "node_backup_manager",
+          "to": "node_settings_screen",
+          "action": "Resultado de la operación",
+          "description": "Muestra un mensaje FeedbackBanner informando del éxito o fallo de la restauración."
+        }
+      ]
+    },
+    {
+      "id": "flow_app_update",
+      "name": "Comprobación e Instalación Silenciosa de Actualizaciones",
+      "description": "Flujo de actualización de la aplicación directamente desde GitHub Releases sin pasar por Google Play Store.",
+      "path": [
+        "node_settings_screen",
+        "node_settings_view_model",
+        "node_settings_repository_impl",
+        "node_github_api",
+        "node_silent_update_manager"
+      ],
+      "steps": [
+        {
+          "step": 1,
+          "from": "node_settings_screen",
+          "to": "node_settings_view_model",
+          "action": "Comprobar actualizaciones",
+          "description": "El usuario toca 'Comprobar actualización' en Ajustes."
+        },
+        {
+          "step": 2,
+          "from": "node_settings_view_model",
+          "to": "node_settings_repository_impl",
+          "action": "checkForUpdates()",
+          "description": "Invocación al repositorio de configuración."
+        },
+        {
+          "step": 3,
+          "from": "node_settings_repository_impl",
+          "to": "node_github_api",
+          "action": "GET /repos/{owner}/{repo}/releases/latest",
+          "description": "Consulta el último tag y assets en la API de GitHub."
+        },
+        {
+          "step": 4,
+          "from": "node_github_api",
+          "to": "node_settings_view_model",
+          "action": "Respuesta con nueva versión disponible",
+          "description": "Se compara la versión instalada (BuildConfig.VERSION_NAME) con el tag de GitHub."
+        },
+        {
+          "step": 5,
+          "from": "node_settings_view_model",
+          "to": "node_settings_screen",
+          "action": "Muestra UpdateAvailableDialog",
+          "description": "Aparece un diálogo emergente con las notas de la versión y botón de descarga."
+        },
+        {
+          "step": 6,
+          "from": "node_settings_view_model",
+          "to": "node_silent_update_manager",
+          "action": "downloadAndInstall(apkUrl)",
+          "description": "SilentUpdateManager inicia la descarga del archivo APK mediante DownloadManager de Android y lanza el instalador del sistema."
+        }
+      ]
+    },
+    {
+      "id": "flow_blacklisting",
+      "name": "Gestión de Lista Negra y Ocultado Reactivo de Contenidos",
+      "description": "Ocultado de contenidos no deseados desde la vista de descubrimiento o detalle. Se añade a la tabla BlacklistDao y se propaga en tiempo real.",
+      "path": [
+        "node_discover_screen",
+        "node_discover_view_model",
+        "node_blacklist_dao",
+        "node_blacklist_screen",
+        "node_blacklist_view_model"
+      ],
+      "steps": [
+        {
+          "step": 1,
+          "from": "node_discover_screen",
+          "to": "node_discover_view_model",
+          "action": "Clic en icono Calavera (Black List)",
+          "description": "El usuario decide ocultar una película o serie."
+        },
+        {
+          "step": 2,
+          "from": "node_discover_view_model",
+          "to": "node_blacklist_dao",
+          "action": "insert(BlacklistedEntity)",
+          "description": "Se inserta la entrada en la tabla blacklist_items de la base de datos."
+        },
+        {
+          "step": 3,
+          "from": "node_blacklist_dao",
+          "to": "node_discover_view_model",
+          "action": "Filtrado reactivo en lista en memoria",
+          "description": "Se remueve el elemento de los StateFlow de la interfaz de forma instantánea."
+        },
+        {
+          "step": 4,
+          "from": "node_blacklist_screen",
+          "to": "node_blacklist_view_model",
+          "action": "Consulta de contenidos en lista negra",
+          "description": "En Ajustes -> Ocultos, BlacklistViewModel lee los elementos ocultados para permitir su restauración."
+        },
+        {
+          "step": 5,
+          "from": "node_blacklist_view_model",
+          "to": "node_blacklist_dao",
+          "action": "deleteByContentId(id)",
+          "description": "Al hacer clic en restaurar, se elimina de la base de datos y el contenido vuelve a ser visible en búsquedas."
+        }
+      ]
+    }
+  ]
+}
