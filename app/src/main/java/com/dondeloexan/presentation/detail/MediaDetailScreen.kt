@@ -80,9 +80,10 @@ import android.content.Intent
 import android.net.Uri
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import com.dondeloexan.data.remote.dto.TmdbSeasonDto
-import com.dondeloexan.data.remote.dto.TmdbEpisodeDto
-import com.dondeloexan.data.remote.dto.TmdbTvSeasonDetailDto
+import com.dondeloexan.domain.model.detail.Season
+import com.dondeloexan.domain.model.detail.Episode
+import com.dondeloexan.domain.model.detail.SeasonDetail
+import com.dondeloexan.domain.model.detail.SocialLinkType
 import com.dondeloexan.domain.model.Content
 import com.dondeloexan.domain.model.ContentType
 import com.dondeloexan.domain.model.PersonInfo
@@ -663,9 +664,9 @@ private fun FichaTab(content: Content, viewModel: MediaDetailViewModel, onNaviga
 
 @Composable
 private fun EpisodiosTab(
-    seasons: List<TmdbSeasonDto>,
+    seasons: List<Season>,
     selectedSeason: Int,
-    seasonDetail: TmdbTvSeasonDetailDto?,
+    seasonDetail: SeasonDetail?,
     watchedEpisodes: Set<String>,
     lastWatchedEpisode: Int?,
     onSeasonSelected: (Int) -> Unit,
@@ -1406,9 +1407,9 @@ private fun PlatformCard(platform: StreamingAvailability) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SeasonsSectionHeader(
-    seasons: List<TmdbSeasonDto>,
+    seasons: List<Season>,
     selectedSeason: Int,
-    seasonDetail: TmdbTvSeasonDetailDto?,
+    seasonDetail: SeasonDetail?,
     watchedEpisodes: Set<String>,
     onSeasonSelected: (Int) -> Unit,
     onMarkSeasonToggle: () -> Unit
@@ -1482,7 +1483,7 @@ private fun SeasonsSectionHeader(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun EpisodeRow(
-    episode: TmdbEpisodeDto,
+    episode: Episode,
     selectedSeason: Int,
     watchedEpisodes: Set<String>,
     onLongClick: (Int, Boolean) -> Unit,

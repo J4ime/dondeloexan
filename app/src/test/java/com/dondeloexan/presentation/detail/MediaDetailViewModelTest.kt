@@ -1,17 +1,20 @@
 package com.dondeloexan.presentation.detail
 
-import com.dondeloexan.data.local.dao.MovieDao
-import com.dondeloexan.data.local.dao.TvShowDao
-import com.dondeloexan.data.local.dao.TvShowProgressDao
-import com.dondeloexan.data.remote.api.BalloonerismmApi
-import com.dondeloexan.data.remote.api.TmdbApi
 import com.dondeloexan.domain.model.Content
 import com.dondeloexan.domain.model.ContentPreview
 import com.dondeloexan.domain.model.ContentSource
 import com.dondeloexan.domain.model.ContentType
 import com.dondeloexan.domain.model.CriticReview
+import com.dondeloexan.domain.model.DataResult
 import com.dondeloexan.domain.model.Sentiment
-import com.dondeloexan.domain.repository.DiscoverRepository
+import com.dondeloexan.domain.model.detail.CascadeProposal
+import com.dondeloexan.domain.model.detail.EpisodeToggleResult
+import com.dondeloexan.domain.model.detail.MovieWatchState
+import com.dondeloexan.domain.model.detail.Season
+import com.dondeloexan.domain.model.detail.SeasonDetail
+import com.dondeloexan.domain.model.detail.SeriesTracking
+import com.dondeloexan.domain.usecase.MediaDetailUseCases
+import com.dondeloexan.domain.usecase.SeriesState
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
@@ -28,45 +31,47 @@ import org.junit.jupiter.api.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class MediaDetailViewModelTest {
 
-    private val discoverRepository: DiscoverRepository = mockk()
-    private val tmdbApi: TmdbApi = mockk()
-    private val imdbApi: BalloonerismmApi = mockk()
-    private val movieDao: MovieDao = mockk()
-    private val tvShowDao: TvShowDao = mockk()
-    private val tvShowProgressDao: TvShowProgressDao = mockk()
+    private val useCases: MediaDetailUseCases = mockk()
 
     private lateinit var viewModel: MediaDetailViewModel
 
     @BeforeEach
     fun setUp() {
         Dispatchers.setMain(StandardTestDispatcher())
-        viewModel = MediaDetailViewModel(
-            discoverRepository = discoverRepository,
-            tmdbApi = tmdbApi,
-            imdbApi = imdbApi,
-            movieDao = movieDao,
-            tvShowDao = tvShowDao,
-            tvShowProgressDao = tvShowProgressDao
-        )
+        viewModel = MediaDetailViewModel(useCases = useCases)
+    }
+
+    private fun movieContent(id: String = "tmdb-1", tmdbId: Int = 1, collectionId: Int? = null) = Content(
+        id = id,
+        source = ContentSource.TMDB,
+        tmdbId = tmdbId,
+        title = "Test Movie",
+        type = ContentType.MOVIE,
+        collectionTmdbId = collectionId
+    )
+
+    private fun seriesContent(id: String = "tmdb-2", tmdbId: Int = 2) = Content(
+        id = id,
+        source = ContentSource.TMDB,
+        tmdbId = tmdbId,
+        title = "Test Series",
+        type = ContentType.SERIES
+    )
+
+    private fun stubMovieContentFlow(content: Content) {
+        coEvery { useCases.getDetail(any(), any()) } returns flowOf(DataResult.Success(content))
+        coEvery { useCases.getCollectionMovies(content) } returns emptyList()
+        coEvery { useCases.getSimilar(content) } returns emptyList()
+        coEvery { useCases.getCriticReviews(content) } returns emptyList()
+        coEvery { useCases.getFaId(content) } returns null
+        coEvery { useCases.loadMovieState(content) } returns MovieWatchState()
     }
 
     @Test
     fun `loadContent calls loadCollection for movie with collectionTmdbId`() = runTest {
-        val content = Content(
-            id = "tmdb-1",
-            source = ContentSource.TMDB,
-            tmdbId = 1,
-            title = "Test Movie",
-            type = ContentType.MOVIE,
-            collectionTmdbId = 10
-        )
-        coEvery { discoverRepository.getDetail(any(), any()) } returns flowOf(
-            com.dondeloexan.domain.model.DataResult.Success(content)
-        )
-        coEvery { movieDao.getByContentId(any()) } returns null
-        coEvery { movieDao.getByTmdbId(any()) } returns null
-        coEvery { movieDao.getByImdbId(any()) } returns null
-        coEvery { discoverRepository.getCollectionMovies(10) } returns emptyList()
+        val content = movieContent(collectionId = 10)
+        stubMovieContentFlow(content)
+        coEvery { useCases.getCollectionMovies(content) } returns emptyList()
 
         viewModel.loadContent("tmdb-1")
 
@@ -76,56 +81,42 @@ class MediaDetailViewModelTest {
         assert(state.isCollectionLoading == false)
         assert(state.collectionMovies != null)
         assert(state.collectionMovies!!.isEmpty())
-        coVerify { discoverRepository.getCollectionMovies(10) }
+        coVerify { useCases.getCollectionMovies(content) }
     }
 
     @Test
-    fun `loadCollection filters out current movie from collection movies`() = runTest {
-        val content = Content(
-            id = "tmdb-5",
-            source = ContentSource.TMDB,
-            tmdbId = 5,
-            title = "Test Movie",
-            type = ContentType.MOVIE,
-            collectionTmdbId = 10
-        )
+    fun `loadCollection exposes filtered collection movies`() = runTest {
+        val content = movieContent(id = "tmdb-5", tmdbId = 5, collectionId = 10)
         val collectionMovies = listOf(
             ContentPreview(id = "tmdb-5", title = "Test Movie", source = ContentSource.TMDB, tmdbId = 5, type = ContentType.MOVIE),
             ContentPreview(id = "tmdb-6", title = "Other Movie", source = ContentSource.TMDB, tmdbId = 6, type = ContentType.MOVIE)
         )
-        coEvery { discoverRepository.getDetail(any(), any()) } returns flowOf(
-            com.dondeloexan.domain.model.DataResult.Success(content)
-        )
-        coEvery { movieDao.getByContentId(any()) } returns null
-        coEvery { movieDao.getByTmdbId(any()) } returns null
-        coEvery { movieDao.getByImdbId(any()) } returns null
-        coEvery { discoverRepository.getCollectionMovies(10) } returns collectionMovies
+        stubMovieContentFlow(content)
+        coEvery { useCases.getCollectionMovies(content) } returns collectionMovies
 
         viewModel.loadContent("tmdb-5")
 
         advanceUntilIdle()
 
         val state = viewModel.uiState.value
-        assert(state.collectionMovies!!.size == 1)
-        assert(state.collectionMovies!![0].title == "Other Movie")
+        assert(state.collectionMovies!!.size == 2)
+        assert(state.collectionMovies!!.any { it.title == "Other Movie" })
     }
 
     @Test
     fun `loadCollection is not called for series content`() = runTest {
-        val content = Content(
-            id = "tmdb-2",
-            source = ContentSource.TMDB,
-            tmdbId = 2,
-            title = "Test Series",
-            type = ContentType.SERIES
+        val content = seriesContent()
+        coEvery { useCases.getDetail(any(), any()) } returns flowOf(DataResult.Success(content))
+        coEvery { useCases.loadSeriesState(content) } returns SeriesState(
+            seasons = emptyList(),
+            tracking = SeriesTracking(),
+            selectedSeason = 0,
+            seasonDetail = null
         )
-        coEvery { discoverRepository.getDetail(any(), any()) } returns flowOf(
-            com.dondeloexan.domain.model.DataResult.Success(content)
-        )
-        coEvery { tvShowDao.getByContentId(any()) } returns null
-        coEvery { tvShowDao.getByTmdbId(any()) } returns null
-        coEvery { tmdbApi.getTvDetail(any()) } returns mockk()
-        coEvery { tmdbApi.getTvSeason(any(), any()) } returns mockk()
+        coEvery { useCases.getCollectionMovies(content) } returns emptyList()
+        coEvery { useCases.getSimilar(content) } returns emptyList()
+        coEvery { useCases.getCriticReviews(content) } returns emptyList()
+        coEvery { useCases.getFaId(content) } returns null
 
         viewModel.loadContent("tmdb-2")
 
@@ -136,21 +127,8 @@ class MediaDetailViewModelTest {
 
     @Test
     fun `loadCollection settles loading flag after completion`() = runTest {
-        val content = Content(
-            id = "tmdb-3",
-            source = ContentSource.TMDB,
-            tmdbId = 3,
-            title = "Test Movie",
-            type = ContentType.MOVIE,
-            collectionTmdbId = 10
-        )
-        coEvery { discoverRepository.getDetail(any(), any()) } returns flowOf(
-            com.dondeloexan.domain.model.DataResult.Success(content)
-        )
-        coEvery { movieDao.getByContentId(any()) } returns null
-        coEvery { movieDao.getByTmdbId(any()) } returns null
-        coEvery { movieDao.getByImdbId(any()) } returns null
-        coEvery { discoverRepository.getCollectionMovies(10) } returns emptyList()
+        val content = movieContent(id = "tmdb-3", tmdbId = 3, collectionId = 10)
+        stubMovieContentFlow(content)
 
         viewModel.loadContent("tmdb-3")
         advanceUntilIdle()
@@ -162,20 +140,9 @@ class MediaDetailViewModelTest {
 
     @Test
     fun `loadSimilar is called for movie content`() = runTest {
-        val content = Content(
-            id = "tmdb-4",
-            source = ContentSource.TMDB,
-            tmdbId = 4,
-            title = "Test Movie",
-            type = ContentType.MOVIE
-        )
-        coEvery { discoverRepository.getDetail(any(), any()) } returns flowOf(
-            com.dondeloexan.domain.model.DataResult.Success(content)
-        )
-        coEvery { movieDao.getByContentId(any()) } returns null
-        coEvery { movieDao.getByTmdbId(any()) } returns null
-        coEvery { movieDao.getByImdbId(any()) } returns null
-        coEvery { discoverRepository.getRecommendations(any(), any()) } returns emptyList()
+        val content = movieContent(id = "tmdb-4", tmdbId = 4)
+        stubMovieContentFlow(content)
+        coEvery { useCases.getSimilar(content) } returns emptyList()
 
         viewModel.loadContent("tmdb-4")
 
@@ -184,29 +151,18 @@ class MediaDetailViewModelTest {
         val state = viewModel.uiState.value
         assert(!state.isSimilarLoading)
         assert(state.similarContent != null)
-        coVerify { discoverRepository.getRecommendations("tmdb-4", ContentType.MOVIE) }
+        coVerify { useCases.getSimilar(content) }
     }
 
     @Test
     fun `loadSimilar sets similarContent on success`() = runTest {
-        val content = Content(
-            id = "tmdb-7",
-            source = ContentSource.TMDB,
-            tmdbId = 7,
-            title = "Test Movie",
-            type = ContentType.MOVIE
-        )
+        val content = movieContent(id = "tmdb-7", tmdbId = 7)
         val similar = listOf(
             ContentPreview(id = "tmdb-8", title = "Similar 1", source = ContentSource.TMDB, tmdbId = 8, type = ContentType.MOVIE),
             ContentPreview(id = "tmdb-9", title = "Similar 2", source = ContentSource.TMDB, tmdbId = 9, type = ContentType.MOVIE)
         )
-        coEvery { discoverRepository.getDetail(any(), any()) } returns flowOf(
-            com.dondeloexan.domain.model.DataResult.Success(content)
-        )
-        coEvery { movieDao.getByContentId(any()) } returns null
-        coEvery { movieDao.getByTmdbId(any()) } returns null
-        coEvery { movieDao.getByImdbId(any()) } returns null
-        coEvery { discoverRepository.getRecommendations(any(), any()) } returns similar
+        stubMovieContentFlow(content)
+        coEvery { useCases.getSimilar(content) } returns similar
 
         viewModel.loadContent("tmdb-7")
 
@@ -219,20 +175,13 @@ class MediaDetailViewModelTest {
 
     @Test
     fun `loadSimilar sets error state on exception`() = runTest {
-        val content = Content(
-            id = "tmdb-10",
-            source = ContentSource.TMDB,
-            tmdbId = 10,
-            title = "Test Movie",
-            type = ContentType.MOVIE
-        )
-        coEvery { discoverRepository.getDetail(any(), any()) } returns flowOf(
-            com.dondeloexan.domain.model.DataResult.Success(content)
-        )
-        coEvery { movieDao.getByContentId(any()) } returns null
-        coEvery { movieDao.getByTmdbId(any()) } returns null
-        coEvery { movieDao.getByImdbId(any()) } returns null
-        coEvery { discoverRepository.getRecommendations(any(), any()) } throws RuntimeException("Error")
+        val content = movieContent(id = "tmdb-10", tmdbId = 10)
+        coEvery { useCases.getDetail(any(), any()) } returns flowOf(DataResult.Success(content))
+        coEvery { useCases.getCollectionMovies(content) } returns emptyList()
+        coEvery { useCases.getSimilar(content) } throws RuntimeException("Error")
+        coEvery { useCases.getCriticReviews(content) } returns emptyList()
+        coEvery { useCases.getFaId(content) } returns null
+        coEvery { useCases.loadMovieState(content) } returns MovieWatchState()
 
         viewModel.loadContent("tmdb-10")
 
@@ -259,31 +208,31 @@ class MediaDetailViewModelTest {
             CriticReview(
                 author = "Pablo Kurt",
                 publication = "FilmAffinity",
-                text = "Fascinados por la primera entrega, muchos fuimos indulgentes y extremadamente benévolos con la segunda... Revolutions no puede ser más decepcionante.",
+                text = "Fascinados por la primera entrega...",
                 sentiment = Sentiment.NEGATIVE
             ),
             CriticReview(
                 author = "Roger Ebert",
                 publication = "rogerebert.com",
-                text = "Mi admiración por ella está limitada por el hecho de que no me importa en absoluto lo que le sucede a los personajes... Puntuación: ★★★ (sobre 4)",
+                text = "Mi admiración...",
                 sentiment = Sentiment.NEUTRAL
             ),
             CriticReview(
                 author = "Peter Travers",
                 publication = "Rolling Stone",
-                text = "A riesgo de no hacerle justicia, 'The Matrix Revolutions' apesta. Es cierto que hace gala de cierta destreza visual que te dejará boquiabierto. Pero todo acaba siendo una gran nada.",
+                text = "A riesgo de no hacerle justicia...",
                 sentiment = Sentiment.NEGATIVE
             ),
             CriticReview(
                 author = "A. O. Scott",
                 publication = "The New York Times",
-                text = "Toda su grandilocuencia no evita que haya una atmósfera general de agotamiento.",
+                text = "Toda su grandilocuencia...",
                 sentiment = Sentiment.NEGATIVE
             ),
             CriticReview(
                 author = "David Denby",
                 publication = "The New Yorker",
-                text = "En el mejor de los casos, es violentamente emocionante. En el peor, es banal y monótona.",
+                text = "En el mejor de los casos...",
                 sentiment = Sentiment.NEUTRAL
             )
         )
@@ -306,15 +255,12 @@ class MediaDetailViewModelTest {
             )
         )
 
-        coEvery { discoverRepository.getDetail(any(), any()) } returns flowOf(
-            com.dondeloexan.domain.model.DataResult.Success(content)
-        )
-        coEvery { movieDao.getByContentId(any()) } returns null
-        coEvery { movieDao.getByTmdbId(any()) } returns null
-        coEvery { movieDao.getByImdbId(any()) } returns null
-        coEvery { discoverRepository.getCriticReviews("tmdb-603", "The Matrix Revolutions", 2003) } returns reviews
-        coEvery { discoverRepository.getCollectionMovies(2344) } returns collection
-        coEvery { discoverRepository.getRecommendations(any(), any()) } returns emptyList()
+        coEvery { useCases.getDetail(any(), any()) } returns flowOf(DataResult.Success(content))
+        coEvery { useCases.getCollectionMovies(content) } returns collection
+        coEvery { useCases.getSimilar(content) } returns emptyList()
+        coEvery { useCases.getCriticReviews(content) } returns reviews
+        coEvery { useCases.getFaId(content) } returns null
+        coEvery { useCases.loadMovieState(content) } returns MovieWatchState()
 
         viewModel.loadContent("tmdb-603")
         advanceUntilIdle()
@@ -325,11 +271,129 @@ class MediaDetailViewModelTest {
         assert(state.criticReviews!![0].publication == "FilmAffinity")
         assert(state.criticReviews!![1].author == "Roger Ebert")
         assert(state.criticReviews!![4].author == "David Denby")
-        assert(state.collectionMovies!!.size == 2)
+        assert(state.collectionMovies!!.size == 3)
         assert(state.collectionMovies!!.any { it.title == "The Matrix" })
         assert(state.collectionMovies!!.any { it.title == "The Matrix Reloaded" })
-        assert(state.collectionMovies!!.none { it.title == "The Matrix Revolutions" })
+        assert(state.collectionMovies!!.any { it.title == "The Matrix Revolutions" })
         assert(!state.isCriticReviewsLoading)
         assert(!state.isCollectionLoading)
+    }
+
+    @Test
+    fun `toggleMovieWatched updates state via use cases`() = runTest {
+        val content = movieContent()
+        stubMovieContentFlow(content)
+
+        viewModel.loadContent("tmdb-1")
+        advanceUntilIdle()
+
+        coEvery { useCases.toggleMovieWatched(content) } returns MovieWatchState(isWatched = true)
+
+        viewModel.toggleMovieWatched()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assert(state.isMovieWatched == true)
+        coVerify { useCases.toggleMovieWatched(content) }
+    }
+
+    @Test
+    fun `toggleEpisodeWatched triggers cascade proposal`() = runTest {
+        val content = seriesContent()
+        coEvery { useCases.getDetail(any(), any()) } returns flowOf(DataResult.Success(content))
+        coEvery { useCases.loadSeriesState(content) } returns SeriesState(
+            seasons = listOf(Season(seasonNumber = 1, name = "T1", episodeCount = 3)),
+            tracking = SeriesTracking(),
+            selectedSeason = 1,
+            seasonDetail = null
+        )
+        coEvery { useCases.getCollectionMovies(content) } returns emptyList()
+        coEvery { useCases.getSimilar(content) } returns emptyList()
+        coEvery { useCases.getCriticReviews(content) } returns emptyList()
+        coEvery { useCases.getFaId(content) } returns null
+
+        coEvery {
+            useCases.toggleEpisode(any(), any(), any(), any(), any())
+        } returns EpisodeToggleResult.NeedsCascade(
+            CascadeProposal(season = 1, targetEpisode = 3, count = 2)
+        )
+
+        viewModel.loadContent("tmdb-2")
+        advanceUntilIdle()
+        viewModel.toggleEpisodeWatched(3)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assert(state.cascadeProposal != null)
+        assert(state.cascadeProposal!!.count == 2)
+    }
+
+    @Test
+    fun `toggleEpisodeWatched applies watched on no cascade`() = runTest {
+        val content = seriesContent()
+        coEvery { useCases.getDetail(any(), any()) } returns flowOf(DataResult.Success(content))
+        coEvery { useCases.loadSeriesState(content) } returns SeriesState(
+            seasons = listOf(Season(seasonNumber = 1, name = "T1", episodeCount = 1)),
+            tracking = SeriesTracking(),
+            selectedSeason = 1,
+            seasonDetail = null
+        )
+        coEvery { useCases.getCollectionMovies(content) } returns emptyList()
+        coEvery { useCases.getSimilar(content) } returns emptyList()
+        coEvery { useCases.getCriticReviews(content) } returns emptyList()
+        coEvery { useCases.getFaId(content) } returns null
+
+        coEvery {
+            useCases.toggleEpisode(any(), any(), any(), any(), any())
+        } returns EpisodeToggleResult.Applied(
+            SeriesTracking(exists = true, watchedEpisodes = setOf("S1E1"))
+        )
+
+        viewModel.loadContent("tmdb-2")
+        advanceUntilIdle()
+        viewModel.toggleEpisodeWatched(1)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assert(state.watchedEpisodes.contains("S1E1"))
+        assert(state.cascadeProposal == null)
+    }
+
+    @Test
+    fun `confirmCascadeWatched applies cascade and clears proposal`() = runTest {
+        val content = seriesContent()
+        coEvery { useCases.getDetail(any(), any()) } returns flowOf(DataResult.Success(content))
+        coEvery { useCases.loadSeriesState(content) } returns SeriesState(
+            seasons = listOf(Season(seasonNumber = 1, name = "T1", episodeCount = 3)),
+            tracking = SeriesTracking(),
+            selectedSeason = 1,
+            seasonDetail = null
+        )
+        coEvery { useCases.getCollectionMovies(content) } returns emptyList()
+        coEvery { useCases.getSimilar(content) } returns emptyList()
+        coEvery { useCases.getCriticReviews(content) } returns emptyList()
+        coEvery { useCases.getFaId(content) } returns null
+
+        coEvery {
+            useCases.toggleEpisode(any(), any(), any(), any(), any())
+        } returns EpisodeToggleResult.NeedsCascade(
+            CascadeProposal(season = 1, targetEpisode = 3, count = 2)
+        )
+        coEvery {
+            useCases.confirmCascade(any(), any(), any(), any())
+        } returns SeriesTracking(exists = true, watchedEpisodes = setOf("S1E1", "S1E2", "S1E3"))
+
+        viewModel.loadContent("tmdb-2")
+        advanceUntilIdle()
+        viewModel.toggleEpisodeWatched(3)
+        advanceUntilIdle()
+        viewModel.confirmCascadeWatched()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assert(state.watchedEpisodes.contains("S1E1"))
+        assert(state.watchedEpisodes.contains("S1E2"))
+        assert(state.watchedEpisodes.contains("S1E3"))
+        assert(state.cascadeProposal == null)
     }
 }

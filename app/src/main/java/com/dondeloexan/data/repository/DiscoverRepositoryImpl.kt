@@ -11,6 +11,12 @@ import com.dondeloexan.data.remote.TmdbProviderIds
 import com.dondeloexan.data.remote.filmaffinity.FilmaffinityScraper
 import com.dondeloexan.data.local.entity.CriticReviewEntity
 import com.dondeloexan.data.local.entity.FaMovieDataEntity
+import com.dondeloexan.data.local.entity.MovieEntity
+import com.dondeloexan.data.local.entity.TvShowProgressEntity
+import com.dondeloexan.data.local.entity.WatchStatus
+import com.dondeloexan.data.remote.mapper.toEpisode
+import com.dondeloexan.data.remote.mapper.toSeason
+import com.dondeloexan.data.remote.mapper.toSeasonDetail
 import com.dondeloexan.domain.model.CriticReview
 import com.dondeloexan.data.remote.api.BalloonerismmApi
 import com.dondeloexan.data.remote.api.OmdbApi
@@ -33,6 +39,12 @@ import com.dondeloexan.domain.model.ExternalLinks
 import com.dondeloexan.domain.model.PlatformReleaseDate
 import com.dondeloexan.domain.model.Sentiment
 import com.dondeloexan.domain.model.StreamingAvailability
+import com.dondeloexan.domain.model.detail.CastSocialInfo
+import com.dondeloexan.domain.model.detail.MovieWatchState
+import com.dondeloexan.domain.model.detail.Season
+import com.dondeloexan.domain.model.detail.SeasonDetail
+import com.dondeloexan.domain.model.detail.SeriesTracking
+import com.dondeloexan.domain.model.detail.SocialLinkType
 import com.dondeloexan.domain.repository.DiscoverRepository
 import com.dondeloexan.util.AppLogger
 import com.dondeloexan.util.retryWithBackoff
@@ -930,5 +942,229 @@ class DiscoverRepositoryImpl(
             AppLogger.e("DiscoverRepo", "getSeriesRelationships error", e)
             emptyList<ContentPreview>() to emptySet()
         }
+    }
+
+    // --- Detail & tracking ---
+
+    override suspend fun getMovieWatchState(content: Content): MovieWatchState {
+        val existing = findMovie(content)
+        return MovieWatchState(
+            isWatched = existing?.status == WatchStatus.YA_VISTA,
+            isFavorite = existing?.liked == true
+        )
+    }
+
+    override suspend fun setMovieWatched(content: Content, watched: Boolean): MovieWatchState {
+        val existing = findMovie(content)
+        val status = if (watched) WatchStatus.YA_VISTA else WatchStatus.POR_VER
+        if (existing != null) {
+            movieDao.update(existing.copy(status = status, watchedAt = if (watched) System.currentTimeMillis() else null))
+        } else {
+            movieDao.insert(
+                MovieEntity(
+                    contentId = content.id,
+                    tmdbId = content.tmdbId,
+                    imdbId = content.imdbId,
+                    title = content.title,
+                    year = content.year,
+                    releaseDate = content.releaseDate,
+                    posterUrl = content.coverUrl,
+                    ratingImdb = content.ratingImdb,
+                    ratingTmdb = content.ratingTmdb,
+                    status = status,
+                    watchedAt = if (watched) System.currentTimeMillis() else null
+                )
+            )
+        }
+        return getMovieWatchState(content)
+    }
+
+    override suspend fun setMovieFavorite(content: Content, favorite: Boolean): MovieWatchState {
+        val existing = findMovie(content)
+        if (existing != null) {
+            movieDao.update(
+                existing.copy(
+                    liked = favorite,
+                    status = if (favorite) WatchStatus.YA_VISTA else existing.status,
+                    watchedAt = if (favorite) (existing.watchedAt ?: System.currentTimeMillis()) else existing.watchedAt
+                )
+            )
+        } else {
+            movieDao.insert(
+                MovieEntity(
+                    contentId = content.id,
+                    tmdbId = content.tmdbId,
+                    imdbId = content.imdbId,
+                    title = content.title,
+                    year = content.year,
+                    releaseDate = content.releaseDate,
+                    posterUrl = content.coverUrl,
+                    ratingImdb = content.ratingImdb,
+                    ratingTmdb = content.ratingTmdb,
+                    liked = true,
+                    status = WatchStatus.YA_VISTA,
+                    watchedAt = System.currentTimeMillis()
+                )
+            )
+        }
+        return getMovieWatchState(content)
+    }
+
+    override suspend fun getSeriesTracking(content: Content): SeriesTracking {
+        val tvShow = findTvShow(content) ?: return SeriesTracking()
+        val progress = tvShowProgressDao?.getByTvShowId(tvShow.id) ?: emptyList()
+        val watchedSet = progress.map { SeriesTracking.keyFor(it.season, it.episode) }.toSet()
+        val lastWatched = progress.maxByOrNull { it.watchedAt }
+        return SeriesTracking(
+            exists = true,
+            watchedEpisodes = watchedSet,
+            lastWatchedSeason = lastWatched?.season,
+            lastWatchedEpisode = lastWatched?.episode,
+            finishedAt = tvShow.finishedAt,
+            inProduction = tvShow.inProduction,
+            seriesStatus = tvShow.seriesStatus,
+            nextEpisodeAirDate = tvShow.nextEpisodeAirDate
+        )
+    }
+
+    override suspend fun getSeasons(content: Content): List<Season> {
+        return try {
+            when (content.source) {
+                ContentSource.TMDB -> {
+                    val tmdbId = content.tmdbId ?: return emptyList()
+                    tmdbApi.getTvDetail(tmdbId).seasons
+                        ?.filter { it.seasonNumber > 0 }
+                        ?.map { it.toSeason() }
+                        ?: emptyList()
+                }
+                ContentSource.IMDB -> {
+                    val imdbId = content.imdbId ?: return emptyList()
+                    imdbApi.getTvDetail(imdbId).seasons
+                        ?.filter { (it.seasonNumber ?: 0) > 0 }
+                        ?.map { it.toSeason() }
+                        ?: emptyList()
+                }
+            }
+        } catch (e: Exception) {
+            AppLogger.e("DiscoverRepo", "getSeasons error for ${content.id}", e)
+            emptyList()
+        }
+    }
+
+    override suspend fun getSeasonDetail(content: Content, seasonNumber: Int): SeasonDetail {
+        return try {
+            when (content.source) {
+                ContentSource.TMDB -> {
+                    val tmdbId = content.tmdbId ?: return SeasonDetail(seasonNumber)
+                    tmdbApi.getTvSeason(tmdbId, seasonNumber).toSeasonDetail()
+                }
+                ContentSource.IMDB -> {
+                    val imdbId = content.imdbId ?: return SeasonDetail(seasonNumber)
+                    imdbApi.getTvSeason(imdbId, seasonNumber).toSeasonDetail()
+                }
+            }
+        } catch (e: Exception) {
+            AppLogger.e("DiscoverRepo", "getSeasonDetail error for ${content.id} S$seasonNumber", e)
+            SeasonDetail(seasonNumber)
+        }
+    }
+
+    override suspend fun recordEpisode(content: Content, season: Int, episode: Int): SeriesTracking {
+        val tvShow = findTvShow(content) ?: return getSeriesTracking(content)
+        tvShowProgressDao?.insert(
+            TvShowProgressEntity(tvShowId = tvShow.id, season = season, episode = episode)
+        )
+        tvShowDao.updateLastWatchedAt(tvShow.id, System.currentTimeMillis())
+        return getSeriesTracking(content)
+    }
+
+    override suspend fun unrecordEpisode(content: Content, season: Int, episode: Int): SeriesTracking {
+        val tvShow = findTvShow(content) ?: return getSeriesTracking(content)
+        tvShowProgressDao?.deleteEpisode(tvShow.id, season, episode)
+        val lastWatched = tvShowProgressDao?.getLastWatchedAt(tvShow.id)
+        tvShowDao.updateLastWatchedAt(tvShow.id, lastWatched)
+        return getSeriesTracking(content)
+    }
+
+    override suspend fun recordEpisodes(content: Content, season: Int, episodes: List<Int>): SeriesTracking {
+        val tvShow = findTvShow(content) ?: return getSeriesTracking(content)
+        val tracking = getSeriesTracking(content)
+        val items = episodes
+            .filter { !tracking.isEpisodeWatched(season, it) }
+            .map {
+                TvShowProgressEntity(tvShowId = tvShow.id, season = season, episode = it)
+            }
+        if (items.isNotEmpty()) {
+            tvShowProgressDao?.insertAll(items)
+        }
+        tvShowDao.updateLastWatchedAt(tvShow.id, System.currentTimeMillis())
+        return getSeriesTracking(content)
+    }
+
+    override suspend fun unrecordSeasonEpisodes(content: Content, season: Int, episodes: List<Int>): SeriesTracking {
+        val tvShow = findTvShow(content) ?: return getSeriesTracking(content)
+        episodes.forEach { epNum ->
+            tvShowProgressDao?.deleteEpisode(tvShow.id, season, epNum)
+        }
+        val lastWatched = tvShowProgressDao?.getLastWatchedAt(tvShow.id)
+        tvShowDao.updateLastWatchedAt(tvShow.id, lastWatched)
+        return getSeriesTracking(content)
+    }
+
+    override suspend fun markSeriesFinished(content: Content): Boolean {
+        val tvShow = findTvShow(content) ?: return false
+        if (tvShow.inProduction == true
+            || tvShow.seriesStatus in listOf("Returning Series", "In Production")
+            || tvShow.nextEpisodeAirDate != null
+        ) {
+            return false
+        }
+        tvShowDao.update(tvShow.copy(status = WatchStatus.YA_VISTA, finishedAt = System.currentTimeMillis()))
+        return true
+    }
+
+    override suspend fun clearSeriesFinished(content: Content) {
+        val tvShow = findTvShow(content) ?: return
+        if (tvShow.finishedAt != null) {
+            tvShowDao.update(tvShow.copy(finishedAt = null, status = WatchStatus.POR_VER))
+        }
+    }
+
+    override suspend fun getPersonSocialInfo(personId: Int): CastSocialInfo? {
+        return try {
+            val social = tmdbApi.getPersonExternalIds(personId)
+            val url = social.instagramId?.let { "https://instagram.com/$it/" }
+                ?: social.twitterId?.let { "https://x.com/$it/" }
+                ?: social.facebookId?.let { "https://facebook.com/$it/" }
+                ?: social.youtubeId?.let { "https://www.youtube.com/channel/$it" }
+            val type = when {
+                social.instagramId != null -> SocialLinkType.INSTAGRAM
+                social.twitterId != null -> SocialLinkType.TWITTER
+                social.facebookId != null -> SocialLinkType.FACEBOOK
+                social.youtubeId != null -> SocialLinkType.YOUTUBE
+                else -> null
+            }
+            if (url != null && type != null) CastSocialInfo(url, type) else null
+        } catch (e: Exception) {
+            AppLogger.w("DiscoverRepo", "getPersonSocialInfo failed for person=$personId: ${e.message}")
+            null
+        }
+    }
+
+    override suspend fun getFaId(content: Content): Int? {
+        return movieDao.getByContentId(content.id)?.faId
+            ?: tvShowDao.getByContentId(content.id)?.faId
+    }
+
+    private suspend fun findMovie(content: Content): MovieEntity? {
+        return movieDao.getByContentId(content.id)
+            ?: content.tmdbId?.let { movieDao.getByTmdbId(it) }
+            ?: content.imdbId?.let { movieDao.getByImdbId(it) }
+    }
+
+    private suspend fun findTvShow(content: Content): com.dondeloexan.data.local.entity.TvShowEntity? {
+        return tvShowDao.getByContentId(content.id)
+            ?: content.tmdbId?.let { tvShowDao.getByTmdbId(it) }
+            ?: content.imdbId?.let { tvShowDao.getByImdbId(it) }
     }
 }
