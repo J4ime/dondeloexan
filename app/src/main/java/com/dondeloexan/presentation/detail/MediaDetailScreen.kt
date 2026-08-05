@@ -470,7 +470,7 @@ private fun CollectionItemCard(movie: ContentPreview, onNavigateToDetail: (conte
                         fontSize = 10.sp
                     )
                 }
-                if (movie.ratingImdb != null) {
+                if (movie.ratingImdb != null && movie.ratingImdb > 0f) {
                     Text(
                         "★ ${String.format("%.1f", movie.ratingImdb)}",
                         style = UbuntuTypography.labelSmall,
@@ -584,7 +584,7 @@ private fun SimilarItemCard(item: ContentPreview, onNavigateToDetail: (contentId
                     fontSize = 10.sp
                 )
             }
-            if (item.ratingImdb != null) {
+            if (item.ratingImdb != null && item.ratingImdb > 0f) {
                 Text(
                     "★ ${String.format("%.1f", item.ratingImdb)}",
                     style = UbuntuTypography.labelSmall,
@@ -889,11 +889,11 @@ private fun HeroSection(content: Content) {
 @Composable
 private fun RatingRow(content: Content) {
     val ratings = listOfNotNull(
-        content.ratingTmdb?.let { "TMDB" to String.format("%.1f", it) },
-        content.ratingImdb?.let { "IMDb" to String.format("%.1f", it) },
-        content.ratingRt?.let { "\uD83C\uDF45" to "${it}%" },
-        content.ratingMetacritic?.let { "MC" to it.toString() },
-        content.ratingFilmaffinity?.let { "FA" to String.format("%.1f", it) }
+        content.ratingTmdb?.takeIf { it > 0f }?.let { "TMDB" to String.format("%.1f", it) },
+        content.ratingImdb?.takeIf { it > 0f }?.let { "IMDb" to String.format("%.1f", it) },
+        content.ratingRt?.takeIf { it > 0 }?.let { "\uD83C\uDF45" to "${it}%" },
+        content.ratingMetacritic?.takeIf { it > 0 }?.let { "MC" to it.toString() },
+        content.ratingFilmaffinity?.takeIf { it > 0f }?.let { "FA" to String.format("%.1f", it) }
     )
 
     if (ratings.isEmpty()) return

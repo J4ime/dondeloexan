@@ -161,7 +161,7 @@ fun LibraryItemCard(
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.weight(1f)
                 )
-                if (ratingImdb != null) {
+                if (ratingImdb != null && ratingImdb > 0f) {
                     RatingBadgeSmall(rating = ratingImdb, isImdb = true)
                 }
             }
@@ -308,8 +308,10 @@ fun LibraryItemCard(
                 }
             }
 
+            val hasPendingEpisodes = isSeries && releasedEpisodes != null && watchedCount < releasedEpisodes
             IconButton(
                 onClick = onWatchedClick,
+                enabled = !hasPendingEpisodes,
                 modifier = Modifier
                     .size(48.dp)
                     .background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
@@ -317,7 +319,7 @@ fun LibraryItemCard(
                 Icon(
                     if (isWatched) Icons.Filled.Check else Icons.Outlined.CheckCircleOutline,
                     contentDescription = "Visto",
-                    tint = if (isWatched) EleganteRose else TextPrimary,
+                    tint = if (isWatched || hasPendingEpisodes) EleganteRose.copy(alpha = if (hasPendingEpisodes) 0.4f else 1f) else TextPrimary,
                     modifier = Modifier.size(24.dp)
                 )
             }

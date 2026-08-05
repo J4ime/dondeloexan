@@ -163,6 +163,10 @@ class FilmaffinityScraper(private val httpClient: HttpClient) {
                         AppLogger.i("Filmaffinity", "getMoviePageData:     skipping cinema entry '$platformName'")
                         continue
                     }
+                    if (isNonSpanishEntry(href, fullText)) {
+                        AppLogger.i("Filmaffinity", "getMoviePageData:     skipping non-Spain entry '$platformName' ($href)")
+                        continue
+                    }
                     if (platformName.isNotBlank()) {
                         val cleanName = platformName.removeSuffix(" (próx.)").trim()
                         releases.add(PlatformReleaseDate(
@@ -186,6 +190,17 @@ class FilmaffinityScraper(private val httpClient: HttpClient) {
             AppLogger.e("Filmaffinity", "getMoviePageData error for $faMovieId", e)
             FaPageData(rating = null, vodReleases = emptyList())
         }
+    }
+
+    private fun isNonSpanishEntry(href: String, fullText: String): Boolean {
+        val text = fullText.lowercase()
+        val nonSpainFlags = listOf(
+            "usa", "ee.uu", "ee uu", "estados unidos", "reino unido", "francia",
+            "italia", "alemania", "mexico", "argentina", "uk ", " latinoamérica"
+        )
+        return nonSpainFlags.any { text.contains(it) } ||
+                href.contains("_us", ignoreCase = true) ||
+                href.contains("-us", ignoreCase = true)
     }
 
     private fun parseRating(text: String): String? {

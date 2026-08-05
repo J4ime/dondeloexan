@@ -158,7 +158,7 @@ fun SearchItemCard(
                 if (isFinished) FinishedChip()
 
                 Spacer(Modifier.weight(1f))
-                if (content.ratingImdb != null) {
+                if (content.ratingImdb != null && content.ratingImdb > 0f) {
                     Spacer(Modifier.width(4.dp))
                     RatingBadgeLarge(rating = content.ratingImdb, isImdb = true)
                 }
