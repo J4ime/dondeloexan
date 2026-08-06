@@ -46,6 +46,12 @@ class MediaDetailUseCases(
     suspend fun getSimilar(content: Content): List<ContentPreview> =
         repository.getRecommendations(content.id, content.type)
 
+    suspend fun getDirectorMovies(content: Content): List<ContentPreview> {
+        if (content.type != ContentType.MOVIE) return emptyList()
+        val directorId = content.directors.firstOrNull()?.tmdbId ?: return emptyList()
+        return repository.getDirectorTopMovies(directorId, content.tmdbId)
+    }
+
     suspend fun getSeriesRelationships(content: Content): Pair<List<ContentPreview>, Set<String>> {
         val wikidataId = content.externalLinks?.wikidataId
         val imdbId = content.externalLinks?.imdbId ?: content.imdbId

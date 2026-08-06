@@ -28,6 +28,7 @@ interface DiscoverRepository {
     suspend fun searchCompanies(query: String): List<TmdbCompanySearchResult>
     suspend fun getPersonMovieCredits(personId: Int): List<ContentPreview>
     suspend fun getPersonTvCredits(personId: Int): List<ContentPreview>
+    suspend fun getDirectorTopMovies(directorId: Int, excludeTmdbId: Int? = null): List<ContentPreview>
     suspend fun getCompanyMovies(companyId: Int): List<ContentPreview>
     suspend fun getCompanyTvShows(companyId: Int): List<ContentPreview>
     suspend fun fetchPlatforms(previews: List<ContentPreview>): List<ContentPreview>

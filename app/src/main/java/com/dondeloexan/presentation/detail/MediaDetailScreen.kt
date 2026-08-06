@@ -484,6 +484,54 @@ private fun CollectionItemCard(movie: ContentPreview, onNavigateToDetail: (conte
 }
 
 @Composable
+private fun DirectorSection(
+    content: Content,
+    viewModel: MediaDetailViewModel,
+    onNavigateToDetail: (contentId: String, contentType: String) -> Unit
+) {
+    if (content.type != ContentType.MOVIE) return
+    val uiState by viewModel.uiState.collectAsState()
+
+    if (uiState.isDirectorLoading) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator(color = EleganteRose, modifier = Modifier.size(24.dp))
+        }
+        return
+    }
+
+    val movies = uiState.directorMovies
+    if (movies.isNullOrEmpty()) return
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+    ) {
+        HorizontalDivider(color = DarkSurfaceVariant.copy(alpha = 0.5f))
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "Otras películas del director",
+            style = UbuntuTypography.titleSmall,
+            color = TextPrimary,
+            fontWeight = FontWeight.Bold
+        )
+        Spacer(Modifier.height(8.dp))
+        androidx.compose.foundation.lazy.LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(movies) { item ->
+                SimilarItemCard(item, onNavigateToDetail)
+            }
+        }
+    }
+}
+
+@Composable
 private fun SimilarSection(viewModel: MediaDetailViewModel, onNavigateToDetail: (contentId: String, contentType: String) -> Unit) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -658,6 +706,7 @@ private fun FichaTab(content: Content, viewModel: MediaDetailViewModel, onNaviga
         item { CriticReviewsSection(viewModel) }
         item { SeriesRelationshipsSection(viewModel, onNavigateToDetail) }
         item { CollectionSection(viewModel, onNavigateToDetail) }
+        item { DirectorSection(content, viewModel, onNavigateToDetail) }
         item { SimilarSection(viewModel, onNavigateToDetail) }
     }
 }

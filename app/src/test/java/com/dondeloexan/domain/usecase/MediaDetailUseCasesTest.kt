@@ -1,8 +1,10 @@
 package com.dondeloexan.domain.usecase
 
 import com.dondeloexan.domain.model.Content
+import com.dondeloexan.domain.model.ContentPreview
 import com.dondeloexan.domain.model.ContentSource
 import com.dondeloexan.domain.model.ContentType
+import com.dondeloexan.domain.model.PersonInfo
 import com.dondeloexan.domain.model.detail.CascadeProposal
 import com.dondeloexan.domain.model.detail.Episode
 import com.dondeloexan.domain.model.detail.EpisodeToggleResult
@@ -241,5 +243,66 @@ class MediaDetailUseCasesTest {
 
         assert(result.size == 1)
         assert(result[0].title == "Other Movie")
+    }
+
+    @Test
+    fun `getDirectorMovies delegates to repository when movie has a director`() = runTest {
+        val movie = Content(
+            id = "tmdb-7",
+            source = ContentSource.TMDB,
+            tmdbId = 7,
+            title = "Directed",
+            type = ContentType.MOVIE,
+            directors = listOf(PersonInfo(name = "Jane Doe", tmdbId = 42))
+        )
+        val expected = listOf(
+            ContentPreview(id = "tmdb-100", title = "A", source = ContentSource.TMDB, tmdbId = 100, type = ContentType.MOVIE)
+        )
+        coEvery { repository.getDirectorTopMovies(42, 7) } returns expected
+
+        val result = useCases.getDirectorMovies(movie)
+
+        coVerify { repository.getDirectorTopMovies(42, 7) }
+        assert(result == expected)
+    }
+
+    @Test
+    fun `getDirectorMovies returns empty when movie has no director`() = runTest {
+        val movie = Content(
+            id = "tmdb-8",
+            source = ContentSource.TMDB,
+            tmdbId = 8,
+            title = "No Director",
+            type = ContentType.MOVIE,
+            directors = emptyList()
+        )
+        coEvery { repository.getDirectorTopMovies(any(), any()) } returns listOf(
+            ContentPreview(id = "tmdb-100", title = "A", source = ContentSource.TMDB, tmdbId = 100, type = ContentType.MOVIE)
+        )
+
+        val result = useCases.getDirectorMovies(movie)
+
+        assert(result.isEmpty())
+        coVerify(exactly = 0) { repository.getDirectorTopMovies(any(), any()) }
+    }
+
+    @Test
+    fun `getDirectorMovies returns empty for series`() = runTest {
+        val series = Content(
+            id = "tmdb-9",
+            source = ContentSource.TMDB,
+            tmdbId = 9,
+            title = "Series",
+            type = ContentType.SERIES,
+            directors = listOf(PersonInfo(name = "Jane Doe", tmdbId = 42))
+        )
+        coEvery { repository.getDirectorTopMovies(any(), any()) } returns listOf(
+            ContentPreview(id = "tmdb-100", title = "A", source = ContentSource.TMDB, tmdbId = 100, type = ContentType.MOVIE)
+        )
+
+        val result = useCases.getDirectorMovies(series)
+
+        assert(result.isEmpty())
+        coVerify(exactly = 0) { repository.getDirectorTopMovies(any(), any()) }
     }
 }

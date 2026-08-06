@@ -232,4 +232,53 @@ class DiscoverRepositoryFilmographyTest {
 
         assert(result.isEmpty())
     }
+
+    @Test
+    fun `getDirectorTopMovies keeps only Director crew sorted by rating taking 5`() = runTest {
+        val crew = (1..12).map { i ->
+            TmdbPersonCredit(
+                id = i,
+                title = "Movie $i",
+                releaseDate = "2010-01-01",
+                job = if (i % 2 == 0) "Producer" else "Director",
+                voteAverage = i * 1.0f,
+                voteCount = 100
+            )
+        }
+        coEvery { tmdbApi.getPersonMovieCredits(42) } returns TmdbPersonCreditsResponse(id = 42, crew = crew)
+
+        val result = repo.getDirectorTopMovies(42)
+
+        assert(result.size == 5)
+        assert(result.all { it.title.contains("Movie") })
+        assert(result[0].title == "Movie 11")
+        assert(result[1].title == "Movie 9")
+        assert(result[2].title == "Movie 7")
+        assert(result.none { it.title == "Movie 1" })
+    }
+
+    @Test
+    fun `getDirectorTopMovies excludes current movie and zero-rating entries`() = runTest {
+        val crew = listOf(
+            TmdbPersonCredit(id = 1, title = "Current", releaseDate = "2020-01-01", job = "Director", voteAverage = 9.0f),
+            TmdbPersonCredit(id = 2, title = "No Rating", releaseDate = "2019-01-01", job = "Director", voteAverage = 0.0f),
+            TmdbPersonCredit(id = 3, title = "No Date", job = "Director", voteAverage = 8.0f),
+            TmdbPersonCredit(id = 4, title = "Best", releaseDate = "2018-01-01", job = "Director", voteAverage = 8.5f)
+        )
+        coEvery { tmdbApi.getPersonMovieCredits(42) } returns TmdbPersonCreditsResponse(id = 42, crew = crew)
+
+        val result = repo.getDirectorTopMovies(42, excludeTmdbId = 1)
+
+        assert(result.size == 1)
+        assert(result[0].title == "Best")
+    }
+
+    @Test
+    fun `getDirectorTopMovies returns empty when API throws`() = runTest {
+        coEvery { tmdbApi.getPersonMovieCredits(any()) } throws RuntimeException("API error")
+
+        val result = repo.getDirectorTopMovies(999)
+
+        assert(result.isEmpty())
+    }
 }

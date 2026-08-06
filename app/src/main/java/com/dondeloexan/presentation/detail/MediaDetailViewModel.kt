@@ -42,6 +42,8 @@ data class DetailUiState(
     val isCollectionLoading: Boolean = false,
     val similarContent: List<ContentPreview>? = null,
     val isSimilarLoading: Boolean = false,
+    val directorMovies: List<ContentPreview>? = null,
+    val isDirectorLoading: Boolean = false,
     val seriesRelationships: List<ContentPreview>? = null,
     val isSeriesRelationshipsLoading: Boolean = false,
     val seriesRelationshipTargetIds: Set<String> = emptySet()
@@ -193,6 +195,27 @@ class MediaDetailViewModel(
         }
     }
 
+    private fun loadDirectorMovies(content: Content) {
+        if (content.type != ContentType.MOVIE) return
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isDirectorLoading = true)
+            try {
+                val movies = useCases.getDirectorMovies(content)
+                _uiState.value = _uiState.value.copy(
+                    directorMovies = movies,
+                    isDirectorLoading = false
+                )
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                AppLogger.e("DetailVM", "Error loading director movies", e)
+                _uiState.value = _uiState.value.copy(
+                    directorMovies = emptyList(),
+                    isDirectorLoading = false
+                )
+            }
+        }
+    }
+
     private fun loadSeriesRelationships(content: Content) {
         if (content.type != ContentType.SERIES) return
         val wikidataId = content.externalLinks?.wikidataId
@@ -250,6 +273,7 @@ class MediaDetailViewModel(
                             loadFaMovieData(content)
                             loadCollection(content)
                             loadSimilar(content)
+                            loadDirectorMovies(content)
                             loadSeriesRelationships(content)
                         }
                         is DataResult.Error -> {

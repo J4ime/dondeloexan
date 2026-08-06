@@ -24,6 +24,7 @@ import com.dondeloexan.data.remote.api.TmdbApi
 import com.dondeloexan.data.remote.api.WikidataApi
 import com.dondeloexan.data.remote.api.WikidataRelationship
 import com.dondeloexan.data.remote.dto.TmdbCompanySearchResult
+import com.dondeloexan.data.remote.dto.TmdbPersonCredit
 import com.dondeloexan.data.remote.dto.TmdbPersonSearchResult
 import com.dondeloexan.data.remote.mapper.toContentPreview
 import com.dondeloexan.data.remote.mapper.toDomain
@@ -680,6 +681,24 @@ class DiscoverRepositoryImpl(
                 .map { it.toContentPreview(forceType = ContentType.MOVIE) }
         } catch (e: Exception) {
             AppLogger.e("DiscoverRepo", "getPersonMovieCredits error for $personId", e)
+            emptyList()
+        }
+    }
+
+    override suspend fun getDirectorTopMovies(directorId: Int, excludeTmdbId: Int?): List<ContentPreview> {
+        return try {
+            tmdbApi.getPersonMovieCredits(directorId)
+                .crew.orEmpty()
+                .filter { it.job.equals("Director", ignoreCase = true) }
+                .filter { it.id != excludeTmdbId }
+                .filter { it.releaseDate != null && (it.voteAverage ?: 0f) > 0f }
+                .distinctBy { it.id }
+                .sortedWith(compareByDescending<TmdbPersonCredit> { it.voteAverage ?: 0f }
+                    .thenByDescending { it.voteCount ?: 0 })
+                .take(5)
+                .map { it.toContentPreview(forceType = ContentType.MOVIE) }
+        } catch (e: Exception) {
+            AppLogger.e("DiscoverRepo", "getDirectorTopMovies error for $directorId", e)
             emptyList()
         }
     }
