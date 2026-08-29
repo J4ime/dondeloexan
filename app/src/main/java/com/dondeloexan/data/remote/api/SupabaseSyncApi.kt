@@ -1,6 +1,7 @@
 package com.dondeloexan.data.remote.api
 
 import com.dondeloexan.data.sync.SessionState
+import com.dondeloexan.util.AppLogger
 import io.ktor.client.HttpClient
 import io.ktor.client.request.header
 import io.ktor.client.request.post
@@ -46,6 +47,10 @@ class SupabaseSyncApi(
         }
         val text = response.bodyAsText()
         if (!response.status.isSuccess()) {
+            AppLogger.e(
+                "SyncApi",
+                "upsert $table → HTTP ${response.status.value}: ${text.take(500)}"
+            )
             val message = runCatching {
                 json.decodeFromString<PostgrestError>(text).message
             }.getOrNull()?.takeIf { it.isNotBlank() }

@@ -181,6 +181,7 @@ class SettingsViewModel(
                     )
                 }
                 .onFailure { error ->
+                    AppLogger.e("SettingsVM", "Login fallido (${email})", error)
                     _accountAction.value = AccountActionState.Error(
                         error.message ?: "Error al iniciar sesión"
                     )
@@ -211,6 +212,7 @@ class SettingsViewModel(
                     _accountAction.value = AccountActionState.Success(summaryMessage(summary))
                 }
                 .onFailure { error ->
+                    AppLogger.e("SettingsVM", "Sync fallido", error)
                     _accountAction.value = AccountActionState.Error(
                         error.message ?: "Error al sincronizar"
                     )

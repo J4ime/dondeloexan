@@ -24,6 +24,8 @@ import io.mockk.mockk
 import io.mockk.slot
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -192,5 +194,41 @@ class SyncManagerTest {
 
         coVerify(exactly = 0) { syncApi.upsert(any(), any(), any(), any(), any()) }
         assertEquals(0, summary.total)
+    }
+
+    @Test
+    fun `payload de movies emite todas las claves aunque haya nulls (evita PGRST100)`() = runTest {
+        coEvery { movieDao.getAll() } returns listOf(
+            MovieEntity(
+                id = 1, contentId = "c1", tmdbId = 5, imdbId = "tt1",
+                title = "A", year = 1984, releaseDate = "1984-06-08",
+                posterUrl = "p", ratingTmdb = 8.0f, ratingImdb = 7.8f,
+                certification = "PG", status = WatchStatus.YA_VISTA, liked = true,
+                streamingPlatforms = "[]", watchedAt = 1000L, addedAt = 2000L,
+                lastRefreshedAt = 3000L, faId = 42
+            ),
+            MovieEntity(id = 2, title = "B", status = WatchStatus.POR_VER, liked = false, addedAt = 4000L)
+        )
+        coEvery { tvShowDao.getAll() } returns emptyList()
+        coEvery { tvShowProgressDao.getAll() } returns emptyList()
+        coEvery { searchHistoryDao.getRecent(any()) } returns emptyList()
+        coEvery { userPlatformDao.getAll() } returns emptyList()
+        coEvery { blacklistDao.getAll() } returns emptyList()
+        coEvery { criticReviewDao.getAll() } returns emptyList()
+        coEvery { faMovieDataDao.getAll() } returns emptyList()
+        coEvery { syncApi.upsert(any(), any(), any(), any(), any()) } returns ""
+
+        manager().syncAll(session)
+
+        val moviesPayload = slot<String>()
+        coVerify {
+            syncApi.upsert("movies", listOf("user_id", "local_id"), capture(moviesPayload), session, false)
+        }
+        val array = json.parseToJsonElement(moviesPayload.captured).jsonArray
+        val keySets = array.map { it.jsonObject.keys.sorted() }
+        assertEquals(1, keySets.distinct().size)
+        assertTrue(moviesPayload.captured.contains("\"content_id\":null"))
+        assertTrue(moviesPayload.captured.contains("\"year\":1984"))
+        assertTrue(moviesPayload.captured.contains("\"year\":null"))
     }
 }
