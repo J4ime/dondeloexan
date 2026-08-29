@@ -14,3 +14,6 @@ local.properties
 *.aab
 *.jks
 *.keystore
+
+# Planes locales (pueden contener credenciales de BD)
+.opencode/plans/

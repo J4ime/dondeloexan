@@ -88,7 +88,7 @@ class SupabaseAuthApiTest {
     }
 
     @Test
-    fun `credenciales invalidas lanzan SupabaseApiException con mensaje`() = runTest {
+    fun `credenciales invalidas lanzan SupabaseApiException con msg error_description y error_code`() = runTest {
         server.enqueue(
             MockResponse()
                 .setResponseCode(400)
@@ -99,7 +99,26 @@ class SupabaseAuthApiTest {
         val exception = assertThrows(SupabaseApiException::class.java) {
             runBlocking { api.signInWithPassword("a@b.c", "mal") }
         }
-        assertTrue(exception.message.orEmpty().isNotBlank())
+        assertEquals("Invalid login credentials", exception.message)
+        assertEquals("invalid_grant", exception.errorCode)
+        assertEquals(400, exception.statusCode)
+    }
+
+    @Test
+    fun `errores con formato msg y error_code se parsean correctamente`() = runTest {
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(400)
+                .setHeader("Content-Type", "application/json")
+                .setBody("""{"code":400,"error_code":"email_not_confirmed","msg":"Email not confirmed"}""")
+        )
+
+        val exception = assertThrows(SupabaseApiException::class.java) {
+            runBlocking { api.signInWithPassword("a@b.c", "secreto") }
+        }
+        assertEquals("Email not confirmed", exception.message)
+        assertEquals("email_not_confirmed", exception.errorCode)
+        assertEquals(400, exception.statusCode)
     }
 
     @Test

@@ -188,26 +188,6 @@ class SettingsViewModel(
         }
     }
 
-    fun register(email: String, password: String) {
-        if (_accountAction.value is AccountActionState.Busy) return
-        _accountAction.value = AccountActionState.Busy
-        viewModelScope.launch {
-            accountRepository.register(email, password)
-                .onSuccess { sessionCreated ->
-                    _accountAction.value = if (sessionCreated) {
-                        AccountActionState.Success("Cuenta creada · datos sincronizados")
-                    } else {
-                        AccountActionState.Success("Revisa tu email para confirmar la cuenta")
-                    }
-                }
-                .onFailure { error ->
-                    _accountAction.value = AccountActionState.Error(
-                        error.message ?: "Error al crear la cuenta"
-                    )
-                }
-        }
-    }
-
     fun logout() {
         if (_accountAction.value is AccountActionState.Busy) return
         _accountAction.value = AccountActionState.Busy

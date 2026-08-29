@@ -30,7 +30,6 @@ import com.dondeloexan.presentation.theme.TextSecondary
 fun LoginDialog(
     busy: Boolean,
     onLogin: (email: String, password: String) -> Unit,
-    onRegister: (email: String, password: String) -> Unit,
     onDismiss: () -> Unit
 ) {
     var email by rememberSaveable { mutableStateOf("") }
@@ -43,7 +42,7 @@ fun LoginDialog(
         text = {
             Column {
                 Text(
-                    "Inicia sesión o crea una cuenta para sincronizar tu biblioteca en la nube.",
+                    "Escribe tu email y contraseña. Si no tienes cuenta aún, se crea automáticamente y se sincroniza tu biblioteca.",
                     color = TextSecondary
                 )
                 Spacer(Modifier.height(16.dp))
@@ -79,21 +78,12 @@ fun LoginDialog(
             }
         },
         confirmButton = {
-            Row {
-                TextButton(
-                    onClick = { onRegister(email.trim(), password) },
-                    enabled = canSubmit
-                ) {
-                    Text("Crear cuenta", color = EleganteRose)
-                }
-                Spacer(Modifier.width(8.dp))
-                Button(
-                    onClick = { onLogin(email.trim(), password) },
-                    enabled = canSubmit,
-                    colors = ButtonDefaults.buttonColors(containerColor = EleganteRose)
-                ) {
-                    Text("Iniciar sesión")
-                }
+            Button(
+                onClick = { onLogin(email.trim(), password) },
+                enabled = canSubmit,
+                colors = ButtonDefaults.buttonColors(containerColor = EleganteRose)
+            ) {
+                Text("Iniciar sesión")
             }
         },
         dismissButton = {

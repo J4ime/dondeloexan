@@ -9,9 +9,7 @@ interface AccountRepository {
 
     suspend fun login(email: String, password: String): Result<SyncSummary>
 
-    /** Devuelve null si la cuenta requiere confirmación de email (sin sesión todavía). */
-    suspend fun register(email: String, password: String): Result<Boolean>
-
+    /** El login crea el usuario automáticamente si no existe (cuenta con su contraseña + sincronización). */
     suspend fun logout(): Result<Unit>
 
     suspend fun sync(): Result<SyncSummary>

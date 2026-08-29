@@ -15,7 +15,11 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 
-class SupabaseApiException(message: String) : Exception(message)
+class SupabaseApiException(
+    message: String,
+    val errorCode: String? = null,
+    val statusCode: Int? = null
+) : Exception(message)
 
 @Serializable
 data class AuthResponse(
@@ -30,7 +34,20 @@ data class AuthResponse(
 data class AuthUserResponse(val id: String = "", val email: String? = null)
 
 @Serializable
-private data class AuthErrorMessage(val message: String = "")
+private data class AuthErrorMessage(
+    val message: String = "",
+    val msg: String = "",
+    val error: String = "",
+    @SerialName("error_description") val errorDescription: String = ""
+)
+
+@Serializable
+private data class AuthErrorCodeMessage(
+    val code: Int = 0,
+    @SerialName("error_code") val errorCode: String = "",
+    val msg: String = "",
+    val message: String = ""
+)
 
 data class AuthResult(
     val accessToken: String?,
@@ -111,10 +128,21 @@ class SupabaseAuthApi(
         }
         val text = response.bodyAsText()
         if (!response.status.isSuccess()) {
-            val message = runCatching { json.decodeFromString<AuthErrorMessage>(text).message }
+            val legacy = runCatching { json.decodeFromString<AuthErrorMessage>(text) }
                 .getOrNull()
-                ?.takeIf { it.isNotBlank() }
-            throw SupabaseApiException(message ?: "Error de autenticación (${response.status.value})")
+            val coded = runCatching { json.decodeFromString<AuthErrorCodeMessage>(text) }
+                .getOrNull()
+            val message = listOf(
+                legacy?.msg, legacy?.errorDescription, legacy?.message,
+                coded?.msg, coded?.message
+            ).firstOrNull { !it.isNullOrBlank() }
+            val errorCode = coded?.errorCode?.takeIf { it.isNotBlank() }
+                ?: legacy?.error?.takeIf { it.isNotBlank() }
+            throw SupabaseApiException(
+                message ?: "Error de autenticación (${response.status.value})",
+                errorCode = errorCode,
+                statusCode = response.status.value
+            )
         }
         if (text.isBlank()) return AuthResult(null, null, 0, null, null)
         return json.decodeFromString<AuthResponse>(text).toResult()

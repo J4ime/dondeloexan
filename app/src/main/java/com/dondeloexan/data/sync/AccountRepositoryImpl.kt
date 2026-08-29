@@ -27,21 +27,36 @@ class AccountRepositoryImpl(
     }
 
     override suspend fun login(email: String, password: String): Result<SyncSummary> = runCatching {
-        val result = authApi.signInWithPassword(email, password)
-        val state = result.toSessionState()
-            ?: throw SupabaseApiException("Credenciales inválidas")
-        sessionStore.save(state)
-        syncManager.syncAll(state)
+        val session = try {
+            authApi.signInWithPassword(email, password).toSessionState()
+        } catch (e: SupabaseApiException) {
+            if (e.errorCode != "invalid_grant") throw e
+            signUpAndAuthenticate(email, password)
+        } ?: throw SupabaseApiException(ERR_INVALID_CREDENTIALS)
+        sessionStore.save(session)
+        syncManager.syncAll(session)
     }
 
-    override suspend fun register(email: String, password: String): Result<Boolean> = runCatching {
-        val result = authApi.signUp(email, password)
-        val state = result.toSessionState()
-        if (state != null) {
-            sessionStore.save(state)
-            syncManager.syncAll(state)
+    private suspend fun signUpAndAuthenticate(email: String, password: String): SessionState? {
+        val signUpState = try {
+            authApi.signUp(email, password).toSessionState()
+        } catch (e: SupabaseApiException) {
+            throw if (e.errorCode == "user_already_exists") {
+                SupabaseApiException(ERR_INVALID_CREDENTIALS)
+            } else {
+                e
+            }
         }
-        state?.userId != null
+        if (signUpState != null) return signUpState
+        return try {
+            authApi.signInWithPassword(email, password).toSessionState()
+        } catch (e: SupabaseApiException) {
+            throw if (e.errorCode == "email_not_confirmed") {
+                SupabaseApiException(ERR_EMAIL_NOT_CONFIRMED)
+            } else {
+                e
+            }
+        }
     }
 
     override suspend fun logout(): Result<Unit> = runCatching {
@@ -53,5 +68,11 @@ class AccountRepositoryImpl(
 
     override suspend fun sync(): Result<SyncSummary> = runCatching {
         syncManager.syncAll(requireSession())
+    }
+
+    companion object {
+        private const val ERR_INVALID_CREDENTIALS = "Email o contraseña incorrectos"
+        private const val ERR_EMAIL_NOT_CONFIRMED =
+            "La confirmación de email está activada en Supabase: desactívala en Authentication → Sign In / Providers → Email (Confirm email) para entrar sin confirmar."
     }
 }

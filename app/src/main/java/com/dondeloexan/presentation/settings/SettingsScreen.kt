@@ -193,7 +193,6 @@ fun SettingsScreen(
         LoginDialog(
             busy = accountAction is AccountActionState.Busy,
             onLogin = { email, password -> viewModel.login(email, password) },
-            onRegister = { email, password -> viewModel.register(email, password) },
             onDismiss = { showLoginDialog = false }
         )
     }
