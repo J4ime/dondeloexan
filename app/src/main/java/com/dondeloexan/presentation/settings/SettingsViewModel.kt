@@ -5,9 +5,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dondeloexan.BuildConfig
 import com.dondeloexan.data.local.datastore.UserPreferencesDataStore
+import com.dondeloexan.data.sync.SessionState
+import com.dondeloexan.data.sync.SyncSummary
 import com.dondeloexan.data.update.SilentUpdateManager
 import com.dondeloexan.domain.model.BackupState
 import com.dondeloexan.domain.model.GitHubRelease
+import com.dondeloexan.domain.repository.AccountRepository
 import com.dondeloexan.domain.repository.BackupRepository
 import com.dondeloexan.domain.repository.SettingsRepository
 import com.dondeloexan.util.AppLogger
@@ -24,7 +27,8 @@ class SettingsViewModel(
     private val backupRepository: BackupRepository,
     private val silentUpdateManager: SilentUpdateManager,
     private val libraryRefresher: LibraryRefresher,
-    private val userPreferencesDataStore: UserPreferencesDataStore
+    private val userPreferencesDataStore: UserPreferencesDataStore,
+    private val accountRepository: AccountRepository
 ) : ViewModel() {
 
     private val _updateState = MutableStateFlow<UpdateCheckState>(UpdateCheckState.Idle)
@@ -39,6 +43,12 @@ class SettingsViewModel(
     private val _lastLibraryUpdateDate = MutableStateFlow<String?>(null)
     val lastLibraryUpdateDate: StateFlow<String?> = _lastLibraryUpdateDate.asStateFlow()
 
+    private val _session = MutableStateFlow<SessionState?>(null)
+    val session: StateFlow<SessionState?> = _session.asStateFlow()
+
+    private val _accountAction = MutableStateFlow<AccountActionState>(AccountActionState.Idle)
+    val accountAction: StateFlow<AccountActionState> = _accountAction.asStateFlow()
+
     val currentVersion: String = BuildConfig.VERSION_NAME
 
     init {
@@ -46,6 +56,9 @@ class SettingsViewModel(
             userPreferencesDataStore.lastLibraryUpdateTimestamp.collect { timestamp ->
                 _lastLibraryUpdateDate.value = timestamp?.let { formatDateTime(it) }
             }
+        }
+        viewModelScope.launch {
+            accountRepository.session.collect { _session.value = it }
         }
     }
 
@@ -157,6 +170,93 @@ class SettingsViewModel(
         _libraryRefreshState.value = LibraryRefreshState.Idle
     }
 
+    fun login(email: String, password: String) {
+        if (_accountAction.value is AccountActionState.Busy) return
+        _accountAction.value = AccountActionState.Busy
+        viewModelScope.launch {
+            accountRepository.login(email, password)
+                .onSuccess { summary ->
+                    _accountAction.value = AccountActionState.Success(
+                        "Sesión iniciada · ${summary.total} datos sincronizados"
+                    )
+                }
+                .onFailure { error ->
+                    _accountAction.value = AccountActionState.Error(
+                        error.message ?: "Error al iniciar sesión"
+                    )
+                }
+        }
+    }
+
+    fun register(email: String, password: String) {
+        if (_accountAction.value is AccountActionState.Busy) return
+        _accountAction.value = AccountActionState.Busy
+        viewModelScope.launch {
+            accountRepository.register(email, password)
+                .onSuccess { sessionCreated ->
+                    _accountAction.value = if (sessionCreated) {
+                        AccountActionState.Success("Cuenta creada · datos sincronizados")
+                    } else {
+                        AccountActionState.Success("Revisa tu email para confirmar la cuenta")
+                    }
+                }
+                .onFailure { error ->
+                    _accountAction.value = AccountActionState.Error(
+                        error.message ?: "Error al crear la cuenta"
+                    )
+                }
+        }
+    }
+
+    fun logout() {
+        if (_accountAction.value is AccountActionState.Busy) return
+        _accountAction.value = AccountActionState.Busy
+        viewModelScope.launch {
+            accountRepository.logout()
+                .onSuccess { _accountAction.value = AccountActionState.Success("Sesión cerrada") }
+                .onFailure { error ->
+                    _accountAction.value = AccountActionState.Error(
+                        error.message ?: "Error al cerrar la sesión"
+                    )
+                }
+        }
+    }
+
+    fun syncAccount() {
+        if (_accountAction.value is AccountActionState.Busy) return
+        _accountAction.value = AccountActionState.Busy
+        viewModelScope.launch {
+            accountRepository.sync()
+                .onSuccess { summary ->
+                    _accountAction.value = AccountActionState.Success(summaryMessage(summary))
+                }
+                .onFailure { error ->
+                    _accountAction.value = AccountActionState.Error(
+                        error.message ?: "Error al sincronizar"
+                    )
+                }
+        }
+    }
+
+    fun onAccountActionShown() {
+        _accountAction.value = AccountActionState.Idle
+    }
+
+    private fun summaryMessage(summary: SyncSummary): String {
+        val parts = buildList {
+            if (summary.movies > 0) add("${summary.movies} películas")
+            if (summary.tvShows > 0) add("${summary.tvShows} series")
+            if (summary.tvShowProgress > 0) add("${summary.tvShowProgress} capítulos")
+            if (summary.searchHistory > 0) add("${summary.searchHistory} búsquedas")
+            if (summary.userPlatforms > 0) add("${summary.userPlatforms} plataformas")
+        }
+        return if (parts.isEmpty()) {
+            "Sincronizado (nada que subir)"
+        } else {
+            "Sincronizado: ${parts.joinToString(", ")}"
+        }
+    }
+
     private fun formatDateTime(timestamp: Long): String {
         val sdf = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
         return sdf.format(Date(timestamp))
@@ -179,4 +279,11 @@ sealed interface LibraryRefreshState {
     data object Refreshing : LibraryRefreshState
     data class Done(val count: Int) : LibraryRefreshState
     data class Error(val message: String) : LibraryRefreshState
+}
+
+sealed interface AccountActionState {
+    data object Idle : AccountActionState
+    data object Busy : AccountActionState
+    data class Success(val message: String) : AccountActionState
+    data class Error(val message: String) : AccountActionState
 }

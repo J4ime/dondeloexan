@@ -12,6 +12,9 @@ interface FaMovieDataDao {
     @Query("SELECT * FROM fa_movie_data WHERE content_id = :contentId LIMIT 1")
     suspend fun getByContentId(contentId: String): FaMovieDataEntity?
 
+    @Query("SELECT * FROM fa_movie_data")
+    suspend fun getAll(): List<FaMovieDataEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(data: FaMovieDataEntity)
 

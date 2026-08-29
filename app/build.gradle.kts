@@ -17,9 +17,9 @@ android {
         applicationId = "com.dondeloexan"
         minSdk = 26
         targetSdk = 34
-        versionCode = 111
+        versionCode = 112
 
-        versionName = "2.7.31"
+        versionName = "2.7.32"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
             useSupportLibrary = true
@@ -30,6 +30,8 @@ android {
         buildConfigField("String", "OMDB_API_KEY", "\"7ac09aef\"")
         buildConfigField("String", "GITHUB_OWNER", "\"J4ime\"")
         buildConfigField("String", "GITHUB_REPO", "\"dondoloexan\"")
+        buildConfigField("String", "SUPABASE_URL", "\"https://rljgokltciggeileyttq.supabase.co\"")
+        buildConfigField("String", "SUPABASE_ANON_KEY", "\"sb_publishable_cZKQcXcsbep2FYVOl6oIig_qYF69CHm\"")
 
         setProperty("archivesBaseName", "DondLoExan.$versionName")
     }

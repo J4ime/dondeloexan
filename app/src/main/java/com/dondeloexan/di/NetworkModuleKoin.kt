@@ -4,6 +4,8 @@ import com.dondeloexan.BuildConfig
 import com.dondeloexan.data.remote.api.BalloonerismmApi
 import com.dondeloexan.data.remote.api.GitHubApi
 import com.dondeloexan.data.remote.api.OmdbApi
+import com.dondeloexan.data.remote.api.SupabaseAuthApi
+import com.dondeloexan.data.remote.api.SupabaseSyncApi
 import com.dondeloexan.data.remote.api.TmdbApi
 import com.dondeloexan.data.remote.api.WikidataApi
 import io.ktor.client.HttpClient
@@ -150,6 +152,44 @@ val networkModule = module {
             }
         }
         WikidataApi(client, get())
+    }
+
+    // ── Supabase (auth + datos) ──
+    single(named("supabase")) {
+        HttpClient(OkHttp) {
+            engine {
+                config {
+                    retryOnConnectionFailure(true)
+                }
+            }
+            install(ContentNegotiation) { json(get()) }
+            install(HttpTimeout) {
+                requestTimeoutMillis = 60_000
+                connectTimeoutMillis = 30_000
+                socketTimeoutMillis = 30_000
+            }
+            defaultRequest {
+                contentType(ContentType.Application.Json)
+            }
+        }
+    }
+
+    single {
+        SupabaseAuthApi(
+            client = get(named("supabase")),
+            url = BuildConfig.SUPABASE_URL,
+            anonKey = BuildConfig.SUPABASE_ANON_KEY,
+            json = get()
+        )
+    }
+
+    single {
+        SupabaseSyncApi(
+            client = get(named("supabase")),
+            url = BuildConfig.SUPABASE_URL,
+            anonKey = BuildConfig.SUPABASE_ANON_KEY,
+            json = get()
+        )
     }
 
     // ── Filmaffinity (plain HTML client, no JSON) ──

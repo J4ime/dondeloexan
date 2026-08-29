@@ -12,6 +12,9 @@ interface CriticReviewDao {
     @Query("SELECT * FROM critic_reviews WHERE content_id = :contentId LIMIT 1")
     suspend fun getByContentId(contentId: String): CriticReviewEntity?
 
+    @Query("SELECT * FROM critic_reviews")
+    suspend fun getAll(): List<CriticReviewEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(review: CriticReviewEntity)
 

@@ -23,6 +23,9 @@ interface BlacklistDao {
     @Query("SELECT content_id FROM blacklist")
     suspend fun getAllIds(): List<String>
 
+    @Query("SELECT * FROM blacklist ORDER BY added_at DESC")
+    suspend fun getAll(): List<BlacklistedEntity>
+
     @Query("DELETE FROM blacklist WHERE content_id = :contentId")
     suspend fun deleteById(contentId: String)
 }
