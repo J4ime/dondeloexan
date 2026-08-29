@@ -165,14 +165,10 @@ class SeriesViewModel(
         }
     }
 
-    fun toggleLike(show: TvShowEntity) {
+    fun deleteSeries(tvShow: TvShowEntity) {
         viewModelScope.launch {
-            val newLiked = !show.liked
-            tvShowDao.update(show.copy(liked = newLiked))
-            feedbackManager.emit(
-                if (newLiked) "Serie añadida"
-                else "Serie quitada"
-            )
+            tvShowDao.delete(tvShow)
+            feedbackManager.emit("Serie eliminada")
         }
     }
 

@@ -40,13 +40,13 @@ class SeriesCheckWorker(
             val todayNotifications = mutableListOf<EpisodeInfo>()
 
             // Series
-            val likedShows = tvShowDao.getAllLiked()
-            for (show in likedShows) {
+            val allShows = tvShowDao.getAll().filter { it.finishedAt == null }
+            for (show in allShows) {
                 val tmdbId = show.tmdbId
                 if (tmdbId != null) {
                     updateFromTmdb(show.id, tmdbId)
                 }
-                if (show.nextEpisodeAirDate == today) {
+                if (show.liked && show.nextEpisodeAirDate == today) {
                     todayNotifications.add(
                         EpisodeInfo(
                             title = show.title,

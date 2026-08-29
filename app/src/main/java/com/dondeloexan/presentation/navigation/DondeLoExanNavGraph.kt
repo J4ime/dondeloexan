@@ -478,7 +478,7 @@ private fun SeriesPendingTab(
                     isLiked = s.liked,
                     isWatched = s.status.name == "YA_VISTA",
                     isSeries = true,
-                    onLikeClick = { viewModel.toggleLike(s) },
+                    onDeleteClick = { viewModel.deleteSeries(s) },
                     onWatchedClick = { viewModel.toggleWatched(s) },
                     onClick = { navController.navigate("detail/${s.contentId ?: ""}/series") },
                     modifier = Modifier.fillMaxWidth().aspectRatio(0.65f)
@@ -510,7 +510,7 @@ private fun SeriesPendingTab(
                     isLiked = s.liked,
                     isWatched = s.status.name == "YA_VISTA",
                     isSeries = true,
-                    onLikeClick = { viewModel.toggleLike(s) },
+                    onDeleteClick = { viewModel.deleteSeries(s) },
                     onWatchedClick = { viewModel.toggleWatched(s) },
                     onClick = { navController.navigate("detail/${s.contentId ?: ""}/series") },
                     modifier = Modifier.fillMaxWidth().height(180.dp)
@@ -569,7 +569,7 @@ private fun SeriesInProgressTab(
                     isLiked = s.liked,
                     isWatched = s.status.name == "YA_VISTA",
                     isSeries = true,
-                    onLikeClick = { viewModel.toggleLike(s) },
+                    onDeleteClick = { viewModel.deleteSeries(s) },
                     onWatchedClick = { viewModel.toggleWatched(s) },
                     onClick = { navController.navigate("detail/${s.contentId ?: ""}/series") },
                     modifier = Modifier.fillMaxWidth().aspectRatio(0.65f)
@@ -601,7 +601,7 @@ private fun SeriesInProgressTab(
                     isLiked = s.liked,
                     isWatched = s.status.name == "YA_VISTA",
                     isSeries = true,
-                    onLikeClick = { viewModel.toggleLike(s) },
+                    onDeleteClick = { viewModel.deleteSeries(s) },
                     onWatchedClick = { viewModel.toggleWatched(s) },
                     onClick = { navController.navigate("detail/${s.contentId ?: ""}/series") },
                     modifier = Modifier.fillMaxWidth().height(180.dp)
@@ -660,7 +660,7 @@ private fun SeriesAgendaTab(
                     isLiked = s.liked,
                     isWatched = s.status.name == "YA_VISTA",
                     isSeries = true,
-                    onLikeClick = { viewModel.toggleLike(s) },
+                    onDeleteClick = { viewModel.deleteSeries(s) },
                     onWatchedClick = { viewModel.toggleWatched(s) },
                     onClick = { navController.navigate("detail/${s.contentId ?: ""}/series") },
                     modifier = Modifier.fillMaxWidth().aspectRatio(0.65f)
@@ -692,7 +692,7 @@ private fun SeriesAgendaTab(
                     isLiked = s.liked,
                     isWatched = s.status.name == "YA_VISTA",
                     isSeries = true,
-                    onLikeClick = { viewModel.toggleLike(s) },
+                    onDeleteClick = { viewModel.deleteSeries(s) },
                     onWatchedClick = { viewModel.toggleWatched(s) },
                     onClick = { navController.navigate("detail/${s.contentId ?: ""}/series") },
                     modifier = Modifier.fillMaxWidth().height(180.dp)
@@ -750,7 +750,8 @@ private fun SeriesFinishedTab(
                     numberOfSeasons = s.numberOfSeasons,
                     isLiked = s.liked,
                     isWatched = true,
-                    showLikeButton = false,
+                    showLikeButton = true,
+                    onDeleteClick = { viewModel.deleteSeries(s) },
                     onWatchedClick = { viewModel.toggleWatched(s) },
                     onClick = { navController.navigate("detail/${s.contentId ?: ""}/series") },
                     modifier = Modifier.fillMaxWidth().aspectRatio(0.65f)
@@ -781,7 +782,8 @@ private fun SeriesFinishedTab(
                     numberOfSeasons = s.numberOfSeasons,
                     isLiked = s.liked,
                     isWatched = true,
-                    showLikeButton = false,
+                    showLikeButton = true,
+                    onDeleteClick = { viewModel.deleteSeries(s) },
                     onWatchedClick = { viewModel.toggleWatched(s) },
                     onClick = { navController.navigate("detail/${s.contentId ?: ""}/series") },
                     modifier = Modifier.fillMaxWidth().height(180.dp)

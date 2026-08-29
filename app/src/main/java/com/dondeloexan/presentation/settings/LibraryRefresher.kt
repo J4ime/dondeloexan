@@ -60,11 +60,11 @@ class LibraryRefresher(
     }
 
     private suspend fun refreshSeries(newEpisodeDates: MutableList<NewEpisodeDateInfo>): Int {
-        val liked = tvShowDao.getAllLiked().filter { it.liked && it.finishedAt == null }
+        val followed = tvShowDao.getAll().filter { it.finishedAt == null }
         var count = 0
 
         coroutineScope {
-            liked.map { show ->
+            followed.map { show ->
                 async {
                     val tmdbId = show.tmdbId ?: return@async
                     try {
@@ -114,7 +114,7 @@ class LibraryRefresher(
                             )
                         )
 
-                        if (hadNoNextDate && tvDetail.nextEpisodeToAir?.airDate != null) {
+                        if (show.liked && hadNoNextDate && tvDetail.nextEpisodeToAir?.airDate != null) {
                             synchronized(newEpisodeDates) {
                                 newEpisodeDates.add(
                                     NewEpisodeDateInfo(

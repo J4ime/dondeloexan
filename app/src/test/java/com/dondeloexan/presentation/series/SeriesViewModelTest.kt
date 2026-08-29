@@ -9,7 +9,9 @@ import com.dondeloexan.data.remote.api.TmdbApi
 import com.dondeloexan.presentation.feedback.FeedbackManager
 import com.dondeloexan.util.RefreshCoordinator
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.mockk
+import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.StateFlow
@@ -146,5 +148,24 @@ class SeriesViewModelTest {
         val inProgress = stateValue(viewModel.inProgress)
         assert(inProgress.size == 1)
         assert(inProgress[0].show.title == show.title)
+    }
+
+    @Test
+    fun `deleteSeries borra la serie y emite feedback`() = runTest {
+        val show = TvShowEntity(
+            id = 5,
+            title = "Serie a eliminar",
+            status = WatchStatus.POR_VER
+        )
+        coEvery { tvShowDao.delete(show) } returns Unit
+        coEvery { feedbackManager.emit("Serie eliminada") } returns Unit
+        stubSeries(emptyList(), emptyList())
+
+        viewModel.deleteSeries(show)
+        mainDispatcher.scheduler.advanceUntilIdle()
+        advanceUntilIdle()
+
+        coVerify { tvShowDao.delete(show) }
+        verify { feedbackManager.emit("Serie eliminada") }
     }
 }

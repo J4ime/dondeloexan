@@ -191,10 +191,10 @@ fun LibraryItemCard(
                 }
             }
 
-            val displayEpisodes = releasedEpisodes ?: totalEpisodes
-            if (displayEpisodes != null && displayEpisodes > 0) {
+            val aired = releasedEpisodes
+            if (aired != null && aired > 0) {
                 Spacer(Modifier.height(6.dp))
-                val progress = (watchedCount.toFloat() / displayEpisodes).coerceIn(0f, 1f)
+                val progress = (watchedCount.toFloat() / aired).coerceIn(0f, 1f)
                 Column {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -202,7 +202,7 @@ fun LibraryItemCard(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "$watchedCount/$displayEpisodes episodios",
+                            text = "$watchedCount/$aired episodios",
                             style = UbuntuTypography.labelSmall,
                             color = TextSecondary,
                             fontSize = 10.sp
