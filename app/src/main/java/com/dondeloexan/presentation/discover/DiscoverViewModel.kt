@@ -136,6 +136,7 @@ class DiscoverViewModel(
     private var hasMorePages = true
     private var isFilling = false
     private var hasError = false
+    private var isSearching = false
     private var cachedResults = listOf<ContentPreview>()
     private var lastCompanySearchResults: List<TmdbCompanySearchResult> = emptyList()
     private var filmographyCache = listOf<ContentPreview>()
@@ -294,6 +295,7 @@ class DiscoverViewModel(
         searchJob = viewModelScope.launch {
             delay(2000)
             trendingJob?.cancel()
+            isSearching = true
             currentPage = 1
             hasMorePages = true
             cachedResults = emptyList()
@@ -302,6 +304,7 @@ class DiscoverViewModel(
             val searchDeferred = async {
                 try {
                     discoverRepository.fetchSearchPage(query, 1)
+                        .filter { it.id !in excludedIds() }
                         .filter { it.ratingImdb != null && it.ratingImdb >= 6.0f }
                 } catch (e: Exception) {
                     hasError = true
@@ -824,12 +827,17 @@ class DiscoverViewModel(
         isFilling = true
         _isLoadingMore.value = true
         viewModelScope.launch {
+            val query = _searchQuery.value
             val target = cachedResults.size + 10
-            fillPagesUntil(target)
+            if (isSearching && query.length >= 3) {
+                fillSearchPagesUntil(target)
+            } else {
+                fillPagesUntil(target)
+            }
             isFilling = false
             _isLoadingMore.value = false
             if (cachedResults.isEmpty()) {
-                _uiState.value = DiscoverUiState.Empty(_searchQuery.value)
+                _uiState.value = DiscoverUiState.Empty(query)
             } else {
                 emitWithFaData(DiscoverUiState.Success(cachedResults))
             }
@@ -840,6 +848,7 @@ class DiscoverViewModel(
         _searchQuery.value = ""
         _filmographyView.value = null
         searchJob?.cancel()
+        isSearching = false
         currentPage = 1
         hasMorePages = true
         cachedResults = emptyList()
@@ -886,6 +895,7 @@ class DiscoverViewModel(
     fun loadTrending() {
         trendingJob?.cancel()
         hasError = false
+        isSearching = false
         trendingJob = viewModelScope.launch {
             currentPage = 1
             hasMorePages = true
@@ -900,6 +910,60 @@ class DiscoverViewModel(
                 else -> _uiState.value = DiscoverUiState.Empty("")
             }
         }
+    }
+
+    private suspend fun fillSearchPagesUntil(minItems: Int) {
+        val query = _searchQuery.value
+        var emptyPageCount = 0
+        while (cachedResults.size < minItems && hasMorePages) {
+            val next = currentPage + 1
+            val page = fetchSearchPageFiltered(query, next)
+            if (page.isNotEmpty()) {
+                currentPage = next
+                cachedResults = cachedResults + page
+                emptyPageCount = 0
+            } else {
+                currentPage = next
+                emptyPageCount++
+                if (emptyPageCount >= 3) hasMorePages = false
+            }
+        }
+    }
+
+    private suspend fun fetchSearchPageFiltered(query: String, page: Int): List<ContentPreview> {
+        return try {
+            discoverRepository.fetchSearchPage(query, page)
+                .filter { it.id !in excludedIds() }
+                .filter { it.ratingImdb != null && it.ratingImdb >= 6.0f }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            AppLogger.e("DiscoverVM", "fetchSearchPage error page=$page", e)
+            hasError = true
+            emptyList()
+        }
+    }
+
+    private suspend fun excludedIds(): Set<String> {
+        val liked = buildSet {
+            addAll(likedIds.value)
+            movieDao.getLiked().first().forEach { m ->
+                m.tmdbId?.let { add("tmdb-$it") }
+            }
+            tvShowDao.getLiked().first().forEach { s ->
+                s.tmdbId?.let { add("tmdb-$it") }
+            }
+        }
+        val watched = buildSet {
+            addAll(watchedIds.value)
+            movieDao.getByStatus(WatchStatus.YA_VISTA).first().forEach { m ->
+                m.tmdbId?.let { add("tmdb-$it") }
+            }
+            tvShowDao.getByStatus(WatchStatus.YA_VISTA).first().forEach { s ->
+                s.tmdbId?.let { add("tmdb-$it") }
+            }
+        }
+        return liked + blacklistedIds.value + watched
     }
 
     private suspend fun fillPagesUntil(minItems: Int) {
@@ -921,28 +985,10 @@ class DiscoverViewModel(
 
     private suspend fun fetchTrendingSinglePage(page: Int): List<ContentPreview> {
         val filterByPlatforms = _filterByPlatforms.value
-        val liked = buildSet {
-            addAll(likedIds.value)
-            movieDao.getLiked().first().forEach { m ->
-                m.tmdbId?.let { add("tmdb-$it") }
-            }
-            tvShowDao.getLiked().first().forEach { s ->
-                s.tmdbId?.let { add("tmdb-$it") }
-            }
-        }
-        val watched = buildSet {
-            addAll(watchedIds.value)
-            movieDao.getByStatus(WatchStatus.YA_VISTA).first().forEach { m ->
-                m.tmdbId?.let { add("tmdb-$it") }
-            }
-            tvShowDao.getByStatus(WatchStatus.YA_VISTA).first().forEach { s ->
-                s.tmdbId?.let { add("tmdb-$it") }
-            }
-        }
+        val excluded = excludedIds()
         return try {
             val results = discoverRepository.fetchTrendingPage(page, filterByPlatforms)
-            val blacklisted = blacklistedIds.value
-            results.filter { it.id !in liked && it.id !in blacklisted && it.id !in watched }
+            results.filter { it.id !in excluded }
                 .filter { it.ratingImdb != null && it.ratingImdb >= 6.0f }
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e

@@ -80,20 +80,20 @@ class SeriesViewModel(
     }
 
     val pending: StateFlow<List<SeriesWithProgress>> = seriesWithProgress.map { list ->
-        list.filter { s -> (s.show.status == WatchStatus.POR_VER || s.show.liked) && s.watchedCount == 0 }
+        list.filter { s -> s.watchedCount == 0 }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val inProgress: StateFlow<List<SeriesWithProgress>> = seriesWithProgress.map { list ->
-        list.filter { s -> s.show.liked && s.watchedCount > 0 && !s.isCaughtUp() && !s.isFinished() }
+        list.filter { s -> s.watchedCount > 0 && !s.isCaughtUp() && !s.isFinished() }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val finished: StateFlow<List<SeriesWithProgress>> = seriesWithProgress.map { list ->
-        list.filter { s -> s.show.liked && s.isFinished() }
+        list.filter { s -> s.isFinished() }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val upcomingAgenda: StateFlow<List<SeriesWithProgress>> = seriesWithProgress.map { list ->
         list.filter { s ->
-            s.show.liked && s.isCaughtUp() && s.hasFutureSeasons() && !s.isFinished()
+            s.isCaughtUp() && s.hasFutureSeasons() && !s.isFinished()
         }.sortedWith(compareBy(nullsLast<String>()) { it.show.nextEpisodeAirDate })
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 

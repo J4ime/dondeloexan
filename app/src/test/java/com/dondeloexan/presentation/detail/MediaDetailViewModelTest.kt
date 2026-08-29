@@ -298,6 +298,126 @@ class MediaDetailViewModelTest {
     }
 
     @Test
+    fun `toggleMovieFavorite does not mark movie as watched`() = runTest {
+        val content = movieContent()
+        stubMovieContentFlow(content)
+        coEvery { useCases.loadMovieState(content) } returns MovieWatchState(
+            isWatched = false, isFavorite = false, inLibrary = true
+        )
+
+        viewModel.loadContent("tmdb-1")
+        advanceUntilIdle()
+
+        coEvery { useCases.toggleMovieFavorite(content) } returns MovieWatchState(
+            isWatched = false, isFavorite = true, inLibrary = true
+        )
+
+        viewModel.toggleMovieFavorite()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assert(state.isMovieFavorite == true)
+        assert(state.isMovieWatched == false)
+    }
+
+    @Test
+    fun `toggleMovieWatched does not mark movie as favorite`() = runTest {
+        val content = movieContent()
+        stubMovieContentFlow(content)
+        coEvery { useCases.loadMovieState(content) } returns MovieWatchState(
+            isWatched = false, isFavorite = true, inLibrary = true
+        )
+
+        viewModel.loadContent("tmdb-1")
+        advanceUntilIdle()
+
+        coEvery { useCases.toggleMovieWatched(content) } returns MovieWatchState(
+            isWatched = true, isFavorite = true, inLibrary = true
+        )
+
+        viewModel.toggleMovieWatched()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assert(state.isMovieWatched == true)
+        assert(state.isMovieFavorite == true)
+    }
+
+    @Test
+    fun `loadContent exposes inLibrary from movie watch state`() = runTest {
+        val content = movieContent()
+        stubMovieContentFlow(content)
+        coEvery { useCases.loadMovieState(content) } returns MovieWatchState(
+            isWatched = true, isFavorite = true, inLibrary = true
+        )
+
+        viewModel.loadContent("tmdb-1")
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assert(state.isMovieInLibrary == true)
+        assert(state.isMovieWatched == true)
+        assert(state.isMovieFavorite == true)
+    }
+
+    @Test
+    fun `addMovieToLibrary updates inLibrary state`() = runTest {
+        val content = movieContent()
+        stubMovieContentFlow(content)
+
+        viewModel.loadContent("tmdb-1")
+        advanceUntilIdle()
+
+        assert(viewModel.uiState.value.isMovieInLibrary == false)
+
+        coEvery { useCases.addMovieToLibrary(content) } returns MovieWatchState(
+            isWatched = false, isFavorite = false, inLibrary = true
+        )
+
+        viewModel.addMovieToLibrary()
+        advanceUntilIdle()
+
+        assert(viewModel.uiState.value.isMovieInLibrary == true)
+        coVerify { useCases.addMovieToLibrary(content) }
+    }
+
+    @Test
+    fun `addSeriesToLibrary updates series presence`() = runTest {
+        val content = seriesContent()
+        coEvery { useCases.getDetail(any(), any()) } returns flowOf(DataResult.Success(content))
+        coEvery { useCases.loadSeriesState(content) } returnsMany listOf(
+            SeriesState(
+                seasons = listOf(Season(seasonNumber = 1, name = "T1")),
+                tracking = SeriesTracking(),
+                selectedSeason = 1,
+                seasonDetail = null
+            ),
+            SeriesState(
+                seasons = listOf(Season(seasonNumber = 1, name = "T1")),
+                tracking = SeriesTracking(exists = true),
+                selectedSeason = 1,
+                seasonDetail = null
+            )
+        )
+        coEvery { useCases.getCollectionMovies(content) } returns emptyList()
+        coEvery { useCases.getSimilar(content) } returns emptyList()
+        coEvery { useCases.getCriticReviews(content) } returns emptyList()
+        coEvery { useCases.getFaId(content) } returns null
+        coEvery { useCases.addSeriesToLibrary(content) } returns true
+
+        viewModel.loadContent("tmdb-2")
+        advanceUntilIdle()
+
+        assert(viewModel.uiState.value.isSeriesInLibrary == false)
+
+        viewModel.addSeriesToLibrary()
+        advanceUntilIdle()
+
+        assert(viewModel.uiState.value.isSeriesInLibrary == true)
+        coVerify { useCases.addSeriesToLibrary(content) }
+    }
+
+    @Test
     fun `toggleEpisodeWatched triggers cascade proposal`() = runTest {
         val content = seriesContent()
         coEvery { useCases.getDetail(any(), any()) } returns flowOf(DataResult.Success(content))

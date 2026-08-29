@@ -33,6 +33,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.AlternateEmail
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.CameraAlt
@@ -50,6 +51,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
@@ -140,8 +142,9 @@ fun MediaDetailScreen(
                 Text(
                     uiState.content?.title ?: "Detalle",
                     color = TextPrimary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.titleLarge
                 )
             },
             navigationIcon = {
@@ -153,25 +156,64 @@ fun MediaDetailScreen(
                 }
             },
             actions = {
-                if (uiState.content?.type == com.dondeloexan.domain.model.ContentType.MOVIE) {
-                    val isWatched = uiState.isMovieWatched == true
-                    IconButton(onClick = { viewModel.toggleMovieWatched() }) {
-                        Icon(
-                            if (isWatched) Icons.Filled.Check else Icons.Filled.Check,
-                            contentDescription = if (isWatched) "Quitar de vistos" else "Marcar como vista",
-                            tint = if (isWatched) EleganteRose else TextPrimary
-                        )
-                    }
-                    if (isWatched) {
-                        val isFavorite = uiState.isMovieFavorite == true
-                        IconButton(onClick = { viewModel.toggleMovieFavorite() }) {
-                            Icon(
-                                if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                                contentDescription = if (isFavorite) "Quitar de favoritas" else "Marcar como favorita",
-                                tint = if (isFavorite) EleganteRose else TextPrimary
-                            )
+                when (uiState.content?.type) {
+                    com.dondeloexan.domain.model.ContentType.MOVIE -> {
+                        if (uiState.isMovieInLibrary == true) {
+                            val isWatched = uiState.isMovieWatched == true
+                            IconButton(onClick = { viewModel.toggleMovieWatched() }) {
+                                Icon(
+                                    if (isWatched) Icons.Filled.Check else Icons.Outlined.CheckCircleOutline,
+                                    contentDescription = if (isWatched) "Quitar de vistos" else "Marcar como vista",
+                                    tint = if (isWatched) EleganteRose else TextPrimary
+                                )
+                            }
+                            val isFavorite = uiState.isMovieFavorite == true
+                            IconButton(onClick = { viewModel.toggleMovieFavorite() }) {
+                                Icon(
+                                    if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                                    contentDescription = if (isFavorite) "Quitar de favoritas" else "Marcar como favorita",
+                                    tint = if (isFavorite) EleganteRose else TextPrimary
+                                )
+                            }
+                        } else {
+                            IconButton(onClick = { viewModel.addMovieToLibrary() }) {
+                                Icon(
+                                    Icons.Outlined.Add,
+                                    contentDescription = "Añadir",
+                                    tint = TextPrimary
+                                )
+                            }
                         }
                     }
+                    com.dondeloexan.domain.model.ContentType.SERIES -> {
+                        if (uiState.isSeriesInLibrary == true) {
+                            val isWatched = uiState.isSeriesWatched == true
+                            IconButton(onClick = { viewModel.toggleSeriesWatched() }) {
+                                Icon(
+                                    if (isWatched) Icons.Filled.Check else Icons.Outlined.CheckCircleOutline,
+                                    contentDescription = if (isWatched) "Quitar de vistos" else "Marcar como vista",
+                                    tint = if (isWatched) EleganteRose else TextPrimary
+                                )
+                            }
+                            val isFavorite = uiState.isSeriesFavorite == true
+                            IconButton(onClick = { viewModel.toggleSeriesFavorite() }) {
+                                Icon(
+                                    if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                                    contentDescription = if (isFavorite) "Quitar de favoritas" else "Marcar como favorita",
+                                    tint = if (isFavorite) EleganteRose else TextPrimary
+                                )
+                            }
+                        } else {
+                            IconButton(onClick = { viewModel.addSeriesToLibrary() }) {
+                                Icon(
+                                    Icons.Outlined.Add,
+                                    contentDescription = "Añadir",
+                                    tint = TextPrimary
+                                )
+                            }
+                        }
+                    }
+                    else -> {}
                 }
             },
             colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBackground),

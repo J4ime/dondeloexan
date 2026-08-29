@@ -31,11 +31,14 @@ data class SeasonDetail(
 
 data class MovieWatchState(
     val isWatched: Boolean = false,
-    val isFavorite: Boolean = false
+    val isFavorite: Boolean = false,
+    val inLibrary: Boolean = false
 )
 
 data class SeriesTracking(
     val exists: Boolean = false,
+    val isFavorite: Boolean = false,
+    val watchedToDate: Boolean = false,
     val watchedEpisodes: Set<String> = emptySet(),
     val lastWatchedSeason: Int? = null,
     val lastWatchedEpisode: Int? = null,

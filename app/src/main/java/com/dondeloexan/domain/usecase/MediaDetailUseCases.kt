@@ -73,6 +73,18 @@ class MediaDetailUseCases(
     suspend fun toggleMovieFavorite(content: Content): MovieWatchState =
         repository.setMovieFavorite(content, !repository.getMovieWatchState(content).isFavorite)
 
+    suspend fun addMovieToLibrary(content: Content): MovieWatchState =
+        repository.addMovieToLibrary(content)
+
+    suspend fun addSeriesToLibrary(content: Content): Boolean =
+        repository.addSeriesToLibrary(content)
+
+    suspend fun toggleSeriesWatched(content: Content, watched: Boolean): Boolean =
+        repository.setSeriesWatched(content, watched)
+
+    suspend fun toggleSeriesFavorite(content: Content, favorite: Boolean): Boolean =
+        repository.setSeriesFavorite(content, favorite)
+
     // --- Series: seasons & tracking ---
 
     suspend fun loadSeriesState(content: Content): SeriesState {

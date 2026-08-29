@@ -79,8 +79,7 @@ interface TvShowDao {
 
     @Query("""
         SELECT * FROM tv_shows 
-        WHERE liked = 1
-        AND finished_at IS NULL
+        WHERE finished_at IS NULL
         AND (total_episodes IS NULL 
              OR (SELECT COUNT(*) FROM tv_show_progress WHERE tv_show_id = id) < total_episodes
              OR in_production = 1
@@ -89,12 +88,12 @@ interface TvShowDao {
     """)
     fun getInProgressFlow(): Flow<List<TvShowEntity>>
 
-    @Query("SELECT * FROM tv_shows WHERE liked = 1 AND next_episode_air_date IS NOT NULL AND next_episode_air_date >= :today ORDER BY next_episode_air_date ASC")
+    @Query("SELECT * FROM tv_shows WHERE next_episode_air_date IS NOT NULL AND next_episode_air_date >= :today ORDER BY next_episode_air_date ASC")
     fun getUpcomingFlow(today: String): Flow<List<TvShowEntity>>
 
     @Query("""
-        SELECT * FROM tv_shows WHERE liked = 1 
-        AND (finished_at IS NOT NULL
+        SELECT * FROM tv_shows 
+        WHERE (finished_at IS NOT NULL
              OR (total_episodes IS NOT NULL AND total_episodes > 0
                  AND (SELECT COUNT(*) FROM tv_show_progress WHERE tv_show_id = id) >= total_episodes
                  AND (in_production IS NULL OR in_production = 0)

@@ -2,6 +2,7 @@ package com.dondeloexan.worker
 
 import android.content.Context
 import android.os.Build
+import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
@@ -15,6 +16,7 @@ import java.util.concurrent.TimeUnit
 object WorkScheduler {
 
     private const val WORK_NAME = "series_daily_check"
+    private const val LIBRARY_WORK_NAME = "library_daily_refresh"
 
     fun schedule(context: Context) {
         val constraints = Constraints.Builder()
@@ -23,7 +25,7 @@ object WorkScheduler {
 
         val delay = calculateDelayUntil8AM()
 
-        val request = PeriodicWorkRequestBuilder<SeriesCheckWorker>(24, TimeUnit.HOURS)
+        val seriesCheckRequest = PeriodicWorkRequestBuilder<SeriesCheckWorker>(24, TimeUnit.HOURS)
             .setConstraints(constraints)
             .setInitialDelay(delay.toMinutes().coerceAtLeast(1), TimeUnit.MINUTES)
             .build()
@@ -31,7 +33,19 @@ object WorkScheduler {
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(
             WORK_NAME,
             ExistingPeriodicWorkPolicy.UPDATE,
-            request
+            seriesCheckRequest
+        )
+
+        val libraryRequest = PeriodicWorkRequestBuilder<LibraryRefreshWorker>(24, TimeUnit.HOURS)
+            .setConstraints(constraints)
+            .setInitialDelay(delay.toMinutes().coerceAtLeast(1), TimeUnit.MINUTES)
+            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 1, TimeUnit.HOURS)
+            .build()
+
+        WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+            LIBRARY_WORK_NAME,
+            ExistingPeriodicWorkPolicy.UPDATE,
+            libraryRequest
         )
     }
 

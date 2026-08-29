@@ -36,6 +36,10 @@ data class DetailUiState(
     val lastWatchedEpisode: Int? = null,
     val isMovieWatched: Boolean? = null,
     val isMovieFavorite: Boolean? = null,
+    val isMovieInLibrary: Boolean? = null,
+    val isSeriesInLibrary: Boolean? = null,
+    val isSeriesFavorite: Boolean? = null,
+    val isSeriesWatched: Boolean? = null,
     val criticReviews: List<CriticReview>? = null,
     val isCriticReviewsLoading: Boolean = false,
     val collectionMovies: List<ContentPreview>? = null,
@@ -264,7 +268,8 @@ class MediaDetailViewModel(
                                     val movieState = useCases.loadMovieState(content)
                                     _uiState.value = _uiState.value.copy(
                                         isMovieWatched = movieState.isWatched,
-                                        isMovieFavorite = movieState.isFavorite
+                                        isMovieFavorite = movieState.isFavorite,
+                                        isMovieInLibrary = movieState.inLibrary
                                     )
                                 }
                             }
@@ -300,7 +305,8 @@ class MediaDetailViewModel(
             val newState = useCases.toggleMovieWatched(content)
             _uiState.value = _uiState.value.copy(
                 isMovieWatched = newState.isWatched,
-                isMovieFavorite = newState.isFavorite
+                isMovieFavorite = newState.isFavorite,
+                isMovieInLibrary = newState.inLibrary
             )
         }
     }
@@ -311,8 +317,50 @@ class MediaDetailViewModel(
             val newState = useCases.toggleMovieFavorite(content)
             _uiState.value = _uiState.value.copy(
                 isMovieFavorite = newState.isFavorite,
-                isMovieWatched = if (newState.isFavorite) true else _uiState.value.isMovieWatched
+                isMovieWatched = newState.isWatched,
+                isMovieInLibrary = newState.inLibrary
             )
+        }
+    }
+
+    fun addMovieToLibrary() {
+        viewModelScope.launch {
+            val content = _uiState.value.content ?: return@launch
+            val newState = useCases.addMovieToLibrary(content)
+            _uiState.value = _uiState.value.copy(
+                isMovieInLibrary = newState.inLibrary,
+                isMovieWatched = newState.isWatched,
+                isMovieFavorite = newState.isFavorite
+            )
+        }
+    }
+
+    fun addSeriesToLibrary() {
+        viewModelScope.launch {
+            val content = _uiState.value.content ?: return@launch
+            val added = useCases.addSeriesToLibrary(content)
+            if (added) {
+                _uiState.value = _uiState.value.copy(isSeriesInLibrary = true)
+                loadSeasons(content)
+            }
+        }
+    }
+
+    fun toggleSeriesWatched() {
+        viewModelScope.launch {
+            val content = _uiState.value.content ?: return@launch
+            val isWatched = _uiState.value.isSeriesWatched == true
+            useCases.toggleSeriesWatched(content, !isWatched)
+            loadSeasons(content)
+        }
+    }
+
+    fun toggleSeriesFavorite() {
+        viewModelScope.launch {
+            val content = _uiState.value.content ?: return@launch
+            val isFavorite = _uiState.value.isSeriesFavorite == true
+            useCases.toggleSeriesFavorite(content, !isFavorite)
+            loadSeasons(content)
         }
     }
 
@@ -325,7 +373,10 @@ class MediaDetailViewModel(
                 lastWatchedSeason = seriesState.tracking.lastWatchedSeason,
                 lastWatchedEpisode = seriesState.tracking.lastWatchedEpisode,
                 selectedSeason = seriesState.selectedSeason,
-                seasonDetail = seriesState.seasonDetail
+                seasonDetail = seriesState.seasonDetail,
+                isSeriesInLibrary = seriesState.tracking.exists,
+                isSeriesFavorite = seriesState.tracking.isFavorite,
+                isSeriesWatched = seriesState.tracking.watchedToDate
             )
         } catch (e: Exception) {
             AppLogger.e("DetailVM", "Error loading seasons", e)

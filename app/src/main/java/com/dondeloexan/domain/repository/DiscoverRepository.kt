@@ -42,6 +42,10 @@ interface DiscoverRepository {
     suspend fun getMovieWatchState(content: Content): MovieWatchState
     suspend fun setMovieWatched(content: Content, watched: Boolean): MovieWatchState
     suspend fun setMovieFavorite(content: Content, favorite: Boolean): MovieWatchState
+    suspend fun addMovieToLibrary(content: Content): MovieWatchState
+    suspend fun addSeriesToLibrary(content: Content): Boolean
+    suspend fun setSeriesWatched(content: Content, watched: Boolean): Boolean
+    suspend fun setSeriesFavorite(content: Content, favorite: Boolean): Boolean
 
     suspend fun getSeriesTracking(content: Content): SeriesTracking
     suspend fun getSeasons(content: Content): List<Season>

@@ -42,7 +42,7 @@ class MoviesViewModelTest {
     }
 
     @Test
-    fun `toggleLike when movie not liked sets liked true and status YA_VISTA`() = runTest {
+    fun `toggleLike when movie not liked only sets liked true and keeps pending status`() = runTest {
         val movie = MovieEntity(
             id = 1,
             title = "Test Movie",
@@ -59,8 +59,8 @@ class MoviesViewModelTest {
         coVerify { movieDao.update(any()) }
         val updated = slot.captured
         assert(updated.liked)
-        assert(updated.status == WatchStatus.YA_VISTA)
-        assert(updated.watchedAt != null)
+        assert(updated.status == WatchStatus.POR_VER)
+        assert(updated.watchedAt == null)
     }
 
     @Test
@@ -84,5 +84,48 @@ class MoviesViewModelTest {
         assert(!updated.liked)
         assert(updated.status == WatchStatus.YA_VISTA)
         assert(updated.watchedAt == 1000L)
+    }
+
+    @Test
+    fun `toggleWatched keeps liked flag untouched`() = runTest {
+        val movie = MovieEntity(
+            id = 3,
+            title = "Test Movie",
+            liked = true,
+            status = WatchStatus.POR_VER
+        )
+        val slot = slot<MovieEntity>()
+        coEvery { movieDao.update(capture(slot)) } returns Unit
+        coEvery { feedbackManager.emit(any()) } returns Unit
+
+        viewModel.toggleWatched(movie)
+        advanceUntilIdle()
+
+        val updated = slot.captured
+        assert(updated.status == WatchStatus.YA_VISTA)
+        assert(updated.liked)
+        assert(updated.watchedAt != null)
+    }
+
+    @Test
+    fun `toggleWatched back to pending keeps liked flag untouched`() = runTest {
+        val movie = MovieEntity(
+            id = 4,
+            title = "Test Movie",
+            liked = true,
+            status = WatchStatus.YA_VISTA,
+            watchedAt = 5000L
+        )
+        val slot = slot<MovieEntity>()
+        coEvery { movieDao.update(capture(slot)) } returns Unit
+        coEvery { feedbackManager.emit(any()) } returns Unit
+
+        viewModel.toggleWatched(movie)
+        advanceUntilIdle()
+
+        val updated = slot.captured
+        assert(updated.status == WatchStatus.POR_VER)
+        assert(updated.liked)
+        assert(updated.watchedAt == null)
     }
 }
