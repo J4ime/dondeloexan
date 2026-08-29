@@ -145,12 +145,64 @@ class AccountRepositoryImplTest {
     }
 
     @Test
+    fun `login de usuario nuevo con error_code invalid_credentials actual crea cuenta y sincroniza`() = runTest {
+        coEvery { authApi.signInWithPassword(email, password) } throws SupabaseApiException(
+            "Invalid login credentials", errorCode = "invalid_credentials", statusCode = 400
+        )
+        coEvery { authApi.signUp(email, password) } returns auth()
+        coEvery { sessionStore.save(any()) } just Runs
+        coEvery { syncManager.syncAll(any()) } returns summary()
+
+        val result = repository().login(email, password)
+
+        assertTrue(result.isSuccess)
+        coVerify { sessionStore.save(match { it.accessToken == "atoken" }) }
+        coVerify(exactly = 1) { syncManager.syncAll(any()) }
+    }
+
+    @Test
+    fun `login de usuario nuevo con solo mensaje sin error_code tambien hace fallback`() = runTest {
+        coEvery { authApi.signInWithPassword(email, password) } throws SupabaseApiException(
+            "Invalid login credentials"
+        )
+        coEvery { authApi.signUp(email, password) } returns auth()
+        coEvery { sessionStore.save(any()) } just Runs
+        coEvery { syncManager.syncAll(any()) } returns summary()
+
+        val result = repository().login(email, password)
+
+        assertTrue(result.isSuccess)
+        coVerify { sessionStore.save(match { it.accessToken == "atoken" }) }
+        coVerify(exactly = 0) { authApi.refresh(any()) }
+    }
+
+    @Test
     fun `usuario existente con contrasena incorrecta da error de credenciales`() = runTest {
         coEvery { authApi.signInWithPassword(email, password) } throws SupabaseApiException(
             "Invalid login credentials", errorCode = "invalid_grant", statusCode = 400
         )
         coEvery { authApi.signUp(email, password) } throws SupabaseApiException(
             "User already registered", errorCode = "user_already_exists", statusCode = 400
+        )
+        coEvery { sessionStore.save(any()) } just Runs
+        coEvery { syncManager.syncAll(any()) } returns summary()
+
+        val result = repository().login(email, password)
+
+        assertTrue(result.isFailure)
+        assertEquals("Email o contraseña incorrectos", result.exceptionOrNull()?.message)
+        coVerify(exactly = 0) { sessionStore.save(any()) }
+        coVerify(exactly = 0) { syncManager.syncAll(any()) }
+    }
+
+    @Test
+    fun `signup con error_code email_exists da error de credenciales amigable`() = runTest {
+        coEvery { authApi.signInWithPassword(email, password) } throws SupabaseApiException(
+            "Invalid login credentials", errorCode = "invalid_credentials", statusCode = 400
+        )
+        coEvery { authApi.signUp(email, password) } throws SupabaseApiException(
+            "A user with this email address has already been registered",
+            errorCode = "email_exists", statusCode = 422
         )
         coEvery { sessionStore.save(any()) } just Runs
         coEvery { syncManager.syncAll(any()) } returns summary()

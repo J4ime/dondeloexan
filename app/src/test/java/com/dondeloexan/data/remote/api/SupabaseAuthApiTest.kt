@@ -122,6 +122,23 @@ class SupabaseAuthApiTest {
     }
 
     @Test
+    fun `error_code invalid_credentials actual se parsea correctamente`() = runTest {
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(400)
+                .setHeader("Content-Type", "application/json")
+                .setBody("""{"code":400,"error_code":"invalid_credentials","msg":"Invalid login credentials"}""")
+        )
+
+        val exception = assertThrows(SupabaseApiException::class.java) {
+            runBlocking { api.signInWithPassword("a@b.c", "secreto") }
+        }
+        assertEquals("Invalid login credentials", exception.message)
+        assertEquals("invalid_credentials", exception.errorCode)
+        assertEquals(400, exception.statusCode)
+    }
+
+    @Test
     fun `signUp sin confirmacion de email no crea sesion`() = runTest {
         server.enqueue(
             MockResponse()

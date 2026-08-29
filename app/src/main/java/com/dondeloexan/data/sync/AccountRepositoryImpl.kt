@@ -30,7 +30,7 @@ class AccountRepositoryImpl(
         val session = try {
             authApi.signInWithPassword(email, password).toSessionState()
         } catch (e: SupabaseApiException) {
-            if (e.errorCode != "invalid_grant") throw e
+            if (!e.isInvalidCredentials()) throw e
             signUpAndAuthenticate(email, password)
         } ?: throw SupabaseApiException(ERR_INVALID_CREDENTIALS)
         sessionStore.save(session)
@@ -41,20 +41,17 @@ class AccountRepositoryImpl(
         val signUpState = try {
             authApi.signUp(email, password).toSessionState()
         } catch (e: SupabaseApiException) {
-            throw if (e.errorCode == "user_already_exists") {
-                SupabaseApiException(ERR_INVALID_CREDENTIALS)
-            } else {
-                e
-            }
+            if (e.isUserAlreadyExists()) throw SupabaseApiException(ERR_INVALID_CREDENTIALS)
+            throw e
         }
         if (signUpState != null) return signUpState
         return try {
             authApi.signInWithPassword(email, password).toSessionState()
         } catch (e: SupabaseApiException) {
-            throw if (e.errorCode == "email_not_confirmed") {
-                SupabaseApiException(ERR_EMAIL_NOT_CONFIRMED)
-            } else {
-                e
+            throw when {
+                e.isEmailNotConfirmed() -> SupabaseApiException(ERR_EMAIL_NOT_CONFIRMED)
+                e.isInvalidCredentials() -> SupabaseApiException(ERR_INVALID_CREDENTIALS)
+                else -> e
             }
         }
     }
@@ -76,3 +73,18 @@ class AccountRepositoryImpl(
             "La confirmación de email está activada en Supabase: desactívala en Authentication → Sign In / Providers → Email (Confirm email) para entrar sin confirmar."
     }
 }
+
+private val INVALID_CREDENTIALS_CODES = setOf("invalid_credentials", "invalid_grant")
+private val USER_ALREADY_EXISTS_CODES = setOf("user_already_exists", "email_exists")
+
+private fun SupabaseApiException.isInvalidCredentials(): Boolean =
+    errorCode in INVALID_CREDENTIALS_CODES ||
+        message.orEmpty().contains("invalid login credentials", ignoreCase = true)
+
+private fun SupabaseApiException.isUserAlreadyExists(): Boolean =
+    errorCode in USER_ALREADY_EXISTS_CODES ||
+        message.orEmpty().contains("already registered", ignoreCase = true)
+
+private fun SupabaseApiException.isEmailNotConfirmed(): Boolean =
+    errorCode == "email_not_confirmed" ||
+        message.orEmpty().contains("email not confirmed", ignoreCase = true)
