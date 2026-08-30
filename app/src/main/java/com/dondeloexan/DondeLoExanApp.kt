@@ -11,6 +11,7 @@ import com.dondeloexan.di.viewModelModule
 import com.dondeloexan.presentation.settings.LibraryRefresher
 import com.dondeloexan.worker.SeriesCheckWorker
 import com.dondeloexan.worker.WorkScheduler
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -40,10 +41,13 @@ class DondeLoExanApp : Application() {
                 val koin = GlobalContext.get()
                 val dataStore: UserPreferencesDataStore = koin.get()
                 val lastUpdate = dataStore.getLastLibraryUpdateTimestamp()
-                if (lastUpdate == null || (System.currentTimeMillis() - lastUpdate) >= 86_400_000L) {
+                if (lastUpdate == null || (System.currentTimeMillis() - lastUpdate) >= 21_600_000L) {
                     val refresher: LibraryRefresher = koin.get()
                     refresher.refresh()
                 }
+            } catch (e: CancellationException) {
+                android.util.Log.w("DondeLoExanApp", "Auto-refresh cancelado (scope)", e)
+                throw e
             } catch (e: Exception) {
                 android.util.Log.e("DondeLoExanApp", "Auto-refresh failed", e)
             }

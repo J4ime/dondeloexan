@@ -27,6 +27,7 @@ import com.dondeloexan.domain.repository.SettingsRepository
 import com.dondeloexan.presentation.feedback.FeedbackManager
 import com.dondeloexan.presentation.settings.LibraryNotificationManager
 import com.dondeloexan.presentation.settings.LibraryRefresher
+import com.dondeloexan.util.RefreshCoordinator
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
@@ -81,13 +82,14 @@ val dataModule = module {
 
     // Library
     single { LibraryNotificationManager(androidContext()) }
+    single(named("background")) { RefreshCoordinator() }
     single {
         LibraryRefresher(
             tvShowDao = get(),
             movieDao = get(),
             tmdbApi = get(),
             omdbApi = get(),
-            refreshCoordinator = get(),
+            refreshCoordinator = get(named("background")),
             userPreferencesDataStore = get(),
             notificationManager = get()
         )

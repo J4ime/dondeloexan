@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
@@ -136,7 +137,10 @@ class SeriesViewModel(
                                     tmdbApi.getTvWatchProviders(tmdbId)
                                 }
                                 providers.results?.get("ES")?.toStreamingAvailability().orEmpty().toPlatformsString()
+                            } catch (e: CancellationException) {
+                                throw e
                             } catch (e: Exception) {
+                                AppLogger.e("SeriesVM", "getTvWatchProviders falló", e)
                                 null
                             }
                         } else existing.streamingPlatforms
@@ -157,6 +161,8 @@ class SeriesViewModel(
                         )
                     } catch (e: BatchCancelledException) {
                         AppLogger.w("SeriesVM", "Batch cancelled after 3 timeouts")
+                    } catch (e: CancellationException) {
+                        throw e
                     } catch (e: Exception) {
                         AppLogger.e("SeriesVM", "Refresh error -> tv/$tmdbId", e)
                     }
@@ -195,7 +201,11 @@ class SeriesViewModel(
                             val seasonDetail = tmdbApi.getTvSeason(tmdbId, season.seasonNumber)
                             for (ep in seasonDetail.episodes) {
                                 val isAired = ep.airDate == null ||
-                                        try { !LocalDate.parse(ep.airDate).isAfter(today) } catch (_: Exception) { true }
+                                        try { !LocalDate.parse(ep.airDate).isAfter(today) }
+                                        catch (e: Exception) {
+                                            AppLogger.w("SeriesVM", "parse airDate falló: ${ep.airDate} (${e.message})")
+                                            true
+                                        }
                                 if (isAired) {
                                     progressToInsert.add(
                                         TvShowProgressEntity(

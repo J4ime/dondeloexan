@@ -12,6 +12,7 @@ import com.dondeloexan.presentation.feedback.FeedbackManager
 import com.dondeloexan.util.AppLogger
 import com.dondeloexan.util.BatchCancelledException
 import com.dondeloexan.util.RefreshCoordinator
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -66,6 +67,8 @@ class MoviesViewModel(
                         }
                     } catch (e: BatchCancelledException) {
                         AppLogger.w("MoviesVM", "Batch cancelled after 3 timeouts")
+                    } catch (e: CancellationException) {
+                        throw e
                     } catch (e: Exception) {
                         AppLogger.e("MoviesVM", "Refresh error -> ${movie.title}", e)
                     }

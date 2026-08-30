@@ -16,6 +16,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
+import java.util.concurrent.atomic.AtomicBoolean
 
 class LibraryRefresher(
     private val tvShowDao: TvShowDao,
@@ -31,32 +32,42 @@ class LibraryRefresher(
         val moviesUpdated: Int
     )
 
+    private val refreshInProgress = AtomicBoolean(false)
+
     suspend fun refresh(): RefreshResult = withContext(Dispatchers.IO) {
-        refreshCoordinator.resetBatch()
-
-        val newEpisodeDates = mutableListOf<NewEpisodeDateInfo>()
-        val newPlatforms = mutableListOf<NewPlatformInfo>()
-
-        var seriesCount = 0
-        var moviesCount = 0
-
-        coroutineScope {
-            val seriesJob = async { refreshSeries(newEpisodeDates) }
-            val moviesJob = async { refreshMovies(newPlatforms) }
-            seriesCount = seriesJob.await()
-            moviesCount = moviesJob.await()
+        if (!refreshInProgress.compareAndSet(false, true)) {
+            AppLogger.w("LibraryRefresher", "Refresh ya en curso; se omite la petición duplicada")
+            return@withContext RefreshResult(0, 0)
         }
+        try {
+            refreshCoordinator.resetBatch()
 
-        userPreferencesDataStore.setLastLibraryUpdateTimestamp(System.currentTimeMillis())
+            val newEpisodeDates = mutableListOf<NewEpisodeDateInfo>()
+            val newPlatforms = mutableListOf<NewPlatformInfo>()
 
-        if (newEpisodeDates.isNotEmpty() || newPlatforms.isNotEmpty()) {
-            notificationManager.notifyChanges(newEpisodeDates, newPlatforms)
+            var seriesCount = 0
+            var moviesCount = 0
+
+            coroutineScope {
+                val seriesJob = async { refreshSeries(newEpisodeDates) }
+                val moviesJob = async { refreshMovies(newPlatforms) }
+                seriesCount = seriesJob.await()
+                moviesCount = moviesJob.await()
+            }
+
+            userPreferencesDataStore.setLastLibraryUpdateTimestamp(System.currentTimeMillis())
+
+            if (newEpisodeDates.isNotEmpty() || newPlatforms.isNotEmpty()) {
+                notificationManager.notifyChanges(newEpisodeDates, newPlatforms)
+            }
+
+            RefreshResult(
+                seriesUpdated = seriesCount,
+                moviesUpdated = moviesCount
+            )
+        } finally {
+            refreshInProgress.set(false)
         }
-
-        RefreshResult(
-            seriesUpdated = seriesCount,
-            moviesUpdated = moviesCount
-        )
     }
 
     private suspend fun refreshSeries(newEpisodeDates: MutableList<NewEpisodeDateInfo>): Int {
@@ -130,6 +141,8 @@ class LibraryRefresher(
                         synchronized(this@LibraryRefresher) { count++ }
                     } catch (e: BatchCancelledException) {
                         AppLogger.w("LibraryRefresher", "Series batch cancelled after 3 timeouts")
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        throw e
                     } catch (e: Exception) {
                         AppLogger.e("LibraryRefresher", "Refresh series error -> tv/$tmdbId", e)
                     }
@@ -203,6 +216,8 @@ class LibraryRefresher(
                         synchronized(this@LibraryRefresher) { count++ }
                     } catch (e: BatchCancelledException) {
                         AppLogger.w("LibraryRefresher", "Movie batch cancelled after 3 timeouts")
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        throw e
                     } catch (e: Exception) {
                         AppLogger.e("LibraryRefresher", "Refresh movie error -> ${movie.title}", e)
                     }

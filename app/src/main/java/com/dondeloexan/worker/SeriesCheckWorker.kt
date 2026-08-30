@@ -40,8 +40,10 @@ class SeriesCheckWorker(
             val today = LocalDate.now().toString()
             val todayNotifications = mutableListOf<EpisodeInfo>()
 
-            // Series
-            val allShows = tvShowDao.getAll().filter { it.finishedAt == null }
+            // Series (solo las que pueden cambiar: producción activa o con fecha pendiente)
+            val allShows = tvShowDao.getAll()
+                .filter { it.finishedAt == null }
+                .filter { !(it.inProduction == false && it.nextEpisodeAirDate == null) }
             for (show in allShows) {
                 val tmdbId = show.tmdbId
                 if (tmdbId != null) {
@@ -94,7 +96,11 @@ class SeriesCheckWorker(
             }
 
             Result.success()
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            AppLogger.w("SeriesCheckWorker", "Trabajo cancelado (scope): ${e.message}")
+            throw e
         } catch (e: Exception) {
+            AppLogger.e("SeriesCheckWorker", "Error en doWork", e)
             if (runAttemptCount < 3) Result.retry() else Result.failure()
         }
     }
@@ -124,6 +130,8 @@ class SeriesCheckWorker(
                 seriesStatus = tv.status,
                 inProduction = tv.inProduction
             )
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
         } catch (e: Exception) {
             AppLogger.e("SeriesCheckWorker", "Error updating from TMDB for show $showId", e)
         }

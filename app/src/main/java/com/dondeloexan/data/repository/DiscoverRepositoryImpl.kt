@@ -173,20 +173,31 @@ class DiscoverRepositoryImpl(
     }
 
     /**
+     * Lectura nube con registro de fallos: devuelve null si no existe o si la
+     * nube no responde (para que el flujo caiga a las APIs), PERO nunca silenciosa.
+     */
+    private suspend inline fun <T> cloudRead(
+        context: String,
+        crossinline block: suspend () -> T?
+    ): T? = runCatching { block() }.onFailure {
+        AppLogger.w("DiscoverRepo", "lectura nube $context falló; se usa API/cache (${it.message})")
+    }.getOrNull()
+
+    /**
      * Nube primero: si el contenido está en el catálogo global se sirve desde
      * ahí (compartido por todos los usuarios). Si no, se trae de las APIs
      * como hasta ahora y se guarda en la nube (write-through, best-effort).
      */
     private suspend fun cloudFirstDetail(contentId: String, contentType: ContentType): Content {
-        val session = runCatching { cloudCatalog?.currentSession() }.getOrNull()
+        val session = cloudRead("currentSession") { cloudCatalog?.currentSession() }
 
         if (session != null) {
-            val cached = runCatching {
+            val cached = cloudRead("getDetail($contentId)") {
                 when (contentType) {
                     ContentType.MOVIE -> cloudCatalog?.getMovie(contentId, session)?.toContent()
                     ContentType.SERIES -> cloudCatalog?.getTvShow(contentId, session)?.toContent()
                 }
-            }.getOrNull()
+            }
             if (cached != null) {
                 AppLogger.i("DiscoverRepo", "getDetail: catálogo nube hit para $contentId")
                 return cached
@@ -226,9 +237,11 @@ class DiscoverRepositoryImpl(
         listType: String,
         fetch: suspend () -> List<ContentPreview>
     ): List<ContentPreview> {
-        val session = runCatching { cloudCatalog?.currentSession() }.getOrNull()
+        val session = cloudRead("currentSession") { cloudCatalog?.currentSession() }
         if (session != null) {
-            val cached = runCatching { cloudCatalog?.getList(contentId, listType, session) }.getOrNull()
+            val cached = cloudRead("getList($contentId/$listType)") {
+                cloudCatalog?.getList(contentId, listType, session)
+            }
             if (!cached.isNullOrEmpty()) {
                 AppLogger.d("DiscoverRepo", "cloudFirstList nube hit para $contentId/$listType (${cached.size})")
                 return cached.map { it.toContentPreview() }
@@ -881,11 +894,11 @@ class DiscoverRepositoryImpl(
         criticReviewDao.deleteAll()
         val cacheTtlMs = 24 * 60 * 60 * 1000L
 
-        val session = runCatching { cloudCatalog?.currentSession() }.getOrNull()
+        val session = cloudRead("currentSession") { cloudCatalog?.currentSession() }
         if (session != null) {
-            val cloudCached = runCatching {
+            val cloudCached = cloudRead("getCriticReviews($contentId)") {
                 cloudCatalog?.getCriticReviews(contentId, session)
-            }.getOrNull()
+            }
             if (cloudCached != null) {
                 val age = System.currentTimeMillis() - cloudCached.cachedAt
                 val cloudReviews = reviewsFromJson(cloudCached.reviewsJson)
@@ -946,11 +959,11 @@ class DiscoverRepositoryImpl(
         faMovieDataDao.deleteAll()
         val cacheTtlMs = 24 * 60 * 60 * 1000L
 
-        val session = runCatching { cloudCatalog?.currentSession() }.getOrNull()
+        val session = cloudRead("currentSession") { cloudCatalog?.currentSession() }
         if (session != null) {
-            val cloudCached = runCatching {
+            val cloudCached = cloudRead("getFaMovieData($contentId)") {
                 cloudCatalog?.getFaMovieData(contentId, session)
-            }.getOrNull()
+            }
             if (cloudCached != null) {
                 val age = System.currentTimeMillis() - cloudCached.cachedAt
                 val cloudReleases = platformReleasesFromJson(cloudCached.platformReleasesJson)
@@ -1114,11 +1127,11 @@ class DiscoverRepositoryImpl(
             return cached.previews to cached.excludeIds
         }
 
-        val session = runCatching { cloudCatalog?.currentSession() }.getOrNull()
+        val session = cloudRead("currentSession") { cloudCatalog?.currentSession() }
         if (session != null) {
-            val rows = runCatching {
+            val rows = cloudRead("getList($listKey/relationships)") {
                 cloudCatalog?.getList(listKey, "relationships", session)
-            }.getOrNull()
+            }
             if (!rows.isNullOrEmpty()) {
                 AppLogger.d("DiscoverRepo", "getSeriesRelationships nube hit para $cacheKey, ${rows.size} previews")
                 val previews = rows.map { it.toContentPreview() }
@@ -1368,9 +1381,11 @@ class DiscoverRepositoryImpl(
     }
 
     override suspend fun getSeasons(content: Content): List<Season> {
-        val session = runCatching { cloudCatalog?.currentSession() }.getOrNull()
+        val session = cloudRead("currentSession") { cloudCatalog?.currentSession() }
         if (session != null) {
-            val rows = runCatching { cloudCatalog?.getSeasons(content.id, session) }.getOrNull()
+            val rows = cloudRead("getSeasons(${content.id})") {
+                cloudCatalog?.getSeasons(content.id, session)
+            }
             if (!rows.isNullOrEmpty()) {
                 AppLogger.d("DiscoverRepo", "getSeasons nube hit para ${content.id} (${rows.size})")
                 return rows.sortedBy { it.seasonNumber }.map { it.toSeason() }
@@ -1411,14 +1426,14 @@ class DiscoverRepositoryImpl(
     }
 
     override suspend fun getSeasonDetail(content: Content, seasonNumber: Int): SeasonDetail {
-        val session = runCatching { cloudCatalog?.currentSession() }.getOrNull()
+        val session = cloudRead("currentSession") { cloudCatalog?.currentSession() }
         if (session != null) {
-            val seasonRow = runCatching {
+            val seasonRow = cloudRead("getSeason(${content.id}/S$seasonNumber)") {
                 cloudCatalog?.getSeason(content.id, seasonNumber, session)
-            }.getOrNull()
-            val episodes = runCatching {
+            }
+            val episodes = cloudRead("getSeasonEpisodes(${content.id}/S$seasonNumber)") {
                 cloudCatalog?.getSeasonEpisodes(content.id, seasonNumber, session)
-            }.getOrNull()
+            }
             if (!episodes.isNullOrEmpty()) {
                 AppLogger.d("DiscoverRepo", "getSeasonDetail nube hit para ${content.id} S$seasonNumber (${episodes.size} eps)")
                 return SeasonDetail(
@@ -1557,13 +1572,13 @@ override suspend fun getFaId(content: Content): Int? {
         ?.let { return it }
     tvShowDao.getByContentId(content.id)?.faId
         ?.let { return it }
-    val session = runCatching { cloudCatalog?.currentSession() }.getOrNull()
-    if (session != null) {
-        runCatching { cloudCatalog?.getFaMovieData(content.id, session) }
-            .getOrNull()
-            ?.faId
-            ?.let { return it }
-    }
+val session = cloudRead("currentSession") { cloudCatalog?.currentSession() }
+        if (session != null) {
+            cloudRead("getFaMovieData(${content.id})") {
+                cloudCatalog?.getFaMovieData(content.id, session)
+            }?.faId
+                ?.let { return it }
+        }
     return null
 }
 

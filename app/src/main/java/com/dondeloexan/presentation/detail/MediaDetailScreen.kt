@@ -706,7 +706,10 @@ private fun FichaTab(content: Content, viewModel: MediaDetailViewModel, onNaviga
                 if (daysUntilRelease > 0 && !hasSubscription) {
                     date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
                 } else null
-            } catch (e: Exception) { null }
+            } catch (e: Exception) {
+                android.util.Log.w("MediaDetailScreen", "parse digitalReleaseDate falló: $e")
+                null
+            }
         } else null
     }
 
@@ -719,13 +722,17 @@ private fun FichaTab(content: Content, viewModel: MediaDetailViewModel, onNaviga
                 try {
                     val ld = LocalDate.parse(d.substringBefore("T").substringBefore(" "))
                     if (ld.isAfter(now)) items.add("Digital: ${ld.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}")
-                } catch (_: Exception) {}
+                } catch (_: Exception) {
+                    AppLogger.w("MediaDetailScreen", "parse digitalReleaseDate falló: ${d.substringBefore("T").substringBefore(" ")}")
+                }
             }
             content.tvReleaseDate?.let { t ->
                 try {
                     val ld = LocalDate.parse(t.substringBefore("T").substringBefore(" "))
                     if (ld.isAfter(now)) items.add("TV/Streaming: ${ld.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}")
-                } catch (_: Exception) {}
+                } catch (_: Exception) {
+                    AppLogger.w("MediaDetailScreen", "parse tvReleaseDate falló: ${t.substringBefore("T").substringBefore(" ")}")
+                }
             }
             items.ifEmpty { null }
         }

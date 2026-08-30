@@ -23,6 +23,9 @@ class LibraryRefreshWorker(
                 "Library refreshed: series=${result.seriesUpdated}, movies=${result.moviesUpdated}"
             )
             Result.success()
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            AppLogger.w("LibraryRefreshWorker", "Trabajo cancelado (scope): ${e.message}")
+            throw e
         } catch (e: Exception) {
             AppLogger.e("LibraryRefreshWorker", "Error refreshing library", e)
             if (runAttemptCount < 3) Result.retry() else Result.failure()

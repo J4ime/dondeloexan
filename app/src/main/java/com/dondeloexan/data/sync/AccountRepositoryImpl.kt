@@ -5,6 +5,7 @@ import com.dondeloexan.data.remote.api.SupabaseAuthApi
 import com.dondeloexan.data.remote.api.toResult
 import com.dondeloexan.data.remote.api.toSessionState
 import com.dondeloexan.domain.repository.AccountRepository
+import com.dondeloexan.util.AppLogger
 import kotlinx.coroutines.flow.Flow
 
 class AccountRepositoryImpl(
@@ -57,8 +58,11 @@ class AccountRepositoryImpl(
     }
 
     override suspend fun logout(): Result<Unit> = runCatching {
-        sessionStore.current()?.let {
-            runCatching { authApi.signOut(it.accessToken) }
+        val session = sessionStore.current()
+        if (session != null) {
+            runCatching { authApi.signOut(session.accessToken) }.onFailure {
+                AppLogger.e("AccountRepo", "signOut falló", it)
+            }
         }
         sessionStore.clear()
     }
