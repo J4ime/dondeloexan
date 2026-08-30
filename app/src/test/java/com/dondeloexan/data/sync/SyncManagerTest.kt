@@ -1,5 +1,6 @@
 package com.dondeloexan.data.sync
 
+import com.dondeloexan.data.catalog.CloudCatalogRepository
 import com.dondeloexan.data.local.dao.BlacklistDao
 import com.dondeloexan.data.local.dao.CriticReviewDao
 import com.dondeloexan.data.local.dao.FaMovieDataDao
@@ -33,6 +34,7 @@ import org.junit.jupiter.api.Test
 class SyncManagerTest {
 
     private val syncApi: SupabaseSyncApi = mockk()
+    private val cloudCatalog: CloudCatalogRepository = mockk()
     private val movieDao: MovieDao = mockk()
     private val tvShowDao: TvShowDao = mockk()
     private val tvShowProgressDao: TvShowProgressDao = mockk()
@@ -51,19 +53,18 @@ class SyncManagerTest {
         email = "usuario@test.es"
     )
 
-    private val allTables = listOf(
+    private val userTables = listOf(
+        "user_movies",
+        "user_tv_shows",
         "tv_show_progress",
-        "tv_shows",
-        "movies",
         "search_history",
         "user_platforms",
-        "blacklist",
-        "critic_reviews",
-        "fa_movie_data"
+        "blacklist"
     )
 
     private fun manager() = SyncManager(
         syncApi = syncApi,
+        cloudCatalog = cloudCatalog,
         movieDao = movieDao,
         tvShowDao = tvShowDao,
         tvShowProgressDao = tvShowProgressDao,
@@ -76,24 +77,22 @@ class SyncManagerTest {
     )
 
     @Test
-    fun `syncAll borra las tablas del usuario y re-sube remapeando tv_show_id`() = runTest {
+    fun `syncAll alimenta el catalogo y re-sube las tablas de usuario`() = runTest {
         coEvery { syncApi.deleteTableRows(any(), any(), any()) } returns Unit
         coEvery { syncApi.insertAll(any(), any(), any(), any()) } returns ""
+        coEvery { cloudCatalog.saveMovies(any(), any()) } returns Unit
+        coEvery { cloudCatalog.saveTvShows(any(), any()) } returns Unit
+        coEvery { cloudCatalog.saveCriticReviews(any(), any()) } returns Unit
+        coEvery { cloudCatalog.saveFaMovieData(any(), any()) } returns Unit
 
         coEvery { movieDao.getAll() } returns listOf(
-            MovieEntity(id = 1, title = "A", liked = true, addedAt = 1000),
-            MovieEntity(id = 2, title = "B", liked = false, addedAt = 2000)
+            MovieEntity(id = 1, contentId = "m1", title = "A", liked = true, addedAt = 1000),
+            MovieEntity(id = 2, contentId = "m2", title = "B", liked = false, addedAt = 2000)
         )
         coEvery { tvShowDao.getAll() } returns listOf(
             TvShowEntity(id = 7, contentId = "showA", title = "S1", status = WatchStatus.POR_VER, addedAt = 3000),
             TvShowEntity(id = 8, contentId = "showB", title = "S2", status = WatchStatus.YA_VISTA, addedAt = 4000)
         )
-        coEvery {
-            syncApi.insertAll("tv_shows", any(), session, true)
-        } returns """[
-            {"id":"11111111-1111-1111-1111-111111111111","content_id":"showA"},
-            {"id":"22222222-2222-2222-2222-222222222222","content_id":"showB"}
-        ]"""
         coEvery { tvShowProgressDao.getAll() } returns listOf(
             TvShowProgressEntity(id = 1, tvShowId = 7, season = 1, episode = 1, watchedAt = 5000),
             TvShowProgressEntity(id = 2, tvShowId = 8, season = 1, episode = 2, watchedAt = 6000)
@@ -117,21 +116,34 @@ class SyncManagerTest {
 
         val summary = manager().syncAll(session)
 
-        allTables.forEach { table ->
+        // Catálogo global: merge, nunca se borra.
+        userTables.forEach { table ->
             coVerify { syncApi.deleteTableRows(table, session.userId, session) }
         }
+        coVerify(exactly = 0) { syncApi.deleteTableRows("movies", any(), any()) }
+        coVerify(exactly = 0) { syncApi.deleteTableRows("tv_shows", any(), any()) }
+        coVerify { cloudCatalog.saveMovies(any(), session) }
+        coVerify { cloudCatalog.saveTvShows(any(), session) }
+        coVerify { cloudCatalog.saveCriticReviews(any(), session) }
+        coVerify { cloudCatalog.saveFaMovieData(any(), session) }
 
+        // Relaciones de usuario con content_id.
         val moviesPayload = slot<String>()
-        coVerify { syncApi.insertAll("movies", capture(moviesPayload), session, false) }
+        coVerify { syncApi.insertAll("user_movies", capture(moviesPayload), session, false) }
         assertTrue(moviesPayload.captured.contains("\"user_id\":\"uuid-123\""))
+        assertTrue(moviesPayload.captured.contains("\"content_id\":\"m1\""))
         assertTrue(moviesPayload.captured.contains("\"liked\":1"))
         assertTrue(moviesPayload.captured.contains("\"liked\":0"))
-        assertTrue(moviesPayload.captured.contains("\"title\":\"A\""))
+        assertTrue(moviesPayload.captured.contains("\"title\"") == false)
+
+        val seriesPayload = slot<String>()
+        coVerify { syncApi.insertAll("user_tv_shows", capture(seriesPayload), session, false) }
+        assertTrue(seriesPayload.captured.contains("\"status\":\"YA_VISTA\""))
 
         val progressPayload = slot<String>()
         coVerify { syncApi.insertAll("tv_show_progress", capture(progressPayload), session, false) }
-        assertTrue(progressPayload.captured.contains("\"tv_show_id\":\"11111111-1111-1111-1111-111111111111\""))
-        assertTrue(progressPayload.captured.contains("\"tv_show_id\":\"22222222-2222-2222-2222-222222222222\""))
+        assertTrue(progressPayload.captured.contains("\"content_id\":\"showA\""))
+        assertTrue(progressPayload.captured.contains("\"content_id\":\"showB\""))
 
         coVerify {
             syncApi.insertAll(
@@ -157,22 +169,6 @@ class SyncManagerTest {
                 false
             )
         }
-        coVerify {
-            syncApi.insertAll(
-                "critic_reviews",
-                match<String> { it.contains("\"reviews_json\":\"{}\"") },
-                session,
-                false
-            )
-        }
-        coVerify {
-            syncApi.insertAll(
-                "fa_movie_data",
-                match<String> { it.contains("\"fa_id\":42") && it.contains("\"fa_rating\":8.5") },
-                session,
-                false
-            )
-        }
 
         assertEquals(2, summary.movies)
         assertEquals(2, summary.tvShows)
@@ -186,7 +182,7 @@ class SyncManagerTest {
     }
 
     @Test
-    fun `syncAll con biblioteca vacia borra pero no sube nada`() = runTest {
+    fun `syncAll con biblioteca vacia no sube nada y no toca el catalogo`() = runTest {
         coEvery { syncApi.deleteTableRows(any(), any(), any()) } returns Unit
         coEvery { movieDao.getAll() } returns emptyList()
         coEvery { tvShowDao.getAll() } returns emptyList()
@@ -199,15 +195,19 @@ class SyncManagerTest {
 
         val summary = manager().syncAll(session)
 
-        allTables.forEach { table ->
+        userTables.forEach { table ->
             coVerify(exactly = 1) { syncApi.deleteTableRows(table, session.userId, session) }
         }
         coVerify(exactly = 0) { syncApi.insertAll(any(), any(), any(), any()) }
+        coVerify(exactly = 0) { cloudCatalog.saveMovies(any(), any()) }
+        coVerify(exactly = 0) { cloudCatalog.saveTvShows(any(), any()) }
+        coVerify(exactly = 0) { cloudCatalog.saveCriticReviews(any(), any()) }
+        coVerify(exactly = 0) { cloudCatalog.saveFaMovieData(any(), any()) }
         assertEquals(0, summary.total)
     }
 
     @Test
-    fun `payload de movies emite todas las claves aunque haya nulls (evita PGRST100)`() = runTest {
+    fun `payload de user_movies emite todas las claves aunque haya nulls (evita PGRST100)`() = runTest {
         coEvery { syncApi.deleteTableRows(any(), any(), any()) } returns Unit
         coEvery { movieDao.getAll() } returns listOf(
             MovieEntity(
@@ -218,7 +218,7 @@ class SyncManagerTest {
                 streamingPlatforms = "[]", watchedAt = 1000L, addedAt = 2000L,
                 lastRefreshedAt = 3000L, faId = 42
             ),
-            MovieEntity(id = 2, title = "B", status = WatchStatus.POR_VER, liked = false, addedAt = 4000L)
+            MovieEntity(id = 2, contentId = "c2", title = "B", status = WatchStatus.POR_VER, liked = false, addedAt = 4000L)
         )
         coEvery { tvShowDao.getAll() } returns emptyList()
         coEvery { tvShowProgressDao.getAll() } returns emptyList()
@@ -228,21 +228,21 @@ class SyncManagerTest {
         coEvery { criticReviewDao.getAll() } returns emptyList()
         coEvery { faMovieDataDao.getAll() } returns emptyList()
         coEvery { syncApi.insertAll(any(), any(), any(), any()) } returns ""
+        coEvery { cloudCatalog.saveMovies(any(), any()) } returns Unit
 
         manager().syncAll(session)
 
         val moviesPayload = slot<String>()
-        coVerify { syncApi.insertAll("movies", capture(moviesPayload), session, false) }
+        coVerify { syncApi.insertAll("user_movies", capture(moviesPayload), session, false) }
         val array = json.parseToJsonElement(moviesPayload.captured).jsonArray
         val keySets = array.map { it.jsonObject.keys.sorted() }
         assertEquals(1, keySets.distinct().size)
-        assertTrue(moviesPayload.captured.contains("\"content_id\":null"))
-        assertTrue(moviesPayload.captured.contains("\"year\":1984"))
-        assertTrue(moviesPayload.captured.contains("\"year\":null"))
+        assertTrue(moviesPayload.captured.contains("\"status\":\"POR_VER\""))
+        assertTrue(moviesPayload.captured.contains("\"faId\"") == false)
     }
 
     @Test
-    fun `progreso cuya serie no se encontro se omite`() = runTest {
+    fun `progreso cuya serie no tiene content_id se omite`() = runTest {
         coEvery { syncApi.deleteTableRows(any(), any(), any()) } returns Unit
         coEvery { movieDao.getAll() } returns emptyList()
         coEvery { tvShowDao.getAll() } returns emptyList()

@@ -1,5 +1,9 @@
 package com.dondeloexan.data.sync
 
+import com.dondeloexan.data.catalog.CatalogCriticReviewRow
+import com.dondeloexan.data.catalog.CatalogFaRow
+import com.dondeloexan.data.catalog.CatalogMovieRow
+import com.dondeloexan.data.catalog.CatalogTvShowRow
 import com.dondeloexan.data.local.entity.BlacklistedEntity
 import com.dondeloexan.data.local.entity.CriticReviewEntity
 import com.dondeloexan.data.local.entity.FaMovieDataEntity
@@ -13,24 +17,14 @@ import kotlinx.serialization.Serializable
 
 private fun Boolean.asInt(): Int = if (this) 1 else 0
 
-// La BD autogenera el id UUID (DEFAULT gen_random_uuid()); la app NO lo envía.
+// ── Tablas de usuario (la BD autogenera el id UUID; la app NO lo envía) ──────
 
 @Serializable
-data class MovieSyncDto(
+data class UserMovieSyncDto(
     @SerialName("user_id") val userId: String,
-    @SerialName("content_id") val contentId: String? = null,
-    @SerialName("tmdb_id") val tmdbId: Int? = null,
-    @SerialName("imdb_id") val imdbId: String? = null,
-    val title: String,
-    val year: Int? = null,
-    @SerialName("release_date") val releaseDate: String? = null,
-    @SerialName("poster_url") val posterUrl: String? = null,
-    @SerialName("rating_tmdb") val ratingTmdb: Float? = null,
-    @SerialName("rating_imdb") val ratingImdb: Float? = null,
-    val certification: String? = null,
+    @SerialName("content_id") val contentId: String,
     val status: String,
     val liked: Int,
-    @SerialName("streaming_platforms") val streamingPlatforms: String? = null,
     @SerialName("watched_at") val watchedAt: Long? = null,
     @SerialName("added_at") val addedAt: Long,
     @SerialName("last_refreshed_at") val lastRefreshedAt: Long? = null,
@@ -38,21 +32,12 @@ data class MovieSyncDto(
 )
 
 @Serializable
-data class TvShowSyncDto(
+data class UserTvShowSyncDto(
     @SerialName("user_id") val userId: String,
-    @SerialName("content_id") val contentId: String? = null,
-    @SerialName("tmdb_id") val tmdbId: Int? = null,
-    @SerialName("imdb_id") val imdbId: String? = null,
-    val title: String,
-    val year: Int? = null,
-    @SerialName("poster_url") val posterUrl: String? = null,
-    @SerialName("rating_tmdb") val ratingTmdb: Float? = null,
-    @SerialName("rating_imdb") val ratingImdb: Float? = null,
-    val certification: String? = null,
+    @SerialName("content_id") val contentId: String,
     val status: String,
     val liked: Int,
     @SerialName("total_episodes") val totalEpisodes: Int? = null,
-    @SerialName("streaming_platforms") val streamingPlatforms: String? = null,
     @SerialName("added_at") val addedAt: Long,
     @SerialName("next_episode_air_date") val nextEpisodeAirDate: String? = null,
     @SerialName("next_episode_number") val nextEpisodeNumber: Int? = null,
@@ -60,9 +45,9 @@ data class TvShowSyncDto(
     @SerialName("series_status") val seriesStatus: String? = null,
     @SerialName("in_production") val inProduction: Int? = null,
     @SerialName("num_seasons") val numberOfSeasons: Int? = null,
-    @SerialName("released_episodes") val releasedEpisodes: Int? = null,
     @SerialName("last_watched_at") val lastWatchedAt: Long? = null,
     @SerialName("finished_at") val finishedAt: Long? = null,
+    @SerialName("released_episodes") val releasedEpisodes: Int? = null,
     @SerialName("last_refreshed_at") val lastRefreshedAt: Long? = null,
     @SerialName("fa_id") val faId: Int? = null
 )
@@ -70,7 +55,7 @@ data class TvShowSyncDto(
 @Serializable
 data class TvShowProgressSyncDto(
     @SerialName("user_id") val userId: String,
-    @SerialName("tv_show_id") val tvShowId: String,
+    @SerialName("content_id") val contentId: String,
     val season: Int,
     val episode: Int,
     @SerialName("watched_at") val watchedAt: Long
@@ -99,56 +84,95 @@ data class BlacklistSyncDto(
     @SerialName("added_at") val addedAt: Long
 )
 
-@Serializable
-data class CriticReviewSyncDto(
-    @SerialName("user_id") val userId: String,
-    @SerialName("content_id") val contentId: String,
-    @SerialName("reviews_json") val reviewsJson: String,
-    @SerialName("cached_at") val cachedAt: Long
+// ── Mappers: entidades Room → DTOs ──────────────────────────────────────────
+
+fun MovieEntity.toCatalogMovieRow(now: Long = System.currentTimeMillis()): CatalogMovieRow = CatalogMovieRow(
+    contentId = contentId ?: "",
+    title = title,
+    tmdbId = tmdbId,
+    imdbId = imdbId,
+    year = year,
+    releaseDate = releaseDate,
+    coverUrl = posterUrl,
+    ratingTmdb = ratingTmdb,
+    ratingImdb = ratingImdb,
+    certification = certification,
+    streamingPlatforms = streamingPlatforms,
+    updatedAt = lastRefreshedAt ?: now
 )
 
-@Serializable
-data class FaMovieDataSyncDto(
-    @SerialName("user_id") val userId: String,
-    @SerialName("content_id") val contentId: String,
-    @SerialName("fa_id") val faId: Int? = null,
-    @SerialName("fa_rating") val faRating: Float? = null,
-    @SerialName("platform_releases_json") val platformReleasesJson: String? = null,
-    @SerialName("cached_at") val cachedAt: Long
+fun TvShowEntity.toCatalogTvShowRow(now: Long = System.currentTimeMillis()): CatalogTvShowRow = CatalogTvShowRow(
+    contentId = contentId ?: "",
+    title = title,
+    tmdbId = tmdbId,
+    imdbId = imdbId,
+    year = year,
+    coverUrl = posterUrl,
+    ratingTmdb = ratingTmdb,
+    ratingImdb = ratingImdb,
+    certification = certification,
+    totalEpisodes = totalEpisodes,
+    numSeasons = numberOfSeasons,
+    releasedEpisodes = releasedEpisodes,
+    inProduction = inProduction?.asInt(),
+    seriesStatus = seriesStatus,
+    nextEpisodeAirDate = nextEpisodeAirDate,
+    nextEpisodeNumber = nextEpisodeNumber,
+    nextEpisodeSeason = nextEpisodeSeasonNumber,
+    updatedAt = lastRefreshedAt ?: now
 )
 
-fun MovieEntity.toSyncDto(userId: String) = MovieSyncDto(
+fun CriticReviewEntity.toCatalogCriticReviewRow() = CatalogCriticReviewRow(
+    contentId = contentId,
+    reviewsJson = reviewsJson,
+    cachedAt = cachedAt
+)
+
+fun FaMovieDataEntity.toCatalogFaRow() = CatalogFaRow(
+    contentId = contentId,
+    faId = faId,
+    faRating = faRating,
+    platformReleasesJson = platformReleasesJson,
+    cachedAt = cachedAt
+)
+
+fun MovieEntity.toUserMovieSyncDto(userId: String) = UserMovieSyncDto(
     userId = userId,
-    contentId = contentId, tmdbId = tmdbId, imdbId = imdbId,
-    title = title, year = year, releaseDate = releaseDate,
-    posterUrl = posterUrl, ratingTmdb = ratingTmdb, ratingImdb = ratingImdb,
-    certification = certification, status = status.name,
-    liked = liked.asInt(), streamingPlatforms = streamingPlatforms,
-    watchedAt = watchedAt, addedAt = addedAt,
-    lastRefreshedAt = lastRefreshedAt, faId = faId
+    contentId = contentId ?: "",
+    status = status.name,
+    liked = liked.asInt(),
+    watchedAt = watchedAt,
+    addedAt = addedAt,
+    lastRefreshedAt = lastRefreshedAt,
+    faId = faId
 )
 
-fun TvShowEntity.toSyncDto(userId: String) = TvShowSyncDto(
+fun TvShowEntity.toUserTvShowSyncDto(userId: String) = UserTvShowSyncDto(
     userId = userId,
-    contentId = contentId, tmdbId = tmdbId, imdbId = imdbId,
-    title = title, year = year, posterUrl = posterUrl,
-    ratingTmdb = ratingTmdb, ratingImdb = ratingImdb,
-    certification = certification, status = status.name,
-    liked = liked.asInt(), totalEpisodes = totalEpisodes,
-    streamingPlatforms = streamingPlatforms, addedAt = addedAt,
+    contentId = contentId ?: "",
+    status = status.name,
+    liked = liked.asInt(),
+    totalEpisodes = totalEpisodes,
+    addedAt = addedAt,
     nextEpisodeAirDate = nextEpisodeAirDate,
     nextEpisodeNumber = nextEpisodeNumber,
     nextEpisodeSeasonNumber = nextEpisodeSeasonNumber,
     seriesStatus = seriesStatus,
     inProduction = inProduction?.asInt(),
-    numberOfSeasons = numberOfSeasons, releasedEpisodes = releasedEpisodes,
-    lastWatchedAt = lastWatchedAt, finishedAt = finishedAt,
-    lastRefreshedAt = lastRefreshedAt, faId = faId
+    numberOfSeasons = numberOfSeasons,
+    lastWatchedAt = lastWatchedAt,
+    finishedAt = finishedAt,
+    releasedEpisodes = releasedEpisodes,
+    lastRefreshedAt = lastRefreshedAt,
+    faId = faId
 )
 
-fun TvShowProgressEntity.toSyncDto(userId: String, remoteShowId: String) = TvShowProgressSyncDto(
-    userId = userId, tvShowId = remoteShowId,
-    season = season, episode = episode, watchedAt = watchedAt
+fun TvShowProgressEntity.toSyncDto(userId: String, contentId: String) = TvShowProgressSyncDto(
+    userId = userId,
+    contentId = contentId,
+    season = season,
+    episode = episode,
+    watchedAt = watchedAt
 )
 
 fun SearchHistoryEntity.toSyncDto(userId: String) = SearchHistorySyncDto(
@@ -161,15 +185,4 @@ fun UserPlatformEntity.toSyncDto(userId: String) = UserPlatformSyncDto(
 
 fun BlacklistedEntity.toSyncDto(userId: String) = BlacklistSyncDto(
     userId = userId, contentId = contentId, title = title, type = type, addedAt = addedAt
-)
-
-fun CriticReviewEntity.toSyncDto(userId: String) = CriticReviewSyncDto(
-    userId = userId, contentId = contentId,
-    reviewsJson = reviewsJson, cachedAt = cachedAt
-)
-
-fun FaMovieDataEntity.toSyncDto(userId: String) = FaMovieDataSyncDto(
-    userId = userId, contentId = contentId,
-    faId = faId, faRating = faRating,
-    platformReleasesJson = platformReleasesJson, cachedAt = cachedAt
 )

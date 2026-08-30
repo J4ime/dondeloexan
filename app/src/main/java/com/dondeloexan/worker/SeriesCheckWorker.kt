@@ -1,6 +1,7 @@
 package com.dondeloexan.worker
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.PendingIntent
 import android.content.Context
@@ -194,7 +195,9 @@ class SeriesCheckWorker(
         } else true
     }
 
+    @SuppressLint("MissingPermission")
     private fun safeNotify(id: Int, notification: android.app.Notification) {
+        if (!hasNotificationPermission()) return
         try {
             NotificationManagerCompat.from(applicationContext).notify(id, notification)
         } catch (e: Exception) {

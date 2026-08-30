@@ -1,5 +1,11 @@
 package com.dondeloexan.data.repository
 
+import com.dondeloexan.data.catalog.CatalogCriticReviewRow
+import com.dondeloexan.data.catalog.CatalogFaRow
+import com.dondeloexan.data.catalog.CloudCatalogRepository
+import com.dondeloexan.data.catalog.toCatalogMovieRow
+import com.dondeloexan.data.catalog.toCatalogTvShowRow
+import com.dondeloexan.data.catalog.toContent
 import com.dondeloexan.data.local.dao.CriticReviewDao
 import com.dondeloexan.data.local.dao.FaMovieDataDao
 import com.dondeloexan.data.local.dao.MovieDao
@@ -72,7 +78,8 @@ class DiscoverRepositoryImpl(
     private val userPreferencesDataStore: UserPreferencesDataStore,
     private val filmaffinityScraper: FilmaffinityScraper,
     private val criticReviewDao: CriticReviewDao,
-    private val faMovieDataDao: FaMovieDataDao
+    private val faMovieDataDao: FaMovieDataDao,
+    private val cloudCatalog: CloudCatalogRepository? = null
 ) : DiscoverRepository {
 
     private data class CachedPlatforms(
@@ -147,11 +154,7 @@ class DiscoverRepositoryImpl(
         emit(DataResult.Loading)
 
         try {
-            val content = when {
-                contentId.startsWith("tmdb-") -> fetchTmdbDetail(contentId, contentType)
-                contentId.startsWith("imdb-") -> fetchImdbDetail(contentId, contentType)
-                else -> fetchLocalDetail(contentId, contentType)
-            }
+            val content = cloudFirstDetail(contentId, contentType)
 
             val activePlatforms = userPlatformDao.getActiveNames().toSet()
             val prioritized = prioritizePlatforms(content, activePlatforms)
@@ -159,6 +162,49 @@ class DiscoverRepositoryImpl(
         } catch (e: Exception) {
             emit(DataResult.Error(e))
         }
+    }
+
+    /**
+     * Nube primero: si el contenido está en el catálogo global se sirve desde
+     * ahí (compartido por todos los usuarios). Si no, se trae de las APIs
+     * como hasta ahora y se guarda en la nube (write-through, best-effort).
+     */
+    private suspend fun cloudFirstDetail(contentId: String, contentType: ContentType): Content {
+        val session = runCatching { cloudCatalog?.currentSession() }.getOrNull()
+
+        if (session != null) {
+            val cached = runCatching {
+                when (contentType) {
+                    ContentType.MOVIE -> cloudCatalog?.getMovie(contentId, session)?.toContent()
+                    ContentType.SERIES -> cloudCatalog?.getTvShow(contentId, session)?.toContent()
+                }
+            }.getOrNull()
+            if (cached != null) {
+                AppLogger.i("DiscoverRepo", "getDetail: catálogo nube hit para $contentId")
+                return cached
+            }
+            AppLogger.d("DiscoverRepo", "getDetail: catálogo nube miss para $contentId, usando APIs")
+        }
+
+        val content = when {
+            contentId.startsWith("tmdb-") -> fetchTmdbDetail(contentId, contentType)
+            contentId.startsWith("imdb-") -> fetchImdbDetail(contentId, contentType)
+            else -> fetchLocalDetail(contentId, contentType)
+        }
+
+        if (session != null) {
+            runCatching {
+                when (contentType) {
+                    ContentType.MOVIE ->
+                        cloudCatalog?.saveMovies(listOf(content.toCatalogMovieRow()), session)
+                    ContentType.SERIES ->
+                        cloudCatalog?.saveTvShows(listOf(content.toCatalogTvShowRow()), session)
+                }
+            }.onFailure {
+                AppLogger.e("DiscoverRepo", "write-through catálogo falló para $contentId", it)
+            }
+        }
+        return content
     }
 
     private suspend fun fetchLocalDetail(localContentId: String, contentType: ContentType): Content {
@@ -793,6 +839,22 @@ class DiscoverRepositoryImpl(
     override suspend fun getCriticReviews(contentId: String, title: String, year: Int?): List<CriticReview> {
         criticReviewDao.deleteAll()
         val cacheTtlMs = 24 * 60 * 60 * 1000L
+
+        val session = runCatching { cloudCatalog?.currentSession() }.getOrNull()
+        if (session != null) {
+            val cloudCached = runCatching {
+                cloudCatalog?.getCriticReviews(contentId, session)
+            }.getOrNull()
+            if (cloudCached != null) {
+                val age = System.currentTimeMillis() - cloudCached.cachedAt
+                val cloudReviews = reviewsFromJson(cloudCached.reviewsJson)
+                AppLogger.i("DiscoverRepo", "getCriticReviews: catálogo nube hit para $title, age=${age}ms / ttl=${cacheTtlMs}ms, expired=${age >= cacheTtlMs}, cachedReviews=${cloudReviews.size}")
+                if (age < cacheTtlMs && cloudReviews.isNotEmpty()) {
+                    return cloudReviews
+                }
+            }
+        }
+
         val cached = criticReviewDao.getByContentId(contentId)
         if (cached != null) {
             val age = System.currentTimeMillis() - cached.cachedAt
@@ -819,6 +881,22 @@ class DiscoverRepositoryImpl(
                 reviewsJson = reviewsToJson(reviews)
             )
         )
+        if (session != null) {
+            runCatching {
+                cloudCatalog?.saveCriticReviews(
+                    listOf(
+                        CatalogCriticReviewRow(
+                            contentId = contentId,
+                            reviewsJson = reviewsToJson(reviews),
+                            cachedAt = System.currentTimeMillis()
+                        )
+                    ),
+                    session
+                )
+            }.onFailure {
+                AppLogger.e("DiscoverRepo", "write-through critic_reviews falló para $contentId", it)
+            }
+        }
         return reviews
     }
 
@@ -826,6 +904,22 @@ class DiscoverRepositoryImpl(
         AppLogger.i("DiscoverRepo", "getFaMovieData: title='$title' contentId='$contentId' year=$year")
         faMovieDataDao.deleteAll()
         val cacheTtlMs = 24 * 60 * 60 * 1000L
+
+        val session = runCatching { cloudCatalog?.currentSession() }.getOrNull()
+        if (session != null) {
+            val cloudCached = runCatching {
+                cloudCatalog?.getFaMovieData(contentId, session)
+            }.getOrNull()
+            if (cloudCached != null) {
+                val age = System.currentTimeMillis() - cloudCached.cachedAt
+                val cloudReleases = platformReleasesFromJson(cloudCached.platformReleasesJson)
+                AppLogger.i("DiscoverRepo", "getFaMovieData: catálogo nube hit para $title, age=${age}ms, releases.size=${cloudReleases.size}")
+                if (age < cacheTtlMs && cloudReleases.isNotEmpty()) {
+                    return Pair(cloudCached.faRating, cloudReleases)
+                }
+            }
+        }
+
         val cached = faMovieDataDao.getByContentId(contentId)
         if (cached != null) {
             val age = System.currentTimeMillis() - cached.cachedAt
@@ -861,6 +955,24 @@ class DiscoverRepositoryImpl(
                 platformReleasesJson = platformReleasesToJson(pageData.vodReleases)
             )
         )
+        if (session != null) {
+            runCatching {
+                cloudCatalog?.saveFaMovieData(
+                    listOf(
+                        CatalogFaRow(
+                            contentId = contentId,
+                            faId = faId,
+                            faRating = pageData.rating,
+                            platformReleasesJson = platformReleasesToJson(pageData.vodReleases),
+                            cachedAt = System.currentTimeMillis()
+                        )
+                    ),
+                    session
+                )
+            }.onFailure {
+                AppLogger.e("DiscoverRepo", "write-through fa_movie_data falló para $contentId", it)
+            }
+        }
         return Pair(pageData.rating, pageData.vodReleases)
     }
 
@@ -1320,10 +1432,20 @@ class DiscoverRepositoryImpl(
         }
     }
 
-    override suspend fun getFaId(content: Content): Int? {
-        return movieDao.getByContentId(content.id)?.faId
-            ?: tvShowDao.getByContentId(content.id)?.faId
+override suspend fun getFaId(content: Content): Int? {
+    movieDao.getByContentId(content.id)?.faId
+        ?.let { return it }
+    tvShowDao.getByContentId(content.id)?.faId
+        ?.let { return it }
+    val session = runCatching { cloudCatalog?.currentSession() }.getOrNull()
+    if (session != null) {
+        runCatching { cloudCatalog?.getFaMovieData(content.id, session) }
+            .getOrNull()
+            ?.faId
+            ?.let { return it }
     }
+    return null
+}
 
     private suspend fun findMovie(content: Content): MovieEntity? {
         return movieDao.getByContentId(content.id)

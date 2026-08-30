@@ -4,6 +4,7 @@ import com.dondeloexan.data.sync.SessionState
 import com.dondeloexan.util.AppLogger
 import io.ktor.client.HttpClient
 import io.ktor.client.request.delete
+import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
@@ -76,6 +77,56 @@ class SupabaseSyncApi(
                 json.decodeFromString<PostgrestError>(text).message
             }.getOrNull()?.takeIf { it.isNotBlank() }
             throw SupabaseApiException(message ?: "Error de sincronización (${response.status.value})")
+        }
+        return text
+    }
+
+    /**
+     * Consulta [table] con una [query] raw tipo PostgREST
+     * (p. ej. "content_id=eq.tmdb-123&select=*"). Devuelve el cuerpo JSON (array).
+     */
+    suspend fun select(table: String, query: String, session: SessionState): String {
+        val response = client.get("${url.trimEnd('/')}/rest/v1/$table?$query") {
+            header("apikey", anonKey)
+            header(HttpHeaders.Authorization, "Bearer ${session.accessToken}")
+            header("Prefer", "return=representation")
+        }
+        val text = response.bodyAsText()
+        if (!response.status.isSuccess()) {
+            AppLogger.e(
+                "SyncApi",
+                "select $table?$query → HTTP ${response.status.value}: ${text.take(500)}"
+            )
+            val message = runCatching {
+                json.decodeFromString<PostgrestError>(text).message
+            }.getOrNull()?.takeIf { it.isNotBlank() }
+            throw SupabaseApiException(message ?: "Error al leer $table (${response.status.value})")
+        }
+        return text
+    }
+
+    /**
+     * Invoca una función RPC de PostgREST (p. ej. "catalog_merge"), que hace un
+     * upsert null-safe: las columnas null del nuevo payload conservan el valor
+     * existente del catálogo (un usuario "pobre" no borra el catálogo rico).
+     */
+    suspend fun rpc(function: String, payload: String, session: SessionState): String {
+        val response = client.post("${url.trimEnd('/')}/rest/v1/rpc/$function") {
+            header("apikey", anonKey)
+            header(HttpHeaders.Authorization, "Bearer ${session.accessToken}")
+            contentType(ContentType.Application.Json)
+            setBody(payload)
+        }
+        val text = response.bodyAsText()
+        if (!response.status.isSuccess()) {
+            AppLogger.e(
+                "SyncApi",
+                "rpc $function → HTTP ${response.status.value}: ${text.take(500)}"
+            )
+            val message = runCatching {
+                json.decodeFromString<PostgrestError>(text).message
+            }.getOrNull()?.takeIf { it.isNotBlank() }
+            throw SupabaseApiException(message ?: "Error al actualizar el catálogo (${response.status.value})")
         }
         return text
     }

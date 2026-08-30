@@ -2,6 +2,7 @@ package com.dondeloexan.di
 
 import com.dondeloexan.data.backup.BackupManager
 import com.dondeloexan.data.backup.BackupRepositoryImpl
+import com.dondeloexan.data.catalog.CloudCatalogRepository
 import com.dondeloexan.data.local.AppDatabase
 import com.dondeloexan.data.local.dao.BlacklistDao
 import com.dondeloexan.data.local.dao.CriticReviewDao
@@ -60,9 +61,11 @@ val dataModule = module {
 
     // Cuenta (login + sync)
     single { SessionStore(androidContext()) }
+    single { CloudCatalogRepository(syncApi = get(), sessionStore = get(), json = get()) }
     single {
         SyncManager(
             syncApi = get(),
+            cloudCatalog = get(),
             movieDao = get(),
             tvShowDao = get(),
             tvShowProgressDao = get(),
@@ -107,7 +110,8 @@ val dataModule = module {
             userPreferencesDataStore = get(),
             filmaffinityScraper = get(),
             criticReviewDao = get(),
-            faMovieDataDao = get()
+            faMovieDataDao = get(),
+            cloudCatalog = get()
         )
     }
 

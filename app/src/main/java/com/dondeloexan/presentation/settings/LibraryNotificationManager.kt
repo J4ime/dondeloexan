@@ -1,6 +1,7 @@
 package com.dondeloexan.presentation.settings
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
@@ -128,7 +129,9 @@ class LibraryNotificationManager(private val context: Context) {
         } else true
     }
 
+    @SuppressLint("MissingPermission")
     private fun safeNotify(id: Int, notification: android.app.Notification) {
+        if (!hasNotificationPermission()) return
         try {
             NotificationManagerCompat.from(context).notify(id, notification)
         } catch (e: Exception) {
