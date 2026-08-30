@@ -14,10 +14,13 @@ import com.dondeloexan.domain.repository.AccountRepository
 import com.dondeloexan.domain.repository.BackupRepository
 import com.dondeloexan.domain.repository.SettingsRepository
 import com.dondeloexan.util.AppLogger
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -68,19 +71,23 @@ class SettingsViewModel(
         _updateState.value = UpdateCheckState.Checking
 
         viewModelScope.launch {
-            settingsRepository.checkForUpdate()
-                .onSuccess { release ->
-                    _updateState.value = if (release != null) {
-                        UpdateCheckState.UpdateAvailable(release)
-                    } else {
-                        UpdateCheckState.UpToDate
-                    }
+            try {
+                val release = withContext(Dispatchers.IO) {
+                    settingsRepository.checkForUpdate().getOrThrow()
                 }
-                .onFailure { error ->
-                    _updateState.value = UpdateCheckState.Error(
-                        error.message ?: "Error al comprobar actualización"
-                    )
+                _updateState.value = if (release != null) {
+                    UpdateCheckState.UpdateAvailable(release)
+                } else {
+                    UpdateCheckState.UpToDate
                 }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                AppLogger.e("SettingsVM", "Comprobación de actualización falló", e)
+                _updateState.value = UpdateCheckState.Error(
+                    e.message ?: "Error al comprobar actualización"
+                )
+            }
         }
     }
 
@@ -96,16 +103,19 @@ class SettingsViewModel(
 
         _updateState.value = UpdateCheckState.Downloading
         viewModelScope.launch {
-            silentUpdateManager.downloadAndInstall(downloadUrl)
-                .onSuccess {
-                    _updateState.value = UpdateCheckState.InstallLaunched
+            try {
+                withContext(Dispatchers.IO) {
+                    silentUpdateManager.downloadAndInstall(downloadUrl).getOrThrow()
                 }
-                .onFailure { error ->
-                    AppLogger.e("SettingsVM", "Update failed", error)
-                    _updateState.value = UpdateCheckState.Error(
-                        "Error al descargar: ${error.message}"
-                    )
-                }
+                _updateState.value = UpdateCheckState.InstallLaunched
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                AppLogger.e("SettingsVM", "Update failed", e)
+                _updateState.value = UpdateCheckState.Error(
+                    "Error al descargar: ${e.message}"
+                )
+            }
         }
     }
 
@@ -130,18 +140,34 @@ class SettingsViewModel(
     fun performExport(uri: Uri) {
         _backupState.value = BackupState.Exporting
         viewModelScope.launch {
-            backupRepository.exportBackup(uri)
-                .onSuccess { _backupState.value = BackupState.ExportSuccess(0) }
-                .onFailure { _backupState.value = BackupState.Error(it.message ?: "Error al exportar") }
+            try {
+                withContext(Dispatchers.IO) {
+                    backupRepository.exportBackup(uri).getOrThrow()
+                }
+                _backupState.value = BackupState.ExportSuccess(0)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                AppLogger.e("SettingsVM", "Exportar falló", e)
+                _backupState.value = BackupState.Error(e.message ?: "Error al exportar")
+            }
         }
     }
 
     fun performImport(uri: Uri) {
         _backupState.value = BackupState.Importing
         viewModelScope.launch {
-            backupRepository.importBackup(uri)
-                .onSuccess { count -> _backupState.value = BackupState.ImportSuccess(count) }
-                .onFailure { _backupState.value = BackupState.Error(it.message ?: "Error al importar") }
+            try {
+                val count = withContext(Dispatchers.IO) {
+                    backupRepository.importBackup(uri).getOrThrow()
+                }
+                _backupState.value = BackupState.ImportSuccess(count)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                AppLogger.e("SettingsVM", "Importar falló", e)
+                _backupState.value = BackupState.Error(e.message ?: "Error al importar")
+            }
         }
     }
 
@@ -154,9 +180,11 @@ class SettingsViewModel(
         _libraryRefreshState.value = LibraryRefreshState.Refreshing
         viewModelScope.launch {
             try {
-                val result = libraryRefresher.refresh()
+                val result = withContext(Dispatchers.IO) { libraryRefresher.refresh() }
                 val total = result.seriesUpdated + result.moviesUpdated
                 _libraryRefreshState.value = LibraryRefreshState.Done(total)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 AppLogger.e("SettingsVM", "Library refresh error", e)
                 _libraryRefreshState.value = LibraryRefreshState.Error(
@@ -174,18 +202,21 @@ class SettingsViewModel(
         if (_accountAction.value is AccountActionState.Busy) return
         _accountAction.value = AccountActionState.Busy
         viewModelScope.launch {
-            accountRepository.login(email, password)
-                .onSuccess { summary ->
-                    _accountAction.value = AccountActionState.Success(
-                        "Sesión iniciada · ${summary.total} datos sincronizados"
-                    )
+            try {
+                val summary = withContext(Dispatchers.IO) {
+                    accountRepository.login(email, password).getOrThrow()
                 }
-                .onFailure { error ->
-                    AppLogger.e("SettingsVM", "Login fallido (${email})", error)
-                    _accountAction.value = AccountActionState.Error(
-                        error.message ?: "Error al iniciar sesión"
-                    )
-                }
+                _accountAction.value = AccountActionState.Success(
+                    "Sesión iniciada · ${summary.total} datos sincronizados"
+                )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                AppLogger.e("SettingsVM", "Login fallido (${email})", e)
+                _accountAction.value = AccountActionState.Error(
+                    e.message ?: "Error al iniciar sesión"
+                )
+            }
         }
     }
 
@@ -193,13 +224,17 @@ class SettingsViewModel(
         if (_accountAction.value is AccountActionState.Busy) return
         _accountAction.value = AccountActionState.Busy
         viewModelScope.launch {
-            accountRepository.logout()
-                .onSuccess { _accountAction.value = AccountActionState.Success("Sesión cerrada") }
-                .onFailure { error ->
-                    _accountAction.value = AccountActionState.Error(
-                        error.message ?: "Error al cerrar la sesión"
-                    )
-                }
+            try {
+                withContext(Dispatchers.IO) { accountRepository.logout().getOrThrow() }
+                _accountAction.value = AccountActionState.Success("Sesión cerrada")
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                AppLogger.e("SettingsVM", "Logout fallido", e)
+                _accountAction.value = AccountActionState.Error(
+                    e.message ?: "Error al cerrar la sesión"
+                )
+            }
         }
     }
 
@@ -207,16 +242,19 @@ class SettingsViewModel(
         if (_accountAction.value is AccountActionState.Busy) return
         _accountAction.value = AccountActionState.Busy
         viewModelScope.launch {
-            accountRepository.sync()
-                .onSuccess { summary ->
-                    _accountAction.value = AccountActionState.Success(summaryMessage(summary))
+            try {
+                val summary = withContext(Dispatchers.IO) {
+                    accountRepository.sync().getOrThrow()
                 }
-                .onFailure { error ->
-                    AppLogger.e("SettingsVM", "Sync fallido", error)
-                    _accountAction.value = AccountActionState.Error(
-                        error.message ?: "Error al sincronizar"
-                    )
-                }
+                _accountAction.value = AccountActionState.Success(summaryMessage(summary))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                AppLogger.e("SettingsVM", "Sync fallido", e)
+                _accountAction.value = AccountActionState.Error(
+                    e.message ?: "Error al sincronizar"
+                )
+            }
         }
     }
 
