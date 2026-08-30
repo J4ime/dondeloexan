@@ -51,6 +51,17 @@ class SyncManagerTest {
         email = "usuario@test.es"
     )
 
+    private val allTables = listOf(
+        "tv_show_progress",
+        "tv_shows",
+        "movies",
+        "search_history",
+        "user_platforms",
+        "blacklist",
+        "critic_reviews",
+        "fa_movie_data"
+    )
+
     private fun manager() = SyncManager(
         syncApi = syncApi,
         movieDao = movieDao,
@@ -65,15 +76,24 @@ class SyncManagerTest {
     )
 
     @Test
-    fun `syncAll sube todas las tablas y remapea tv_show_id de progreso`() = runTest {
+    fun `syncAll borra las tablas del usuario y re-sube remapeando tv_show_id`() = runTest {
+        coEvery { syncApi.deleteTableRows(any(), any(), any()) } returns Unit
+        coEvery { syncApi.insertAll(any(), any(), any(), any()) } returns ""
+
         coEvery { movieDao.getAll() } returns listOf(
             MovieEntity(id = 1, title = "A", liked = true, addedAt = 1000),
             MovieEntity(id = 2, title = "B", liked = false, addedAt = 2000)
         )
         coEvery { tvShowDao.getAll() } returns listOf(
-            TvShowEntity(id = 7, title = "S1", status = WatchStatus.POR_VER, addedAt = 3000),
-            TvShowEntity(id = 8, title = "S2", status = WatchStatus.YA_VISTA, addedAt = 4000)
+            TvShowEntity(id = 7, contentId = "showA", title = "S1", status = WatchStatus.POR_VER, addedAt = 3000),
+            TvShowEntity(id = 8, contentId = "showB", title = "S2", status = WatchStatus.YA_VISTA, addedAt = 4000)
         )
+        coEvery {
+            syncApi.insertAll("tv_shows", any(), session, true)
+        } returns """[
+            {"id":"11111111-1111-1111-1111-111111111111","content_id":"showA"},
+            {"id":"22222222-2222-2222-2222-222222222222","content_id":"showB"}
+        ]"""
         coEvery { tvShowProgressDao.getAll() } returns listOf(
             TvShowProgressEntity(id = 1, tvShowId = 7, season = 1, episode = 1, watchedAt = 5000),
             TvShowProgressEntity(id = 2, tvShowId = 8, season = 1, episode = 2, watchedAt = 6000)
@@ -95,73 +115,59 @@ class SyncManagerTest {
             FaMovieDataEntity("c1", faId = 42, faRating = 8.5f, platformReleasesJson = null, cachedAt = 9100)
         )
 
-        coEvery {
-            syncApi.upsert(any(), any(), any(), any(), any())
-        } returns ""
-
-        coEvery {
-            syncApi.upsert("tv_shows", listOf("user_id", "local_id"), any(), session, true)
-        } returns """[{"id":101,"local_id":7},{"id":102,"local_id":8}]"""
-
         val summary = manager().syncAll(session)
 
-        val moviesPayload = slot<String>()
-        coVerify {
-            syncApi.upsert("movies", listOf("user_id", "local_id"), capture(moviesPayload), session, false)
+        allTables.forEach { table ->
+            coVerify { syncApi.deleteTableRows(table, session.userId, session) }
         }
-        assertTrue(moviesPayload.captured.contains("\"local_id\":1"))
+
+        val moviesPayload = slot<String>()
+        coVerify { syncApi.insertAll("movies", capture(moviesPayload), session, false) }
         assertTrue(moviesPayload.captured.contains("\"user_id\":\"uuid-123\""))
         assertTrue(moviesPayload.captured.contains("\"liked\":1"))
         assertTrue(moviesPayload.captured.contains("\"liked\":0"))
         assertTrue(moviesPayload.captured.contains("\"title\":\"A\""))
 
         val progressPayload = slot<String>()
-        coVerify {
-            syncApi.upsert("tv_show_progress", listOf("user_id", "local_id"), capture(progressPayload), session, false)
-        }
-        assertTrue(progressPayload.captured.contains("\"tv_show_id\":101"))
-        assertTrue(progressPayload.captured.contains("\"tv_show_id\":102"))
+        coVerify { syncApi.insertAll("tv_show_progress", capture(progressPayload), session, false) }
+        assertTrue(progressPayload.captured.contains("\"tv_show_id\":\"11111111-1111-1111-1111-111111111111\""))
+        assertTrue(progressPayload.captured.contains("\"tv_show_id\":\"22222222-2222-2222-2222-222222222222\""))
 
         coVerify {
-            syncApi.upsert(
+            syncApi.insertAll(
                 "search_history",
-                listOf("user_id", "local_id"),
-                match<String> { it.contains("\"local_id\":3") && it.contains("\"query\":\"matrix\"") },
+                match<String> { it.contains("\"query\":\"matrix\"") },
                 session,
                 false
             )
         }
         coVerify {
-            syncApi.upsert(
+            syncApi.insertAll(
                 "user_platforms",
-                listOf("user_id", "platform_name"),
                 match<String> { it.contains("\"is_active\":1") && it.contains("\"is_active\":0") },
                 session,
                 false
             )
         }
         coVerify {
-            syncApi.upsert(
+            syncApi.insertAll(
                 "blacklist",
-                listOf("user_id", "content_id"),
                 match<String> { it.contains("\"content_id\":\"b1\"") },
                 session,
                 false
             )
         }
         coVerify {
-            syncApi.upsert(
+            syncApi.insertAll(
                 "critic_reviews",
-                listOf("user_id", "content_id"),
                 match<String> { it.contains("\"reviews_json\":\"{}\"") },
                 session,
                 false
             )
         }
         coVerify {
-            syncApi.upsert(
+            syncApi.insertAll(
                 "fa_movie_data",
-                listOf("user_id", "content_id"),
                 match<String> { it.contains("\"fa_id\":42") && it.contains("\"fa_rating\":8.5") },
                 session,
                 false
@@ -180,7 +186,8 @@ class SyncManagerTest {
     }
 
     @Test
-    fun `syncAll con biblioteca vacia no llama a PostgREST`() = runTest {
+    fun `syncAll con biblioteca vacia borra pero no sube nada`() = runTest {
+        coEvery { syncApi.deleteTableRows(any(), any(), any()) } returns Unit
         coEvery { movieDao.getAll() } returns emptyList()
         coEvery { tvShowDao.getAll() } returns emptyList()
         coEvery { tvShowProgressDao.getAll() } returns emptyList()
@@ -192,12 +199,16 @@ class SyncManagerTest {
 
         val summary = manager().syncAll(session)
 
-        coVerify(exactly = 0) { syncApi.upsert(any(), any(), any(), any(), any()) }
+        allTables.forEach { table ->
+            coVerify(exactly = 1) { syncApi.deleteTableRows(table, session.userId, session) }
+        }
+        coVerify(exactly = 0) { syncApi.insertAll(any(), any(), any(), any()) }
         assertEquals(0, summary.total)
     }
 
     @Test
     fun `payload de movies emite todas las claves aunque haya nulls (evita PGRST100)`() = runTest {
+        coEvery { syncApi.deleteTableRows(any(), any(), any()) } returns Unit
         coEvery { movieDao.getAll() } returns listOf(
             MovieEntity(
                 id = 1, contentId = "c1", tmdbId = 5, imdbId = "tt1",
@@ -216,19 +227,40 @@ class SyncManagerTest {
         coEvery { blacklistDao.getAll() } returns emptyList()
         coEvery { criticReviewDao.getAll() } returns emptyList()
         coEvery { faMovieDataDao.getAll() } returns emptyList()
-        coEvery { syncApi.upsert(any(), any(), any(), any(), any()) } returns ""
+        coEvery { syncApi.insertAll(any(), any(), any(), any()) } returns ""
 
         manager().syncAll(session)
 
         val moviesPayload = slot<String>()
-        coVerify {
-            syncApi.upsert("movies", listOf("user_id", "local_id"), capture(moviesPayload), session, false)
-        }
+        coVerify { syncApi.insertAll("movies", capture(moviesPayload), session, false) }
         val array = json.parseToJsonElement(moviesPayload.captured).jsonArray
         val keySets = array.map { it.jsonObject.keys.sorted() }
         assertEquals(1, keySets.distinct().size)
         assertTrue(moviesPayload.captured.contains("\"content_id\":null"))
         assertTrue(moviesPayload.captured.contains("\"year\":1984"))
         assertTrue(moviesPayload.captured.contains("\"year\":null"))
+    }
+
+    @Test
+    fun `progreso cuya serie no se encontro se omite`() = runTest {
+        coEvery { syncApi.deleteTableRows(any(), any(), any()) } returns Unit
+        coEvery { movieDao.getAll() } returns emptyList()
+        coEvery { tvShowDao.getAll() } returns emptyList()
+        coEvery { tvShowProgressDao.getAll() } returns listOf(
+            TvShowProgressEntity(id = 5, tvShowId = 99, season = 1, episode = 1, watchedAt = 1000)
+        )
+        coEvery { searchHistoryDao.getRecent(any()) } returns emptyList()
+        coEvery { userPlatformDao.getAll() } returns emptyList()
+        coEvery { blacklistDao.getAll() } returns emptyList()
+        coEvery { criticReviewDao.getAll() } returns emptyList()
+        coEvery { faMovieDataDao.getAll() } returns emptyList()
+        coEvery { syncApi.insertAll(any(), any(), any(), any()) } returns ""
+
+        val summary = manager().syncAll(session)
+
+        coVerify(exactly = 0) {
+            syncApi.insertAll("tv_show_progress", any(), session, any())
+        }
+        assertEquals(0, summary.tvShowProgress)
     }
 }

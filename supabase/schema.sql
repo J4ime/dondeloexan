@@ -4,6 +4,11 @@
 --   public.profiles (perfil atado a auth.users, creado por trigger en signup).
 -- Contenido multi-usuario: columna user_id en cada tabla + Row Level Security
 -- (cada usuario solo ve/edita sus propias filas vía auth.uid()).
+-- Identificación: PRINCIPAL KEY (user_id, id) con id UUID AUTO-GENERADO por la
+-- BD (DEFAULT gen_random_uuid()); la app NO envía el id. La sincronización es
+-- por reemplazo completo (la app borra sus filas y re-sube el snapshot local).
+-- El prefijo user_id de la PK permite descargar todo el contenido de un usuario
+-- de forma rápida (escaneo por índice único).
 -- Política: recrear (DROP si existe). Tipos fieles a Room:
 --   Long (epoch ms) -> BIGINT, Int -> INTEGER, Float -> DOUBLE PRECISION,
 --   Text -> TEXT, booleanos Room (0/1) -> INTEGER con defaults 0/1,
@@ -57,11 +62,11 @@ CREATE TRIGGER on_auth_user_created
     FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
 -- ── Contenido por usuario ───────────────────────────────────────────────────
+-- Todas las tablas: id UUID autogenerado + user_id, PK (user_id, id).
 
 CREATE TABLE IF NOT EXISTS public.movies (
-    id                  BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id                  UUID NOT NULL DEFAULT gen_random_uuid(),
     user_id             UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    local_id            BIGINT,
     content_id          TEXT,
     tmdb_id             INTEGER,
     imdb_id             TEXT,
@@ -79,15 +84,14 @@ CREATE TABLE IF NOT EXISTS public.movies (
     watched_at          BIGINT,
     added_at            BIGINT NOT NULL,
     last_refreshed_at   BIGINT,
-    fa_id               INTEGER
+    fa_id               INTEGER,
+    PRIMARY KEY (user_id, id),
+    CONSTRAINT uq_movies_user_content UNIQUE (user_id, content_id)
 );
--- local_id = id de la fila Room local; permite sync idempotente (upsert por usuario).
-ALTER TABLE ONLY public.movies ADD CONSTRAINT uq_movies_user_id_local_id UNIQUE (user_id, local_id);
 
 CREATE TABLE IF NOT EXISTS public.tv_shows (
-    id                      BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id                      UUID NOT NULL DEFAULT gen_random_uuid(),
     user_id                 UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    local_id                BIGINT,
     content_id              TEXT,
     tmdb_id                 INTEGER,
     imdb_id                 TEXT,
@@ -113,82 +117,77 @@ CREATE TABLE IF NOT EXISTS public.tv_shows (
     finished_at             BIGINT,
     released_episodes       INTEGER,
     last_refreshed_at       BIGINT,
-    fa_id                   INTEGER
+    fa_id                   INTEGER,
+    PRIMARY KEY (user_id, id),
+    CONSTRAINT uq_tv_shows_user_content UNIQUE (user_id, content_id)
 );
--- La FK de progreso usa (user_id, id).
-ALTER TABLE ONLY public.tv_shows ADD CONSTRAINT uq_tv_shows_user_id_id UNIQUE (user_id, id);
--- local_id = id de la fila Room local; permite sync idempotente.
-ALTER TABLE ONLY public.tv_shows ADD CONSTRAINT uq_tv_shows_user_id_local_id UNIQUE (user_id, local_id);
 
 CREATE TABLE IF NOT EXISTS public.tv_show_progress (
-    id          BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id          UUID NOT NULL DEFAULT gen_random_uuid(),
     user_id     UUID NOT NULL,
-    local_id    BIGINT,
-    tv_show_id  BIGINT NOT NULL,
+    tv_show_id  UUID NOT NULL,
     season      INTEGER NOT NULL,
     episode     INTEGER NOT NULL,
     watched_at  BIGINT NOT NULL,
+    PRIMARY KEY (user_id, id),
+    -- El progreso referencia la serie (user_id, id) de tv_shows; se permiten
+    -- varias filas por capítulo (cada una con su propio id).
     CONSTRAINT fk_tv_show_progress_show
         FOREIGN KEY (user_id, tv_show_id) REFERENCES public.tv_shows (user_id, id)
         ON DELETE CASCADE
 );
--- Coincide con onConflict = REPLACE de TvShowProgressDao: 1 fila por capítulo.
-CREATE UNIQUE INDEX IF NOT EXISTS ux_tv_show_progress_show_season_episode
-    ON public.tv_show_progress (user_id, tv_show_id, season, episode);
--- local_id = id de la fila Room local; permite sync idempotente del progreso.
-ALTER TABLE ONLY public.tv_show_progress ADD CONSTRAINT uq_tv_show_progress_user_local
-    UNIQUE (user_id, local_id);
 
 CREATE TABLE IF NOT EXISTS public.search_history (
-    id          BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id          UUID NOT NULL DEFAULT gen_random_uuid(),
     user_id     UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    local_id    BIGINT,
     query       TEXT NOT NULL,
-    searched_at BIGINT NOT NULL
+    searched_at BIGINT NOT NULL,
+    PRIMARY KEY (user_id, id)
 );
-ALTER TABLE ONLY public.search_history ADD CONSTRAINT uq_search_history_user_local
-    UNIQUE (user_id, local_id);
 
 CREATE TABLE IF NOT EXISTS public.user_platforms (
+    id            UUID NOT NULL DEFAULT gen_random_uuid(),
     user_id       UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     platform_name TEXT NOT NULL,
     is_active     INTEGER NOT NULL DEFAULT 1,
-    PRIMARY KEY (user_id, platform_name)
+    PRIMARY KEY (user_id, id),
+    CONSTRAINT uq_user_platforms_name UNIQUE (user_id, platform_name)
 );
 
 CREATE TABLE IF NOT EXISTS public.blacklist (
+    id         UUID NOT NULL DEFAULT gen_random_uuid(),
     user_id    UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     content_id TEXT NOT NULL,
     title      TEXT NOT NULL,
     type       TEXT NOT NULL,
     added_at   BIGINT NOT NULL,
-    PRIMARY KEY (user_id, content_id)
+    PRIMARY KEY (user_id, id),
+    CONSTRAINT uq_blacklist_user_content UNIQUE (user_id, content_id)
 );
 
 CREATE TABLE IF NOT EXISTS public.critic_reviews (
+    id           UUID NOT NULL DEFAULT gen_random_uuid(),
     user_id      UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     content_id   TEXT NOT NULL,
     reviews_json TEXT NOT NULL,
     cached_at    BIGINT NOT NULL,
-    PRIMARY KEY (user_id, content_id)
+    PRIMARY KEY (user_id, id),
+    CONSTRAINT uq_critic_reviews_user_content UNIQUE (user_id, content_id)
 );
 
 CREATE TABLE IF NOT EXISTS public.fa_movie_data (
+    id                     UUID NOT NULL DEFAULT gen_random_uuid(),
     user_id                UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     content_id             TEXT NOT NULL,
     fa_id                  INTEGER,
     fa_rating              DOUBLE PRECISION,
     platform_releases_json TEXT,
     cached_at              BIGINT NOT NULL,
-    PRIMARY KEY (user_id, content_id)
+    PRIMARY KEY (user_id, id),
+    CONSTRAINT uq_fa_movie_data_user_content UNIQUE (user_id, content_id)
 );
 
--- Índices de filtrado por usuario (RLS) ──────────────────────────────────────
-
-CREATE INDEX IF NOT EXISTS idx_movies_user_id        ON public.movies (user_id);
-CREATE INDEX IF NOT EXISTS idx_tv_shows_user_id      ON public.tv_shows (user_id);
-CREATE INDEX IF NOT EXISTS idx_tv_show_progress_user ON public.tv_show_progress (user_id);
-CREATE INDEX IF NOT EXISTS idx_search_history_user   ON public.search_history (user_id);
+-- La PK (user_id, id) ya indexa por usuario; no hacen falta índices extra.
 
 -- ── Row Level Security ──────────────────────────────────────────────────────
 
@@ -210,7 +209,7 @@ CREATE POLICY profiles_insert_own ON public.profiles
 CREATE POLICY profiles_update_own ON public.profiles
     FOR UPDATE USING (auth.uid() = user_id);
 
--- películas / series / progreso / historial (id identity + user_id).
+-- películas / series / progreso / historial (PK user_id + id, RLS por user_id).
 CREATE POLICY movies_select_own ON public.movies
     FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY movies_insert_own ON public.movies

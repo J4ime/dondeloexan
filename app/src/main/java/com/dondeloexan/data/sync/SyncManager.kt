@@ -10,6 +10,7 @@ import com.dondeloexan.data.local.dao.TvShowProgressDao
 import com.dondeloexan.data.local.dao.UserPlatformDao
 import com.dondeloexan.data.remote.api.SupabaseSyncApi
 import com.dondeloexan.util.AppLogger
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
@@ -30,6 +31,12 @@ data class SyncSummary(
             userPlatforms + blacklist + criticReviews + faMovieData
 }
 
+@kotlinx.serialization.Serializable
+private data class TvShowIdRow(
+    val id: String,
+    @SerialName("content_id") val contentId: String? = null
+)
+
 class SyncManager(
     private val syncApi: SupabaseSyncApi,
     private val movieDao: MovieDao,
@@ -43,16 +50,26 @@ class SyncManager(
     private val json: Json
 ) {
 
-    /** Codifica siempre todas las claves (incluso null) para que los arrays de
-     *  objetos tengan claves uniformes: PostgREST rechaza arrays heterogéneos
-     *  con PGRST100 "all object keys must match". */
+    /**
+     * Codifica siempre todas las claves (incluso null) para que los arrays de
+     * objetos tengan claves uniformes: PostgREST rechaza arrays heterogéneos
+     * con PGRST100 "all object keys must match".
+     */
     private val syncJson = Json {
         ignoreUnknownKeys = true
         encodeDefaults = true
     }
 
+    /**
+     * Sincronización por reemplazo completo (snapshot): se borran todas las
+     * filas del usuario en cada tabla (RLS lo permite) y se re-sube el estado
+     * local. La BD autogenera el id UUID de cada fila (DEFAULT gen_random_uuid()),
+     * así que la app no envía id alguno: el borrado previo evita duplicados.
+     */
     suspend fun syncAll(session: SessionState): SyncSummary {
         val userId = session.userId
+
+        deleteUserTables(userId, session)
 
         val movies = movieDao.getAll()
         if (movies.isNotEmpty()) {
@@ -60,32 +77,51 @@ class SyncManager(
                 ListSerializer(MovieSyncDto.serializer()),
                 movies.map { it.toSyncDto(userId) }
             )
-            upsert("movies", listOf("user_id", "local_id"), movies.size, payload, session)
+            upload("movies", movies.size, payload, session)
         }
 
         val tvShows = tvShowDao.getAll()
-        val localToCloudId = mutableMapOf<Long, Long>()
+        // Mapa localShowId -> contentId para resolver el uuid de cada serie.
+        val showContentIdByLocalId = tvShows.associate { it.id to it.contentId }
+        val showUuidByContentId = mutableMapOf<String, String>()
         if (tvShows.isNotEmpty()) {
             val payload = syncJson.encodeToString(
                 ListSerializer(TvShowSyncDto.serializer()),
                 tvShows.map { it.toSyncDto(userId) }
             )
-            val body = upsert(
-                "tv_shows", listOf("user_id", "local_id"), tvShows.size, payload, session,
-                returnRepresentation = true
-            )
-            parseRowIds(body).forEach { row ->
-                row.localId?.let { localToCloudId[it] = row.id }
+            val body = upload("tv_shows", tvShows.size, payload, session, returnRepresentation = true)
+            parseShowIds(body).forEach { row ->
+                row.contentId?.let { showUuidByContentId[it] = row.id }
             }
         }
 
         val progress = tvShowProgressDao.getAll()
+        val progressDtos = mutableListOf<TvShowProgressSyncDto>()
         if (progress.isNotEmpty()) {
-            val payload = syncJson.encodeToString(
-                ListSerializer(TvShowProgressSyncDto.serializer()),
-                progress.map { it.toSyncDto(userId, localToCloudId[it.tvShowId] ?: it.tvShowId) }
-            )
-            upsert("tv_show_progress", listOf("user_id", "local_id"), progress.size, payload, session)
+            var skipped = 0
+            progress.forEach { entry ->
+                val contentId = showContentIdByLocalId[entry.tvShowId]
+                val remoteShowId = contentId?.let { showUuidByContentId[it] }
+                if (remoteShowId != null) {
+                    progressDtos += entry.toSyncDto(userId, remoteShowId)
+                } else {
+                    skipped++
+                    AppLogger.w(
+                        "Sync",
+                        "temporada $entry.season capítulo $entry.episode omitido: no se encontró su serie en tv_shows (content_id=$contentId)"
+                    )
+                }
+            }
+            if (progressDtos.isNotEmpty()) {
+                val payload = syncJson.encodeToString(
+                    ListSerializer(TvShowProgressSyncDto.serializer()),
+                    progressDtos
+                )
+                upload("tv_show_progress", progressDtos.size, payload, session)
+            }
+            if (skipped > 0) {
+                AppLogger.w("Sync", "temporadas omitidas por serie desconocida: $skipped")
+            }
         }
 
         val history = searchHistoryDao.getRecent(Int.MAX_VALUE)
@@ -94,7 +130,7 @@ class SyncManager(
                 ListSerializer(SearchHistorySyncDto.serializer()),
                 history.map { it.toSyncDto(userId) }
             )
-            upsert("search_history", listOf("user_id", "local_id"), history.size, payload, session)
+            upload("search_history", history.size, payload, session)
         }
 
         val platforms = userPlatformDao.getAll()
@@ -103,7 +139,7 @@ class SyncManager(
                 ListSerializer(UserPlatformSyncDto.serializer()),
                 platforms.map { it.toSyncDto(userId) }
             )
-            upsert("user_platforms", listOf("user_id", "platform_name"), platforms.size, payload, session)
+            upload("user_platforms", platforms.size, payload, session)
         }
 
         val blacklist = blacklistDao.getAll()
@@ -112,7 +148,7 @@ class SyncManager(
                 ListSerializer(BlacklistSyncDto.serializer()),
                 blacklist.map { it.toSyncDto(userId) }
             )
-            upsert("blacklist", listOf("user_id", "content_id"), blacklist.size, payload, session)
+            upload("blacklist", blacklist.size, payload, session)
         }
 
         val criticReviews = criticReviewDao.getAll()
@@ -121,7 +157,7 @@ class SyncManager(
                 ListSerializer(CriticReviewSyncDto.serializer()),
                 criticReviews.map { it.toSyncDto(userId) }
             )
-            upsert("critic_reviews", listOf("user_id", "content_id"), criticReviews.size, payload, session)
+            upload("critic_reviews", criticReviews.size, payload, session)
         }
 
         val faMovieData = faMovieDataDao.getAll()
@@ -130,13 +166,13 @@ class SyncManager(
                 ListSerializer(FaMovieDataSyncDto.serializer()),
                 faMovieData.map { it.toSyncDto(userId) }
             )
-            upsert("fa_movie_data", listOf("user_id", "content_id"), faMovieData.size, payload, session)
+            upload("fa_movie_data", faMovieData.size, payload, session)
         }
 
         val summary = SyncSummary(
             movies = movies.size,
             tvShows = tvShows.size,
-            tvShowProgress = progress.size,
+            tvShowProgress = progressDtos.size,
             searchHistory = history.size,
             userPlatforms = platforms.size,
             blacklist = blacklist.size,
@@ -150,28 +186,48 @@ class SyncManager(
         return summary
     }
 
-    private suspend fun upsert(
+    private suspend fun deleteUserTables(userId: String, session: SessionState) {
+        val tables = listOf(
+            "tv_show_progress",
+            "tv_shows",
+            "movies",
+            "search_history",
+            "user_platforms",
+            "blacklist",
+            "critic_reviews",
+            "fa_movie_data"
+        )
+        tables.forEach { table ->
+            try {
+                syncApi.deleteTableRows(table, userId, session)
+            } catch (e: Exception) {
+                AppLogger.e("Sync", "borrar $table del usuario $userId falló", e)
+                throw e
+            }
+        }
+    }
+
+    private suspend fun upload(
         table: String,
-        onConflict: List<String>,
         rows: Int,
         payload: String,
         session: SessionState,
         returnRepresentation: Boolean = false
     ): String = try {
         AppLogger.i("Sync", "Subiendo $table ($rows filas)")
-        syncApi.upsert(table, onConflict, payload, session, returnRepresentation)
+        syncApi.insertAll(table, payload, session, returnRepresentation)
     } catch (e: Exception) {
-        AppLogger.e("Sync", "upsert $table falló ($rows filas): payload=${payload.take(2000)}", e)
+        AppLogger.e("Sync", "insert $table falló ($rows filas): payload=${payload.take(2000)}", e)
         throw e
     }
 
-    private fun parseRowIds(body: String): List<DbRowId> {
+    private fun parseShowIds(body: String): List<TvShowIdRow> {
         val trimmed = body.trim()
         if (trimmed.isEmpty()) return emptyList()
         return if (trimmed.startsWith("[")) {
-            json.decodeFromString<List<DbRowId>>(trimmed)
+            json.decodeFromString<List<TvShowIdRow>>(trimmed)
         } else {
-            listOf(json.decodeFromString<DbRowId>(trimmed))
+            listOf(json.decodeFromString<TvShowIdRow>(trimmed))
         }
     }
 }

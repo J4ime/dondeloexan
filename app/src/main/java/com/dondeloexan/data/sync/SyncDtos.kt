@@ -13,15 +13,10 @@ import kotlinx.serialization.Serializable
 
 private fun Boolean.asInt(): Int = if (this) 1 else 0
 
-@Serializable
-data class DbRowId(
-    val id: Long,
-    @SerialName("local_id") val localId: Long? = null
-)
+// La BD autogenera el id UUID (DEFAULT gen_random_uuid()); la app NO lo envía.
 
 @Serializable
 data class MovieSyncDto(
-    @SerialName("local_id") val localId: Long,
     @SerialName("user_id") val userId: String,
     @SerialName("content_id") val contentId: String? = null,
     @SerialName("tmdb_id") val tmdbId: Int? = null,
@@ -44,7 +39,6 @@ data class MovieSyncDto(
 
 @Serializable
 data class TvShowSyncDto(
-    @SerialName("local_id") val localId: Long,
     @SerialName("user_id") val userId: String,
     @SerialName("content_id") val contentId: String? = null,
     @SerialName("tmdb_id") val tmdbId: Int? = null,
@@ -75,9 +69,8 @@ data class TvShowSyncDto(
 
 @Serializable
 data class TvShowProgressSyncDto(
-    @SerialName("local_id") val localId: Long,
     @SerialName("user_id") val userId: String,
-    @SerialName("tv_show_id") val tvShowId: Long,
+    @SerialName("tv_show_id") val tvShowId: String,
     val season: Int,
     val episode: Int,
     @SerialName("watched_at") val watchedAt: Long
@@ -85,7 +78,6 @@ data class TvShowProgressSyncDto(
 
 @Serializable
 data class SearchHistorySyncDto(
-    @SerialName("local_id") val localId: Long,
     @SerialName("user_id") val userId: String,
     val query: String,
     @SerialName("searched_at") val searchedAt: Long
@@ -126,7 +118,7 @@ data class FaMovieDataSyncDto(
 )
 
 fun MovieEntity.toSyncDto(userId: String) = MovieSyncDto(
-    localId = id, userId = userId,
+    userId = userId,
     contentId = contentId, tmdbId = tmdbId, imdbId = imdbId,
     title = title, year = year, releaseDate = releaseDate,
     posterUrl = posterUrl, ratingTmdb = ratingTmdb, ratingImdb = ratingImdb,
@@ -137,7 +129,7 @@ fun MovieEntity.toSyncDto(userId: String) = MovieSyncDto(
 )
 
 fun TvShowEntity.toSyncDto(userId: String) = TvShowSyncDto(
-    localId = id, userId = userId,
+    userId = userId,
     contentId = contentId, tmdbId = tmdbId, imdbId = imdbId,
     title = title, year = year, posterUrl = posterUrl,
     ratingTmdb = ratingTmdb, ratingImdb = ratingImdb,
@@ -154,13 +146,13 @@ fun TvShowEntity.toSyncDto(userId: String) = TvShowSyncDto(
     lastRefreshedAt = lastRefreshedAt, faId = faId
 )
 
-fun TvShowProgressEntity.toSyncDto(userId: String, cloudShowId: Long) = TvShowProgressSyncDto(
-    localId = id, userId = userId, tvShowId = cloudShowId,
+fun TvShowProgressEntity.toSyncDto(userId: String, remoteShowId: String) = TvShowProgressSyncDto(
+    userId = userId, tvShowId = remoteShowId,
     season = season, episode = episode, watchedAt = watchedAt
 )
 
 fun SearchHistoryEntity.toSyncDto(userId: String) = SearchHistorySyncDto(
-    localId = id, userId = userId, query = query, searchedAt = searchedAt
+    userId = userId, query = query, searchedAt = searchedAt
 )
 
 fun UserPlatformEntity.toSyncDto(userId: String) = UserPlatformSyncDto(

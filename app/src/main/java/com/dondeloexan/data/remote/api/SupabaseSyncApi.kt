@@ -3,6 +3,7 @@ package com.dondeloexan.data.remote.api
 import com.dondeloexan.data.sync.SessionState
 import com.dondeloexan.util.AppLogger
 import io.ktor.client.HttpClient
+import io.ktor.client.request.delete
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
@@ -22,25 +23,45 @@ class SupabaseSyncApi(
 ) {
 
     /**
-     * Upsert PostgREST: inserte o actualiza filas usando [onConflict] como
-     * constraint de conflicto (columnas separadas por coma). Devuelve el cuerpo
-     * de la respuesta (representación de las filas tocadas si solicitado).
+     * Borra todas las filas de [table] del usuario [userId] (RLS lo permite).
+     * La sincronización es por reemplazo completo: se borra y se re-sube.
      */
-    suspend fun upsert(
+    suspend fun deleteTableRows(table: String, userId: String, session: SessionState) {
+        val response = client.delete("${url.trimEnd('/')}/rest/v1/$table?user_id=eq.$userId") {
+            header("apikey", anonKey)
+            header(HttpHeaders.Authorization, "Bearer ${session.accessToken}")
+            header("Prefer", "return=minimal")
+        }
+        if (!response.status.isSuccess()) {
+            val text = response.bodyAsText()
+            AppLogger.e(
+                "SyncApi",
+                "borrar $table del usuario → HTTP ${response.status.value}: ${text.take(500)}"
+            )
+            val message = runCatching {
+                json.decodeFromString<PostgrestError>(text).message
+            }.getOrNull()?.takeIf { it.isNotBlank() }
+            throw SupabaseApiException(message ?: "Error al borrar $table (${response.status.value})")
+        }
+    }
+
+    /**
+     * Inserta [payload] (array JSON) en [table] sin conflictos (las filas del
+     * usuario ya fueron borradas antes). Con [returnRepresentation] devuelve las
+     * filas insertadas (incluido el id UUID autogenerado por la BD).
+     */
+    suspend fun insertAll(
         table: String,
-        onConflict: List<String>,
         payload: String,
         session: SessionState,
         returnRepresentation: Boolean = false
     ): String {
-        val onConflictEncoded = onConflict.joinToString("%2C")
-        val response = client.post("${url.trimEnd('/')}/rest/v1/$table?on_conflict=$onConflictEncoded") {
+        val response = client.post("${url.trimEnd('/')}/rest/v1/$table") {
             header("apikey", anonKey)
             header(HttpHeaders.Authorization, "Bearer ${session.accessToken}")
             header(
                 "Prefer",
-                "resolution=merge-duplicates" +
-                    if (returnRepresentation) ",return=representation" else ",return=minimal"
+                if (returnRepresentation) "return=representation" else "return=minimal"
             )
             contentType(ContentType.Application.Json)
             setBody(payload)
@@ -49,7 +70,7 @@ class SupabaseSyncApi(
         if (!response.status.isSuccess()) {
             AppLogger.e(
                 "SyncApi",
-                "upsert $table → HTTP ${response.status.value}: ${text.take(500)}"
+                "insert $table → HTTP ${response.status.value}: ${text.take(500)}"
             )
             val message = runCatching {
                 json.decodeFromString<PostgrestError>(text).message

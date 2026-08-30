@@ -23,7 +23,6 @@ class SyncDtosMapperTest {
 
         val dto = entity.toSyncDto(userId)
 
-        org.junit.jupiter.api.Assertions.assertEquals(9L, dto.localId)
         org.junit.jupiter.api.Assertions.assertEquals(userId, dto.userId)
         org.junit.jupiter.api.Assertions.assertEquals("c1", dto.contentId)
         org.junit.jupiter.api.Assertions.assertEquals(5, dto.tmdbId)
@@ -48,7 +47,6 @@ class SyncDtosMapperTest {
 
         val dto = entity.toSyncDto(userId)
 
-        org.junit.jupiter.api.Assertions.assertEquals(7L, dto.localId)
         org.junit.jupiter.api.Assertions.assertEquals(0, dto.liked)
         org.junit.jupiter.api.Assertions.assertEquals(0, dto.inProduction)
         org.junit.jupiter.api.Assertions.assertEquals(10, dto.totalEpisodes)
