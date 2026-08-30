@@ -2,10 +2,18 @@ package com.dondeloexan.data.repository
 
 import com.dondeloexan.data.catalog.CatalogCriticReviewRow
 import com.dondeloexan.data.catalog.CatalogFaRow
+import com.dondeloexan.data.catalog.CatalogListRow
+import com.dondeloexan.data.catalog.CatalogSeasonRow
 import com.dondeloexan.data.catalog.CloudCatalogRepository
+import com.dondeloexan.data.catalog.toCatalogEpisodeRow
+import com.dondeloexan.data.catalog.toCatalogListRow
 import com.dondeloexan.data.catalog.toCatalogMovieRow
+import com.dondeloexan.data.catalog.toCatalogSeasonRow
 import com.dondeloexan.data.catalog.toCatalogTvShowRow
 import com.dondeloexan.data.catalog.toContent
+import com.dondeloexan.data.catalog.toContentPreview
+import com.dondeloexan.data.catalog.toEpisode
+import com.dondeloexan.data.catalog.toSeason
 import com.dondeloexan.data.local.dao.CriticReviewDao
 import com.dondeloexan.data.local.dao.FaMovieDataDao
 import com.dondeloexan.data.local.dao.MovieDao
@@ -205,6 +213,44 @@ class DiscoverRepositoryImpl(
             }
         }
         return content
+    }
+
+    /**
+     * Nube primero para listas derivadas (content_lists, genéricas por
+     * content_id + list_type). En la nube se guardan las listas COMPLETAS (sin
+     * exclusiones dependientes de contexto) y la exclusión se aplica aquí al
+     * devolver. Write-through en miss, best-effort.
+     */
+    private suspend fun cloudFirstList(
+        contentId: String,
+        listType: String,
+        fetch: suspend () -> List<ContentPreview>
+    ): List<ContentPreview> {
+        val session = runCatching { cloudCatalog?.currentSession() }.getOrNull()
+        if (session != null) {
+            val cached = runCatching { cloudCatalog?.getList(contentId, listType, session) }.getOrNull()
+            if (!cached.isNullOrEmpty()) {
+                AppLogger.d("DiscoverRepo", "cloudFirstList nube hit para $contentId/$listType (${cached.size})")
+                return cached.map { it.toContentPreview() }
+            }
+        }
+        val previews = try {
+            fetch()
+        } catch (e: Exception) {
+            AppLogger.e("DiscoverRepo", "cloudFirstList fetch $contentId/$listType falló", e)
+            emptyList()
+        }
+        if (previews.isNotEmpty() && session != null) {
+            runCatching {
+                cloudCatalog?.saveLists(
+                    previews.mapIndexed { index, p -> p.toCatalogListRow(contentId, listType, index) },
+                    session
+                )
+            }.onFailure {
+                AppLogger.e("DiscoverRepo", "write-through content_lists $contentId/$listType falló", it)
+            }
+        }
+        return previews
     }
 
     private suspend fun fetchLocalDetail(localContentId: String, contentType: ContentType): Content {
@@ -782,23 +828,18 @@ class DiscoverRepositoryImpl(
         }
     }
 
-    override suspend fun getDirectorTopMovies(directorId: Int, excludeTmdbId: Int?): List<ContentPreview> {
-        return try {
-            tmdbApi.getPersonMovieCredits(directorId)
-                .crew.orEmpty()
-                .filter { it.job.equals("Director", ignoreCase = true) }
-                .filter { it.id != excludeTmdbId }
-                .filter { it.releaseDate != null && (it.voteAverage ?: 0f) > 0f }
-                .distinctBy { it.id }
-                .sortedWith(compareByDescending<TmdbPersonCredit> { it.voteAverage ?: 0f }
-                    .thenByDescending { it.voteCount ?: 0 })
-                .take(5)
-                .map { it.toContentPreview(forceType = ContentType.MOVIE) }
-        } catch (e: Exception) {
-            AppLogger.e("DiscoverRepo", "getDirectorTopMovies error for $directorId", e)
-            emptyList()
-        }
-    }
+    override suspend fun getDirectorTopMovies(directorId: Int, excludeTmdbId: Int?): List<ContentPreview> =
+    cloudFirstList("director-$directorId", "director_movies") {
+        tmdbApi.getPersonMovieCredits(directorId)
+            .crew.orEmpty()
+            .filter { it.job.equals("Director", ignoreCase = true) }
+            .filter { it.releaseDate != null && (it.voteAverage ?: 0f) > 0f }
+            .distinctBy { it.id }
+            .sortedWith(compareByDescending<TmdbPersonCredit> { it.voteAverage ?: 0f }
+                .thenByDescending { it.voteCount ?: 0 })
+            .take(5)
+            .map { it.toContentPreview(forceType = ContentType.MOVIE) }
+    }.filter { excludeTmdbId == null || it.tmdbId != excludeTmdbId }
 
     override suspend fun getCompanyMovies(companyId: Int): List<ContentPreview> {
         return try {
@@ -1036,27 +1077,23 @@ class DiscoverRepositoryImpl(
         }
     }
 
-    override suspend fun getCollectionMovies(collectionId: Int): List<ContentPreview> {
-        return try {
-            val collection = tmdbApi.getCollection(collectionId)
-            collection.parts
-                .filter { it.posterPath != null }
-                .map { it.toContentPreview() }
-        } catch (e: Exception) {
-            AppLogger.e("DiscoverRepo", "getCollectionMovies error for $collectionId", e)
-            emptyList()
-        }
+    override suspend fun getCollectionMovies(collectionId: Int): List<ContentPreview> =
+    cloudFirstList("collection-$collectionId", "collection") {
+        val collection = tmdbApi.getCollection(collectionId)
+        collection.parts
+            .filter { it.posterPath != null }
+            .map { it.toContentPreview() }
     }
 
-    override suspend fun getRecommendations(contentId: String, contentType: ContentType): List<ContentPreview> {
-        return try {
+    override suspend fun getRecommendations(contentId: String, contentType: ContentType): List<ContentPreview> =
+        cloudFirstList(contentId, "similar") {
             val prefix = contentId.substringBefore("-")
             val rawId = contentId.removePrefix("$prefix-")
             val tmdbId = when (prefix) {
                 "tmdb" -> rawId.toIntOrNull()
                 "imdb" -> resolveTmdbId(rawId, contentType)
                 else -> null
-            } ?: return emptyList()
+            } ?: return@cloudFirstList emptyList()
             val response = when (contentType) {
                 ContentType.MOVIE -> tmdbApi.getMovieRecommendations(tmdbId)
                 ContentType.SERIES -> tmdbApi.getTvRecommendations(tmdbId)
@@ -1065,20 +1102,32 @@ class DiscoverRepositoryImpl(
                 .filter { it.posterPath != null }
                 .take(5)
                 .map { it.toContentPreview() }
-        } catch (e: Exception) {
-            AppLogger.e("DiscoverRepo", "getRecommendations error for $contentId", e)
-            emptyList()
         }
-    }
 
     override suspend fun getSeriesRelationships(wikidataId: String?, imdbId: String?): Pair<List<ContentPreview>, Set<String>> {
         AppLogger.d("DiscoverRepo", "getSeriesRelationships called — wikidataId=$wikidataId, imdbId=$imdbId")
         val cacheKey = "${wikidataId.orEmpty()}|${imdbId.orEmpty()}"
+        val listKey = "series-$cacheKey"
         val cached = relationshipsCache[cacheKey]
         if (cached != null && (System.currentTimeMillis() - cached.timestamp) < RELATIONSHIPS_CACHE_TTL_MS) {
             AppLogger.d("DiscoverRepo", "getSeriesRelationships cache hit for $cacheKey, returning ${cached.previews.size} previews")
             return cached.previews to cached.excludeIds
         }
+
+        val session = runCatching { cloudCatalog?.currentSession() }.getOrNull()
+        if (session != null) {
+            val rows = runCatching {
+                cloudCatalog?.getList(listKey, "relationships", session)
+            }.getOrNull()
+            if (!rows.isNullOrEmpty()) {
+                AppLogger.d("DiscoverRepo", "getSeriesRelationships nube hit para $cacheKey, ${rows.size} previews")
+                val previews = rows.map { it.toContentPreview() }
+                val excludeIds = rows.map { it.relatedContentId }.toSet()
+                relationshipsCache[cacheKey] = CachedRelationships(previews, excludeIds, System.currentTimeMillis())
+                return previews to excludeIds
+            }
+        }
+
         return try {
             val relationships = wikidataApi.getRelationships(wikidataId, imdbId)
             val results = mutableListOf<ContentPreview>()
@@ -1119,6 +1168,16 @@ class DiscoverRepositoryImpl(
             AppLogger.d("DiscoverRepo", "getSeriesRelationships returning ${results.size} previews, ${excludeIds.size} excludeIds")
             val pair = results to excludeIds
             relationshipsCache[cacheKey] = CachedRelationships(results, excludeIds, System.currentTimeMillis())
+            if (results.isNotEmpty() && session != null) {
+                runCatching {
+                    cloudCatalog?.saveLists(
+                        results.mapIndexed { index, p -> p.toCatalogListRow(listKey, "relationships", index) },
+                        session
+                    )
+                }.onFailure {
+                    AppLogger.e("DiscoverRepo", "write-through content_lists $listKey falló", it)
+                }
+            }
             pair
         } catch (e: Exception) {
             AppLogger.e("DiscoverRepo", "getSeriesRelationships error", e)
@@ -1309,8 +1368,16 @@ class DiscoverRepositoryImpl(
     }
 
     override suspend fun getSeasons(content: Content): List<Season> {
+        val session = runCatching { cloudCatalog?.currentSession() }.getOrNull()
+        if (session != null) {
+            val rows = runCatching { cloudCatalog?.getSeasons(content.id, session) }.getOrNull()
+            if (!rows.isNullOrEmpty()) {
+                AppLogger.d("DiscoverRepo", "getSeasons nube hit para ${content.id} (${rows.size})")
+                return rows.sortedBy { it.seasonNumber }.map { it.toSeason() }
+            }
+        }
         return try {
-            when (content.source) {
+            val seasons = when (content.source) {
                 ContentSource.TMDB -> {
                     val tmdbId = content.tmdbId ?: return emptyList()
                     tmdbApi.getTvDetail(tmdbId).seasons
@@ -1326,6 +1393,17 @@ class DiscoverRepositoryImpl(
                         ?: emptyList()
                 }
             }
+            if (seasons.isNotEmpty() && session != null) {
+                runCatching {
+                    cloudCatalog?.saveSeasons(
+                        seasons.map { it.toCatalogSeasonRow(content.id) },
+                        session
+                    )
+                }.onFailure {
+                    AppLogger.e("DiscoverRepo", "write-through tv_seasons falló para ${content.id}", it)
+                }
+            }
+            seasons
         } catch (e: Exception) {
             AppLogger.e("DiscoverRepo", "getSeasons error for ${content.id}", e)
             emptyList()
@@ -1333,8 +1411,27 @@ class DiscoverRepositoryImpl(
     }
 
     override suspend fun getSeasonDetail(content: Content, seasonNumber: Int): SeasonDetail {
+        val session = runCatching { cloudCatalog?.currentSession() }.getOrNull()
+        if (session != null) {
+            val seasonRow = runCatching {
+                cloudCatalog?.getSeason(content.id, seasonNumber, session)
+            }.getOrNull()
+            val episodes = runCatching {
+                cloudCatalog?.getSeasonEpisodes(content.id, seasonNumber, session)
+            }.getOrNull()
+            if (!episodes.isNullOrEmpty()) {
+                AppLogger.d("DiscoverRepo", "getSeasonDetail nube hit para ${content.id} S$seasonNumber (${episodes.size} eps)")
+                return SeasonDetail(
+                    seasonNumber = seasonNumber,
+                    episodes = episodes.sortedBy { it.episodeNumber }.map { it.toEpisode() },
+                    name = seasonRow?.name,
+                    overview = seasonRow?.overview,
+                    airDate = seasonRow?.airDate
+                )
+            }
+        }
         return try {
-            when (content.source) {
+            val detail = when (content.source) {
                 ContentSource.TMDB -> {
                     val tmdbId = content.tmdbId ?: return SeasonDetail(seasonNumber)
                     tmdbApi.getTvSeason(tmdbId, seasonNumber).toSeasonDetail()
@@ -1344,6 +1441,29 @@ class DiscoverRepositoryImpl(
                     imdbApi.getTvSeason(imdbId, seasonNumber).toSeasonDetail()
                 }
             }
+            if (detail.episodes.isNotEmpty() && session != null) {
+                runCatching {
+                    cloudCatalog?.saveSeasons(
+                        listOf(
+                            Season(
+                                seasonNumber = seasonNumber,
+                                name = detail.name ?: "",
+                                episodeCount = detail.episodes.size,
+                                airDate = detail.airDate,
+                                overview = detail.overview
+                            ).toCatalogSeasonRow(content.id)
+                        ),
+                        session
+                    )
+                    cloudCatalog?.saveEpisodes(
+                        detail.episodes.map { it.toCatalogEpisodeRow(content.id) },
+                        session
+                    )
+                }.onFailure {
+                    AppLogger.e("DiscoverRepo", "write-through tv_seasons/tv_episodes falló para ${content.id} S$seasonNumber", it)
+                }
+            }
+            detail
         } catch (e: Exception) {
             AppLogger.e("DiscoverRepo", "getSeasonDetail error for ${content.id} S$seasonNumber", e)
             SeasonDetail(seasonNumber)

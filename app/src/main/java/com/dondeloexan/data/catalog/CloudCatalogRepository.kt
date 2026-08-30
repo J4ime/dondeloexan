@@ -43,6 +43,13 @@ class CloudCatalogRepository(
     suspend fun getFaMovieData(contentId: String, session: SessionState): CatalogFaRow? =
         getRows("fa_movie_data", "content_id=eq.$contentId", CatalogFaRow.serializer(), session).firstOrNull()
 
+    suspend fun getSeason(contentId: String, seasonNumber: Int, session: SessionState): CatalogSeasonRow? =
+        getRows(
+            "tv_seasons",
+            "content_id=eq.$contentId&season_number=eq.$seasonNumber",
+            CatalogSeasonRow.serializer(), session
+        ).firstOrNull()
+
     suspend fun getSeasons(contentId: String, session: SessionState): List<CatalogSeasonRow> =
         getRows(
             "tv_seasons",
