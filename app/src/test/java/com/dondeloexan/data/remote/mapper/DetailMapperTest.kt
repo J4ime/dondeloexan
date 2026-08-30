@@ -1,8 +1,5 @@
 package com.dondeloexan.data.remote.mapper
 
-import com.dondeloexan.data.remote.dto.ImdbDetailSeasonDto
-import com.dondeloexan.data.remote.dto.ImdbEpisodeDto
-import com.dondeloexan.data.remote.dto.ImdbSeasonDetailDto
 import com.dondeloexan.data.remote.dto.TmdbEpisodeDto
 import com.dondeloexan.data.remote.dto.TmdbSeasonDto
 import com.dondeloexan.data.remote.dto.TmdbTvSeasonDetailDto
@@ -80,49 +77,5 @@ class DetailMapperTest {
         assert(detail.episodes.size == 2)
         assert(detail.episodes[0].episodeNumber == 1)
         assert(detail.episodes[1].name == "E2")
-    }
-
-    @Test
-    fun `ImdbDetailSeasonDto toSeason maps label and seasonNumber`() {
-        val dto = ImdbDetailSeasonDto(seasonNumber = 2, label = "Segunda temporada")
-
-        val season = dto.toSeason()
-
-        assert(season.seasonNumber == 2)
-        assert(season.name == "Segunda temporada")
-    }
-
-    @Test
-    fun `ImdbEpisodeDto toEpisode maps fields with defaults`() {
-        val dto = ImdbEpisodeDto(
-            episodeNumber = 3,
-            name = "E3",
-            seasonNumber = 1
-        )
-
-        val episode = dto.toEpisode()
-
-        assert(episode.episodeNumber == 3)
-        assert(episode.name == "E3")
-        assert(episode.seasonNumber == 1)
-        assert(episode.episodeType == null)
-    }
-
-    @Test
-    fun `ImdbSeasonDetailDto toSeasonDetail maps episodes`() {
-        val dto = ImdbSeasonDetailDto(
-            internalId = "x",
-            seasonNumber = 1,
-            episodes = listOf(
-                ImdbEpisodeDto(episodeNumber = 1, name = "One", seasonNumber = 1),
-                ImdbEpisodeDto(episodeNumber = 2, name = "Two", seasonNumber = 1)
-            )
-        )
-
-        val detail = dto.toSeasonDetail()
-
-        assert(detail.seasonNumber == 1)
-        assert(detail.episodes.size == 2)
-        assert(detail.episodes[1].name == "Two")
     }
 }

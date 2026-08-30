@@ -101,7 +101,6 @@ val dataModule = module {
     // Repositories
     single<DiscoverRepository> {
         DiscoverRepositoryImpl(
-            imdbApi = get(),
             tmdbApi = get(),
             omdbApi = get(),
             wikidataApi = get(),

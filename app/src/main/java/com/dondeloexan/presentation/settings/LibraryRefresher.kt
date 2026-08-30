@@ -121,6 +121,8 @@ class LibraryRefresher(
                                 inProduction = tvDetail.inProduction ?: existing.inProduction,
                                 numberOfSeasons = tvDetail.numberOfSeasons ?: existing.numberOfSeasons,
                                 streamingPlatforms = platformsStr ?: existing.streamingPlatforms,
+                                posterUrl = tvDetail.posterPath?.let { "https://image.tmdb.org/t/p/w500$it" }
+                                        ?: existing.posterUrl,
                                 lastRefreshedAt = System.currentTimeMillis()
                             )
                         )

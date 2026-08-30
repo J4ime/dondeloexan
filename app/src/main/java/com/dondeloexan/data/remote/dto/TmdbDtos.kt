@@ -219,7 +219,19 @@ data class TmdbCrewMemberDto(
 @Serializable
 data class TmdbExternalIdsDto(
     val id: Int,
-    @SerialName("imdb_id") val imdbId: String? = null
+    @SerialName("imdb_id") val imdbId: String? = null,
+    @SerialName("facebook_id") val facebookId: String? = null,
+    @SerialName("instagram_id") val instagramId: String? = null,
+    @SerialName("twitter_id") val twitterId: String? = null,
+    @SerialName("youtube_id") val youtubeId: String? = null,
+    @SerialName("wikidata_id") val wikidataId: String? = null
+)
+
+@Serializable
+data class TmdbFindResponse(
+    @SerialName("movie_results") val movieResults: List<TmdbMultiSearchResult> = emptyList(),
+    @SerialName("tv_results") val tvResults: List<TmdbMultiSearchResult> = emptyList(),
+    @SerialName("person_results") val personResults: List<TmdbMultiSearchResult> = emptyList()
 )
 
 @Serializable

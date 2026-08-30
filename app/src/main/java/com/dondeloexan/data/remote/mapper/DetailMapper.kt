@@ -1,8 +1,5 @@
 package com.dondeloexan.data.remote.mapper
 
-import com.dondeloexan.data.remote.dto.ImdbDetailSeasonDto
-import com.dondeloexan.data.remote.dto.ImdbEpisodeDto
-import com.dondeloexan.data.remote.dto.ImdbSeasonDetailDto
 import com.dondeloexan.data.remote.dto.TmdbEpisodeDto
 import com.dondeloexan.data.remote.dto.TmdbSeasonDto
 import com.dondeloexan.data.remote.dto.TmdbTvSeasonDetailDto
@@ -33,31 +30,6 @@ fun TmdbEpisodeDto.toEpisode(): Episode = Episode(
 
 fun TmdbTvSeasonDetailDto.toSeasonDetail(): SeasonDetail = SeasonDetail(
     seasonNumber = seasonNumber,
-    episodes = episodes.map { it.toEpisode() },
-    name = name,
-    overview = overview,
-    airDate = airDate
-)
-
-fun ImdbDetailSeasonDto.toSeason(): Season = Season(
-    seasonNumber = seasonNumber ?: 0,
-    name = label ?: "Temporada ${seasonNumber ?: 0}",
-    episodeCount = 0,
-    id = null
-)
-
-fun ImdbEpisodeDto.toEpisode(): Episode = Episode(
-    episodeNumber = episodeNumber ?: 0,
-    name = name.orEmpty(),
-    overview = overview,
-    airDate = airDate,
-    stillPath = stillPath,
-    voteAverage = voteAverage,
-    seasonNumber = seasonNumber ?: 0
-)
-
-fun ImdbSeasonDetailDto.toSeasonDetail(): SeasonDetail = SeasonDetail(
-    seasonNumber = seasonNumber ?: 0,
     episodes = episodes.map { it.toEpisode() },
     name = name,
     overview = overview,

@@ -33,7 +33,6 @@ import com.dondeloexan.data.remote.mapper.toEpisode
 import com.dondeloexan.data.remote.mapper.toSeason
 import com.dondeloexan.data.remote.mapper.toSeasonDetail
 import com.dondeloexan.domain.model.CriticReview
-import com.dondeloexan.data.remote.api.BalloonerismmApi
 import com.dondeloexan.data.remote.api.OmdbApi
 import com.dondeloexan.data.remote.api.TmdbApi
 import com.dondeloexan.data.remote.api.WikidataApi
@@ -44,7 +43,6 @@ import com.dondeloexan.data.remote.dto.TmdbPersonSearchResult
 import com.dondeloexan.data.remote.mapper.toContentPreview
 import com.dondeloexan.data.remote.mapper.toDomain
 import com.dondeloexan.data.remote.mapper.toStreamingAvailability
-import com.dondeloexan.data.remote.mapper.toStreamingAvailability as imdbToStreaming
 import com.dondeloexan.domain.model.AvailabilityType
 import com.dondeloexan.domain.model.Content
 import com.dondeloexan.domain.model.ContentPreview
@@ -75,7 +73,6 @@ import java.time.LocalDate
 import java.util.concurrent.ConcurrentHashMap
 
 class DiscoverRepositoryImpl(
-    private val imdbApi: BalloonerismmApi,
     private val tmdbApi: TmdbApi,
     private val omdbApi: OmdbApi,
     private val wikidataApi: WikidataApi,
@@ -112,48 +109,29 @@ class DiscoverRepositoryImpl(
         emit(DataResult.Loading)
 
         try {
-            val imdbResult = imdbApi.searchMulti(query, page = page)
-            val previews = imdbResult.results
+            val tmdbResult = tmdbApi.searchMulti(query, page = page)
+            val previews = tmdbResult.results
                 .filter { it.mediaType in listOf("movie", "tv") && !it.adult }
                 .map { it.toContentPreview() }
                 .take(20)
-
-            if (previews.isNotEmpty()) {
-                val withPlatforms = attachImdbPlatforms(previews)
-                emit(DataResult.Success(withPlatforms))
-            } else {
-                val tmdbResult = tmdbApi.searchMulti(query)
-                val tmdbPreviews = tmdbResult.results
-                    .filter { it.mediaType in listOf("movie", "tv") && !it.adult }
-                    .map { it.toContentPreview() }
-                    .take(20)
-                val withPlatforms = attachTmbdPlatforms(tmdbPreviews)
-                emit(DataResult.Success(withPlatforms))
-            }
+            val withPlatforms = attachTmbdPlatforms(previews)
+            emit(DataResult.Success(withPlatforms))
         } catch (e: Exception) {
-            try {
-                val tmdbResult = tmdbApi.searchMulti(query)
-                val tmdbPreviews = tmdbResult.results
-                    .filter { it.mediaType in listOf("movie", "tv") && !it.adult }
-                    .map { it.toContentPreview() }
-                    .take(20)
-                val withPlatforms = attachTmbdPlatforms(tmdbPreviews)
-                emit(DataResult.Success(withPlatforms))
-            } catch (fallback: Exception) {
-                emit(DataResult.Error(e))
-            }
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            AppLogger.e("DiscoverRepo", "search error for $query", e)
+            emit(DataResult.Error(e))
         }
     }
 
     override suspend fun resolveTmdbId(imdbId: String, type: ContentType): Int? {
         return try {
-            val externalIds = when (type) {
-                ContentType.MOVIE -> imdbApi.getMovieExternalIds(imdbId)
-                ContentType.SERIES -> imdbApi.getTvExternalIds(imdbId)
+            when (type) {
+                ContentType.MOVIE -> tmdbApi.findMovieByImdbId(imdbId).movieResults.firstOrNull()?.id
+                ContentType.SERIES -> tmdbApi.findTvByImdbId(imdbId).tvResults.firstOrNull()?.id
             }
-            externalIds.tmdbId
-        } catch (_: Exception) {
-            AppLogger.e("DiscoverRepo", "resolveTmdbId failed for $imdbId")
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            AppLogger.e("DiscoverRepo", "resolveTmdbId failed for $imdbId", e)
             null
         }
     }
@@ -304,13 +282,17 @@ class DiscoverRepositoryImpl(
     private suspend fun fetchImdbDetail(id: String, contentType: ContentType): Content {
         val imdbId = id.removePrefix("imdb-")
         val tmdbId = try {
-            val externalIds = when (contentType) {
-                ContentType.MOVIE -> imdbApi.getMovieExternalIds(imdbId)
-                ContentType.SERIES -> imdbApi.getTvExternalIds(imdbId)
+            val find = when (contentType) {
+                ContentType.MOVIE -> tmdbApi.findMovieByImdbId(imdbId)
+                ContentType.SERIES -> tmdbApi.findTvByImdbId(imdbId)
             }
-            externalIds.tmdbId
+            when (contentType) {
+                ContentType.MOVIE -> find.movieResults.firstOrNull()?.id
+                ContentType.SERIES -> find.tvResults.firstOrNull()?.id
+            }
         } catch (e: Exception) {
-            AppLogger.e("DiscoverRepo", "fetchImdbDetail tmdbId for $id", e)
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            AppLogger.e("DiscoverRepo", "resolve TMDB id for $imdbId", e)
             null
         }
 
@@ -318,45 +300,35 @@ class DiscoverRepositoryImpl(
             return fetchTmdbDetail("tmdb-$tmdbId", contentType)
         }
 
-        return fetchImdbDirectDetail(imdbId, contentType)
-    }
-
-    private suspend fun fetchImdbDirectDetail(imdbId: String, contentType: ContentType): Content {
-        val providers = when (contentType) {
-            ContentType.MOVIE -> imdbApi.getMovieWatchProviders(imdbId)
-            ContentType.SERIES -> imdbApi.getTvWatchProviders(imdbId)
-        }
-        val platforms = providers.results["ES"]?.imdbToStreaming().orEmpty()
-
-        val omdbRating = try { omdbApi.getByImdbId(imdbId) } catch (e: Exception) {
-            AppLogger.e("DiscoverRepo", "OMDB rating for $imdbId", e)
-            null
-        }
-
-        val externalLinks = try {
-            val social = when (contentType) {
-                ContentType.MOVIE -> imdbApi.getMovieExternalIds(imdbId)
-                ContentType.SERIES -> imdbApi.getTvExternalIds(imdbId)
-            }
-            ExternalLinks(
-                imdbId = social.imdbId,
-                wikipediaUrl = social.wikipediaUrl,
-                facebookId = social.facebookId,
-                instagramId = social.instagramId,
-                twitterId = social.twitterId,
-                youtubeId = social.youtubeId,
-                homepage = social.homepage,
-                wikidataId = social.wikidataId
-            )
+        val omdb = try {
+            omdbApi.getByImdbId(imdbId)
         } catch (e: Exception) {
-            AppLogger.e("DiscoverRepo", "externalLinks for imdb $imdbId", e)
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            AppLogger.e("DiscoverRepo", "OMDB fallback for $imdbId", e)
             null
         }
-
-        return when (contentType) {
-            ContentType.MOVIE -> imdbApi.getMovieDetail(imdbId).toDomain(omdbRating, platforms, externalLinks)
-            ContentType.SERIES -> imdbApi.getTvDetail(imdbId).toDomain(omdbRating, platforms, externalLinks)
+        if (omdb == null || omdb.title.isNullOrBlank() || omdb.response == "False") {
+            throw IllegalArgumentException("Content not found for IMDb id: $imdbId")
         }
+        return Content(
+            id = "imdb-$imdbId",
+            source = ContentSource.IMDB,
+            imdbId = imdbId,
+            title = omdb.title,
+            type = contentType,
+            year = omdb.year?.toIntOrNull(),
+            releaseDate = omdb.released?.takeIf { it != "N/A" },
+            ratingImdb = omdb.imdbRating?.toFloatOrNull(),
+            ratingRt = omdb.ratings?.find { it.source == "Rotten Tomatoes" }
+                ?.value?.removeSuffix("%")?.toIntOrNull(),
+            ratingMetacritic = omdb.metascore?.toIntOrNull(),
+            synopsis = omdb.plot?.takeIf { it.isNotBlank() && it != "N/A" },
+            genres = omdb.genre?.split(", ")?.filter { it.isNotBlank() } ?: emptyList(),
+            countries = omdb.country?.split(", ")?.filter { it.isNotBlank() && it != "N/A" } ?: emptyList(),
+            coverUrl = omdb.poster?.takeIf { it.isNotBlank() && it != "N/A" && !it.startsWith("data:") },
+            externalLinks = ExternalLinks(imdbId = imdbId),
+            lastCachedAt = System.currentTimeMillis()
+        )
     }
 
     override suspend fun getTrending(): Flow<DataResult<List<ContentPreview>>> = getTrending(1)
@@ -364,36 +336,17 @@ class DiscoverRepositoryImpl(
     override suspend fun getTrending(page: Int): Flow<DataResult<List<ContentPreview>>> = flow {
         emit(DataResult.Loading)
         try {
-            val imdbResult = imdbApi.popularAll(page = page)
-            val previews = imdbResult.results
-                .filter { it.mediaType in listOf("movie", "tv") && !it.adult }
+            val tmdbTrending = tmdbApi.getTrending()
+            val tmdbPreviews = tmdbTrending.results
+                .filter { it.mediaType in listOf("movie", "tv") }
                 .map { it.toContentPreview() }
                 .take(20)
-
-            if (previews.isNotEmpty()) {
-                val withPlatforms = attachImdbPlatforms(previews)
-                emit(DataResult.Success(withPlatforms))
-            } else {
-                val tmdbTrending = tmdbApi.getTrending()
-                val tmdbPreviews = tmdbTrending.results
-                    .filter { it.mediaType in listOf("movie", "tv") }
-                    .map { it.toContentPreview() }
-                    .take(20)
-                val withPlatforms = attachTmbdPlatforms(tmdbPreviews)
-                emit(DataResult.Success(withPlatforms))
-            }
+            val withPlatforms = attachTmbdPlatforms(tmdbPreviews)
+            emit(DataResult.Success(withPlatforms))
         } catch (e: Exception) {
-            try {
-                val tmdbTrending = tmdbApi.getTrending()
-                val tmdbPreviews = tmdbTrending.results
-                    .filter { it.mediaType in listOf("movie", "tv") }
-                    .map { it.toContentPreview() }
-                    .take(20)
-                val withPlatforms = attachTmbdPlatforms(tmdbPreviews)
-                emit(DataResult.Success(withPlatforms))
-            } catch (fallback: Exception) {
-                emit(DataResult.Error(e))
-            }
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            AppLogger.e("DiscoverRepo", "getTrending error for page $page", e)
+            emit(DataResult.Error(e))
         }
     }
 
@@ -424,32 +377,19 @@ class DiscoverRepositoryImpl(
                 )
             }
 
-            val tvImdbId = try {
-                tmdbApi.getTvExternalIds(tmdbId).imdbId
-            } catch (e: Exception) {
-                AppLogger.e("DiscoverRepo", "TMDB externalIds failed for tmdb=$tmdbId", e)
-                null
-            }
-
-            val externalLinks = if (tvImdbId != null) {
-                val social = try {
-                    imdbApi.getTvExternalIds(tvImdbId)
-                } catch (e: Exception) {
-                    AppLogger.e("DiscoverRepo", "Balloonerismm externalIds failed for imdb=$tvImdbId", e)
-                    null
-                }
+            val externalLinks = try {
+                val social = tmdbApi.getTvExternalIds(tmdbId)
                 ExternalLinks(
-                    imdbId = social?.imdbId ?: tvImdbId,
-                    wikipediaUrl = social?.wikipediaUrl,
-                    facebookId = social?.facebookId,
-                    instagramId = social?.instagramId,
-                    twitterId = social?.twitterId,
-                    youtubeId = social?.youtubeId,
-                    homepage = social?.homepage,
-                    wikidataId = social?.wikidataId
+                    imdbId = social.imdbId,
+                    facebookId = social.facebookId,
+                    instagramId = social.instagramId,
+                    twitterId = social.twitterId,
+                    youtubeId = social.youtubeId,
+                    wikidataId = social.wikidataId
                 )
-            } else {
-                AppLogger.w("DiscoverRepo", "No IMDb ID from TMDB for tmdb=$tmdbId")
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                AppLogger.e("DiscoverRepo", "TMDB externalIds failed for tv tmdb=$tmdbId", e)
                 null
             }
 
@@ -467,32 +407,19 @@ class DiscoverRepositoryImpl(
                 }
             }
 
-            val movieImdbId = movie.imdbId ?: try {
-                tmdbApi.getMovieExternalIds(tmdbId).imdbId
-            } catch (e: Exception) {
-                AppLogger.e("DiscoverRepo", "TMDB externalIds fallback failed for tmdb=$tmdbId", e)
-                null
-            }
-
-            val externalLinks = if (movieImdbId != null) {
-                val social = try {
-                    imdbApi.getMovieExternalIds(movieImdbId)
-                } catch (e: Exception) {
-                    AppLogger.e("DiscoverRepo", "Balloonerismm externalIds failed for imdb=$movieImdbId", e)
-                    null
-                }
+            val externalLinks = try {
+                val social = tmdbApi.getMovieExternalIds(tmdbId)
                 ExternalLinks(
-                    imdbId = social?.imdbId ?: movieImdbId,
-                    wikipediaUrl = social?.wikipediaUrl,
-                    facebookId = social?.facebookId,
-                    instagramId = social?.instagramId,
-                    twitterId = social?.twitterId,
-                    youtubeId = social?.youtubeId,
-                    homepage = social?.homepage,
-                    wikidataId = social?.wikidataId
+                    imdbId = social.imdbId,
+                    facebookId = social.facebookId,
+                    instagramId = social.instagramId,
+                    twitterId = social.twitterId,
+                    youtubeId = social.youtubeId,
+                    wikidataId = social.wikidataId
                 )
-            } else {
-                AppLogger.w("DiscoverRepo", "No IMDb ID from TMDB for tmdb=$tmdbId")
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                AppLogger.e("DiscoverRepo", "TMDB externalIds failed for movie tmdb=$tmdbId", e)
                 null
             }
 
@@ -548,33 +475,6 @@ class DiscoverRepositoryImpl(
             }
         }
         return content.copy(streamingPlatforms = active + others)
-    }
-
-    private suspend fun attachImdbPlatforms(previews: List<ContentPreview>): List<ContentPreview> {
-        return coroutineScope {
-            previews.map { preview ->
-                async {
-                    val platforms = try {
-                        val imdbId = preview.id.removePrefix("imdb-")
-                        val providerResponse = if (preview.type == ContentType.SERIES) {
-                            imdbApi.getTvWatchProviders(imdbId)
-                        } else {
-                            imdbApi.getMovieWatchProviders(imdbId)
-                        }
-                        providerResponse.results["ES"]?.imdbToStreaming().orEmpty()
-                    } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
-                        AppLogger.w("DiscoverRepo", "IMDB platforms for ${preview.id} (timeout): ${e.message}")
-                        emptyList()
-                    } catch (e: kotlinx.coroutines.CancellationException) {
-                        throw e
-                    } catch (e: Exception) {
-                        AppLogger.e("DiscoverRepo", "IMDB platforms for ${preview.id}, fallback to TMDB", e)
-                        tryFetchTmbdPlatforms(preview)
-                    }
-                    preview.copy(streamingPlatforms = platforms)
-                }
-            }.map { it.await() }
-        }
     }
 
     override suspend fun fetchPlatforms(previews: List<ContentPreview>): List<ContentPreview> {
@@ -648,34 +548,6 @@ class DiscoverRepositoryImpl(
                     preview.copy(streamingPlatforms = platforms)
                 }
             }.map { it.await() }
-        }
-    }
-
-    private suspend fun tryFetchTmbdPlatforms(preview: ContentPreview): List<StreamingAvailability> {
-        return try {
-            val tmdbSearch = tmdbApi.searchMulti(preview.title)
-            val match = tmdbSearch.results.firstOrNull {
-                it.mediaType == if (preview.type == ContentType.SERIES) "tv" else "movie"
-            }
-            if (match != null) {
-                val cacheKey = "tmdb-${match.id}-${preview.type}"
-                val cached = platformsCache[cacheKey]
-                if (cached != null && (System.currentTimeMillis() - cached.timestamp) < CACHE_TTL_MS) {
-                    cached.platforms
-                } else {
-                    val providerResponse = if (preview.type == ContentType.SERIES) {
-                        tmdbApi.getTvWatchProviders(match.id)
-                    } else {
-                        tmdbApi.getMovieWatchProviders(match.id)
-                    }
-                    val platforms = providerResponse.results?.get("ES")?.toStreamingAvailability().orEmpty()
-                    platformsCache[cacheKey] = CachedPlatforms(platforms, System.currentTimeMillis())
-                    platforms
-                }
-            } else emptyList()
-        } catch (e: Exception) {
-            AppLogger.e("DiscoverRepo", "TMDB fallback platforms for ${preview.title}", e)
-            emptyList()
         }
     }
 
@@ -1402,8 +1274,9 @@ class DiscoverRepositoryImpl(
                 }
                 ContentSource.IMDB -> {
                     val imdbId = content.imdbId ?: return emptyList()
-                    imdbApi.getTvDetail(imdbId).seasons
-                        ?.filter { (it.seasonNumber ?: 0) > 0 }
+                    val tmdbId = resolveTmdbId(imdbId, ContentType.SERIES) ?: return emptyList()
+                    tmdbApi.getTvDetail(tmdbId).seasons
+                        ?.filter { it.seasonNumber > 0 }
                         ?.map { it.toSeason() }
                         ?: emptyList()
                 }
@@ -1453,7 +1326,8 @@ class DiscoverRepositoryImpl(
                 }
                 ContentSource.IMDB -> {
                     val imdbId = content.imdbId ?: return SeasonDetail(seasonNumber)
-                    imdbApi.getTvSeason(imdbId, seasonNumber).toSeasonDetail()
+                    val tmdbId = resolveTmdbId(imdbId, ContentType.SERIES) ?: return SeasonDetail(seasonNumber)
+                    tmdbApi.getTvSeason(tmdbId, seasonNumber).toSeasonDetail()
                 }
             }
             if (detail.episodes.isNotEmpty() && session != null) {

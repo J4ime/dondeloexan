@@ -10,7 +10,6 @@ import com.dondeloexan.data.local.datastore.UserPreferencesDataStore
 import com.dondeloexan.data.local.entity.MovieEntity
 import com.dondeloexan.data.local.entity.TvShowEntity
 import com.dondeloexan.data.local.entity.WatchStatus
-import com.dondeloexan.data.remote.api.BalloonerismmApi
 import com.dondeloexan.data.remote.api.OmdbApi
 import com.dondeloexan.data.remote.api.TmdbApi
 import com.dondeloexan.data.remote.api.WikidataApi
@@ -32,7 +31,6 @@ import org.junit.jupiter.api.Test
 class DiscoverRepositoryMovieWatchStateTest {
 
     private val tmdbApi: TmdbApi = mockk()
-    private val imdbApi: BalloonerismmApi = mockk()
     private val omdbApi: OmdbApi = mockk()
     private val userPlatformDao: UserPlatformDao = mockk()
     private val movieDao: MovieDao = mockk()
@@ -58,7 +56,6 @@ class DiscoverRepositoryMovieWatchStateTest {
     @BeforeEach
     fun setUp() {
         repo = DiscoverRepositoryImpl(
-            imdbApi = imdbApi,
             tmdbApi = tmdbApi,
             omdbApi = omdbApi,
             wikidataApi = wikidataApi,

@@ -4,6 +4,7 @@ import com.dondeloexan.data.remote.dto.TmdbCompanySearchResponse
 import com.dondeloexan.data.remote.dto.TmdbCollectionDto
 import com.dondeloexan.data.remote.dto.TmdbCreditsResponse
 import com.dondeloexan.data.remote.dto.TmdbExternalIdsDto
+import com.dondeloexan.data.remote.dto.TmdbFindResponse
 import com.dondeloexan.data.remote.dto.TmdbMovieDto
 import com.dondeloexan.data.remote.dto.TmdbMultiSearchResponse
 import com.dondeloexan.data.remote.dto.TmdbPersonCreditsResponse
@@ -79,6 +80,22 @@ class TmdbApi(private val client: HttpClient) {
 
     suspend fun getTvWatchProviders(tvId: Int): TmdbWatchProvidersResponse {
         val response = client.get("tv/$tvId/watch/providers")
+        return response.body()
+    }
+
+    suspend fun findMovieByImdbId(imdbId: String, language: String = "es-ES"): TmdbFindResponse {
+        val response = client.get("find/$imdbId") {
+            parameter("external_source", "imdb_id")
+            parameter("language", language)
+        }
+        return response.body()
+    }
+
+    suspend fun findTvByImdbId(imdbId: String, language: String = "es-ES"): TmdbFindResponse {
+        val response = client.get("find/$imdbId") {
+            parameter("external_source", "imdb_id")
+            parameter("language", language)
+        }
         return response.body()
     }
 

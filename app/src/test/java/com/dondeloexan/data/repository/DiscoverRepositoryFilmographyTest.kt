@@ -7,7 +7,6 @@ import com.dondeloexan.data.local.dao.TvShowDao
 import com.dondeloexan.data.local.dao.TvShowProgressDao
 import com.dondeloexan.data.local.dao.UserPlatformDao
 import com.dondeloexan.data.local.datastore.UserPreferencesDataStore
-import com.dondeloexan.data.remote.api.BalloonerismmApi
 import com.dondeloexan.data.remote.api.OmdbApi
 import com.dondeloexan.data.remote.api.TmdbApi
 import com.dondeloexan.data.remote.dto.TmdbCollectionDto
@@ -29,7 +28,6 @@ import org.junit.jupiter.api.Test
 class DiscoverRepositoryFilmographyTest {
 
     private val tmdbApi: TmdbApi = mockk()
-    private val imdbApi: BalloonerismmApi = mockk()
     private val omdbApi: OmdbApi = mockk()
     private val userPlatformDao: UserPlatformDao = mockk()
     private val movieDao: MovieDao = mockk()
@@ -42,7 +40,6 @@ class DiscoverRepositoryFilmographyTest {
     private val faMovieDataDao: FaMovieDataDao = mockk()
 
     private val repo: DiscoverRepositoryImpl = DiscoverRepositoryImpl(
-        imdbApi = imdbApi,
         tmdbApi = tmdbApi,
         omdbApi = omdbApi,
         wikidataApi = wikidataApi,
