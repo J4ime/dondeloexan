@@ -13,24 +13,50 @@ object AppLogger {
         get() = synchronized(lock) { _entries.toList() }
 
     fun log(level: LogLevel, tag: String, message: String, throwable: Throwable? = null) {
+        val trace = throwable?.let { "${it.javaClass.simpleName}: ${it.message}" }
         val entry = LogEntry(
             timestamp = System.currentTimeMillis(),
             level = level,
             tag = tag,
             message = message,
-            throwable = throwable?.let { "${it.javaClass.simpleName}: ${it.message}" }
+            throwable = trace
         )
+        var coalesced: LogEntry? = null
         synchronized(lock) {
-            _entries.add(entry)
-            if (_entries.size > MAX_ENTRIES) {
-                _entries.removeAt(0)
+            val last = _entries.lastOrNull()
+            if (last != null &&
+                last.level == level &&
+                last.tag == tag &&
+                last.message == message &&
+                last.throwable == trace
+            ) {
+                last.repeats++
+                coalesced = last
+            } else {
+                _entries.add(entry)
+                if (_entries.size > MAX_ENTRIES) {
+                    _entries.removeAt(0)
+                }
             }
         }
+        emitToLogcat(level, tag, message, throwable, coalesced?.repeats ?: 0)
+    }
+
+    private fun emitToLogcat(
+        level: LogLevel,
+        tag: String,
+        message: String,
+        throwable: Throwable?,
+        repeats: Int
+    ) {
+        val emit = repeats <= 2 || repeats % 100 == 0
+        if (!emit) return
+        val msg = if (repeats > 0) "$message (x$repeats)" else message
         when (level) {
-            LogLevel.DEBUG -> android.util.Log.d(tag, message, throwable)
-            LogLevel.INFO -> android.util.Log.i(tag, message, throwable)
-            LogLevel.WARN -> android.util.Log.w(tag, message, throwable)
-            LogLevel.ERROR -> android.util.Log.e(tag, message, throwable)
+            LogLevel.DEBUG -> android.util.Log.d(tag, msg, throwable)
+            LogLevel.INFO -> android.util.Log.i(tag, msg, throwable)
+            LogLevel.WARN -> android.util.Log.w(tag, msg, throwable)
+            LogLevel.ERROR -> android.util.Log.e(tag, msg, throwable)
         }
     }
 
@@ -49,6 +75,8 @@ data class LogEntry(
     val message: String,
     val throwable: String? = null
 ) {
+    var repeats: Int = 1
+
     val formattedTime: String get() {
         val sdf = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
         return sdf.format(Date(timestamp))

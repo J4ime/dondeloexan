@@ -47,7 +47,8 @@ class LogViewerViewModel : ViewModel() {
         else AppLogger.entries.filter { it.level == _activeFilter.value }
 
         return filtered.joinToString("\n") { entry ->
-            "${entry.fullFormattedTime} [${entry.level}] ${entry.tag}: ${entry.message}" +
+            val repeat = if (entry.repeats > 1) " (x${entry.repeats})" else ""
+            "${entry.fullFormattedTime} [${entry.level}] ${entry.tag}: ${entry.message}$repeat" +
                 if (entry.throwable != null) "\n  ${entry.throwable}" else ""
         }
     }

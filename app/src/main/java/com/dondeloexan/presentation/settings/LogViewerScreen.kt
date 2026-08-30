@@ -104,7 +104,7 @@ fun LogViewerScreen(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 4.dp)
             ) {
-                items(logs, key = { "${it.timestamp}_${it.hashCode()}" }) { entry ->
+                items(logs) { entry ->
                     LogEntryRow(entry)
                 }
             }
@@ -158,6 +158,15 @@ fun LogEntryRow(entry: LogEntry) {
                     fontSize = 10.sp,
                     fontFamily = FontFamily.Monospace
                 )
+                if (entry.repeats > 1) {
+                    Text(
+                        "(x${entry.repeats})",
+                        style = UbuntuTypography.labelSmall,
+                        color = TextSecondary.copy(alpha = 0.6f),
+                        fontSize = 10.sp,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
             }
             Text(
                 entry.tag,
