@@ -133,6 +133,9 @@ fun DondeLoExanNavGraph(navController: NavHostController) {
     LaunchedEffect(Unit) {
         feedbackManager.events.collect { message -> feedbackMessage = message }
     }
+    LaunchedEffect(Unit) {
+        seriesViewModel.refreshSeriesData()
+    }
     LaunchedEffect(feedbackMessage) {
         if (feedbackMessage != null) {
             delay(2200)

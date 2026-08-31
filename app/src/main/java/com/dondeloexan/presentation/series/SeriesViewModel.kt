@@ -104,12 +104,23 @@ class SeriesViewModel(
     fun refreshSeriesData() {
         refreshScope.launch {
             refreshCoordinator.resetBatch()
-            val liked = tvShowDao.getAll().filter { it.liked }
             val now = System.currentTimeMillis()
             val cutoff = now - 86_400_000L
-            val stale = liked.filter { it.lastRefreshedAt == null || it.lastRefreshedAt < cutoff }
+            // Refrescar todas las series (no solo "liked") para poblar los datos de
+            // episodios. Prioridad a las que carecen de releasedEpisodes (el bug que
+            // dejaba series al día/terminadas colgadas en "En curso").
+            val missingData = tvShowDao.getAll().filter {
+                it.finishedAt == null && it.releasedEpisodes == null
+            }
+            val stale = tvShowDao.getAll().filter {
+                it.finishedAt == null &&
+                    it.lastRefreshedAt != null &&
+                    it.lastRefreshedAt < cutoff
+            }
+            val toRefresh = (missingData + stale)
+                .distinctBy { it.id }
 
-            stale.map { show ->
+            toRefresh.map { show ->
                 async {
                     val tmdbId = show.tmdbId ?: return@async
                     try {

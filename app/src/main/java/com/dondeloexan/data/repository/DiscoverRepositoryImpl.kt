@@ -40,7 +40,9 @@ import com.dondeloexan.data.remote.api.WikidataRelationship
 import com.dondeloexan.data.remote.dto.TmdbCompanySearchResult
 import com.dondeloexan.data.remote.dto.TmdbPersonCredit
 import com.dondeloexan.data.remote.dto.TmdbPersonSearchResult
+import com.dondeloexan.data.remote.dto.TmdbTvDetailDto
 import com.dondeloexan.data.remote.mapper.toContentPreview
+import com.dondeloexan.data.sync.toCatalogTvShowRow as toEntityCatalogTvShowRow
 import com.dondeloexan.data.remote.mapper.toDomain
 import com.dondeloexan.data.remote.mapper.toStreamingAvailability
 import com.dondeloexan.domain.model.AvailabilityType
@@ -1394,6 +1396,7 @@ class DiscoverRepositoryImpl(
             TvShowProgressEntity(tvShowId = tvShow.id, season = season, episode = episode)
         )
         tvShowDao.updateLastWatchedAt(tvShow.id, System.currentTimeMillis())
+        reconcileSeriesState(tvShow)
         return getSeriesTracking(content)
     }
 
@@ -1402,6 +1405,7 @@ class DiscoverRepositoryImpl(
         tvShowProgressDao?.deleteEpisode(tvShow.id, season, episode)
         val lastWatched = tvShowProgressDao?.getLastWatchedAt(tvShow.id)
         tvShowDao.updateLastWatchedAt(tvShow.id, lastWatched)
+        reconcileSeriesState(tvShow)
         return getSeriesTracking(content)
     }
 
@@ -1417,6 +1421,7 @@ class DiscoverRepositoryImpl(
             tvShowProgressDao?.insertAll(items)
         }
         tvShowDao.updateLastWatchedAt(tvShow.id, System.currentTimeMillis())
+        reconcileSeriesState(tvShow)
         return getSeriesTracking(content)
     }
 
@@ -1427,8 +1432,89 @@ class DiscoverRepositoryImpl(
         }
         val lastWatched = tvShowProgressDao?.getLastWatchedAt(tvShow.id)
         tvShowDao.updateLastWatchedAt(tvShow.id, lastWatched)
+        reconcileSeriesState(tvShow)
         return getSeriesTracking(content)
     }
+
+    /**
+     * Recalcula el estado de la serie respecto al usuario tras marcar/desmarcar
+     * capítulos y lo persiste en DB local (y en la nube si había que ir a las
+     * APIs por falta de datos de emisión), para que la serie se mueva entre los
+     * listados de "Mis series" (En curso / Al día-próximos / Terminadas).
+     */
+    private suspend fun reconcileSeriesState(tvShow: TvShowEntity) {
+        var current = tvShow
+        var watchedCount = tvShowProgressDao?.getEpisodeCount(tvShow.id) ?: 0
+        var aired = current.releasedEpisodes ?: current.totalEpisodes
+
+        // Datos de emisión insuficientes -> obtenerlos de las APIs y persistirlos.
+        if (aired == null || aired == 0) {
+            val tmdbId = current.tmdbId
+            if (tmdbId != null) {
+                try {
+                    val tv = tmdbApi.getTvDetailLight(tmdbId)
+                    val released = computeReleasedEpisodes(tv)
+                    current = current.copy(
+                        totalEpisodes = tv.numberOfEpisodes ?: current.totalEpisodes,
+                        releasedEpisodes = released,
+                        nextEpisodeAirDate = tv.nextEpisodeToAir?.airDate,
+                        nextEpisodeNumber = tv.nextEpisodeToAir?.episodeNumber,
+                        nextEpisodeSeasonNumber = tv.nextEpisodeToAir?.seasonNumber,
+                        seriesStatus = tv.status,
+                        inProduction = tv.inProduction ?: current.inProduction,
+                        numberOfSeasons = tv.numberOfSeasons ?: current.numberOfSeasons
+                    )
+                    tvShowDao.update(current)
+                    aired = released ?: current.totalEpisodes
+                    val session = cloudRead("currentSession") { cloudCatalog?.currentSession() }
+                    if (session != null && current.contentId != null) {
+                        cloudRead("reconcile-save-${current.contentId}") {
+                            cloudCatalog?.saveTvShows(listOf(current.toEntityCatalogTvShowRow()), session)
+                        }
+                    }
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    AppLogger.e("DiscoverRepo", "reconcile fetch detalle falló para ${current.title}", e)
+                }
+            }
+        }
+
+        val hasFuture = when (current.seriesStatus) {
+            "Ended", "Canceled" -> false
+            null -> current.inProduction != false
+            else -> true
+        }
+        val caughtUp = aired != null && aired > 0 && watchedCount >= aired
+        val now = System.currentTimeMillis()
+        val reconciled = when {
+            !caughtUp -> current.copy(status = WatchStatus.POR_VER, finishedAt = null, lastWatchedAt = now)
+            hasFuture -> current.copy(status = WatchStatus.YA_VISTA, finishedAt = null, lastWatchedAt = now)
+            else -> current.copy(status = WatchStatus.YA_VISTA, finishedAt = now, lastWatchedAt = now)
+        }
+        tvShowDao.update(reconciled)
+        val state = when {
+            !caughtUp -> "EN_CURSO"
+            hasFuture -> "AL_DIA"
+            else -> "TERMINADA"
+        }
+        AppLogger.i(
+            "DiscoverRepo",
+            "reconcile ${reconciled.title}: vistos=$watchedCount aired=$aired hasFuture=$hasFuture -> $state"
+        )
+    }
+
+    private fun computeReleasedEpisodes(tv: TmdbTvDetailDto): Int? =
+        if (tv.lastEpisodeToAir != null && tv.seasons != null) {
+            tv.seasons.filter { it.seasonNumber > 0 }
+                .sumOf { season ->
+                    when {
+                        season.seasonNumber < tv.lastEpisodeToAir.seasonNumber -> season.episodeCount
+                        season.seasonNumber == tv.lastEpisodeToAir.seasonNumber -> tv.lastEpisodeToAir.episodeNumber
+                        else -> 0
+                    }
+                }
+        } else tv.numberOfEpisodes
 
     override suspend fun markSeriesFinished(content: Content): Boolean {
         val tvShow = findTvShow(content) ?: return false

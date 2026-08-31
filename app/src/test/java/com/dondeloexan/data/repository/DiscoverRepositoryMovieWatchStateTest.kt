@@ -234,4 +234,105 @@ class DiscoverRepositoryMovieWatchStateTest {
         assert(page.none { it.title == "The" })
         assert(page.none { it.title == "Reloaded Matrix" })
     }
+
+    private val breakingBadContent = Content(
+        id = "tmdb-1396",
+        source = ContentSource.TMDB,
+        tmdbId = 1396,
+        title = "Breaking Bad",
+        type = ContentType.SERIES
+    )
+
+    private fun stubRecordPrimitives() {
+        coEvery { tvShowProgressDao?.insert(any()) } returns 1L
+        coEvery { tvShowDao.updateLastWatchedAt(any(), any()) } returns Unit
+        coEvery { tvShowProgressDao?.getByTvShowId(any()) } returns emptyList()
+    }
+
+    @Test
+    fun `recordEpisode moving to caught up finished series sets finishedAt`() = runTest {
+        coEvery { tvShowDao.getByContentId("tmdb-1396") } returns TvShowEntity(
+            id = 7, contentId = "tmdb-1396", tmdbId = 1396, title = "Breaking Bad",
+            totalEpisodes = 62, releasedEpisodes = 62, seriesStatus = "Ended",
+            inProduction = false, status = WatchStatus.POR_VER
+        )
+        coEvery { tvShowDao.getByTmdbId(any()) } returns null
+        coEvery { tvShowDao.getByImdbId(any()) } returns null
+        coEvery { tvShowProgressDao?.getEpisodeCount(7) } returns 62
+        stubRecordPrimitives()
+        val captured = slot<TvShowEntity>()
+        coEvery { tvShowDao.update(capture(captured)) } returns Unit
+
+        repo.recordEpisode(breakingBadContent, 5, 16)
+
+        val updated = captured.captured
+        assert(updated.status == WatchStatus.YA_VISTA)
+        assert(updated.finishedAt != null)
+    }
+
+    @Test
+    fun `recordEpisode leaving aired episodes unseen keeps series in progress`() = runTest {
+        coEvery { tvShowDao.getByContentId("tmdb-1396") } returns TvShowEntity(
+            id = 7, contentId = "tmdb-1396", tmdbId = 1396, title = "Breaking Bad",
+            totalEpisodes = 62, releasedEpisodes = 62, seriesStatus = "Returning Series",
+            inProduction = true, status = WatchStatus.POR_VER
+        )
+        coEvery { tvShowDao.getByTmdbId(any()) } returns null
+        coEvery { tvShowDao.getByImdbId(any()) } returns null
+        coEvery { tvShowProgressDao?.getEpisodeCount(7) } returns 30
+        stubRecordPrimitives()
+        val captured = slot<TvShowEntity>()
+        coEvery { tvShowDao.update(capture(captured)) } returns Unit
+
+        repo.recordEpisode(breakingBadContent, 3, 10)
+
+        val updated = captured.captured
+        assert(updated.status == WatchStatus.POR_VER)
+        assert(updated.finishedAt == null)
+    }
+
+    @Test
+    fun `recordEpisode caught up with future seasons is al dia not finished`() = runTest {
+        coEvery { tvShowDao.getByContentId("tmdb-1396") } returns TvShowEntity(
+            id = 7, contentId = "tmdb-1396", tmdbId = 1396, title = "Breaking Bad",
+            totalEpisodes = 62, releasedEpisodes = 62, seriesStatus = "Returning Series",
+            inProduction = true, status = WatchStatus.POR_VER
+        )
+        coEvery { tvShowDao.getByTmdbId(any()) } returns null
+        coEvery { tvShowDao.getByImdbId(any()) } returns null
+        coEvery { tvShowProgressDao?.getEpisodeCount(7) } returns 62
+        stubRecordPrimitives()
+        val captured = slot<TvShowEntity>()
+        coEvery { tvShowDao.update(capture(captured)) } returns Unit
+
+        repo.recordEpisode(breakingBadContent, 5, 16)
+
+        val updated = captured.captured
+        assert(updated.status == WatchStatus.YA_VISTA)
+        assert(updated.finishedAt == null)
+    }
+
+    @Test
+    fun `unrecordEpisode after finishing removes finishedAt and moves back to in progress`() = runTest {
+        coEvery { tvShowDao.getByContentId("tmdb-1396") } returns TvShowEntity(
+            id = 7, contentId = "tmdb-1396", tmdbId = 1396, title = "Breaking Bad",
+            totalEpisodes = 62, releasedEpisodes = 62, seriesStatus = "Ended",
+            inProduction = false, status = WatchStatus.YA_VISTA, finishedAt = 1000L
+        )
+        coEvery { tvShowDao.getByTmdbId(any()) } returns null
+        coEvery { tvShowDao.getByImdbId(any()) } returns null
+        coEvery { tvShowProgressDao?.getEpisodeCount(7) } returns 61
+        coEvery { tvShowProgressDao?.deleteEpisode(7, 5, 16) } returns Unit
+        coEvery { tvShowProgressDao?.getLastWatchedAt(7) } returns 999L
+        coEvery { tvShowProgressDao?.getByTvShowId(7) } returns emptyList()
+        coEvery { tvShowDao.updateLastWatchedAt(any(), any()) } returns Unit
+        val captured = slot<TvShowEntity>()
+        coEvery { tvShowDao.update(capture(captured)) } returns Unit
+
+        repo.unrecordEpisode(breakingBadContent, 5, 16)
+
+        val updated = captured.captured
+        assert(updated.status == WatchStatus.POR_VER)
+        assert(updated.finishedAt == null)
+    }
 }

@@ -139,7 +139,7 @@ class MediaDetailUseCases(
                 )
             } else {
                 val tracking = repository.recordEpisode(content, selectedSeason, episodeNumber)
-                EpisodeToggleResult.Applied(maybeMarkFinale(content, selectedSeason, episodeNumber, seasonDetail, tracking))
+                EpisodeToggleResult.Applied(tracking)
             }
         }
     }
@@ -155,7 +155,7 @@ class MediaDetailUseCases(
             .map { it.episodeNumber }
             .filter { it <= proposal.targetEpisode && !currentWatched.contains(SeriesTracking.keyFor(proposal.season, it)) }
         val tracking = repository.recordEpisodes(content, proposal.season, episodesToMark)
-        return maybeMarkFinale(content, proposal.season, proposal.targetEpisode, seasonDetail, tracking)
+        return tracking
     }
 
     suspend fun dismissCascade(
@@ -163,8 +163,7 @@ class MediaDetailUseCases(
         proposal: CascadeProposal,
         seasonDetail: SeasonDetail?
     ): SeriesTracking {
-        val tracking = repository.recordEpisode(content, proposal.season, proposal.targetEpisode)
-        return maybeMarkFinale(content, proposal.season, proposal.targetEpisode, seasonDetail, tracking)
+        return repository.recordEpisode(content, proposal.season, proposal.targetEpisode)
     }
 
     suspend fun toggleSeasonWatched(
@@ -179,36 +178,7 @@ class MediaDetailUseCases(
         return if (alreadyWatched) {
             repository.unrecordSeasonEpisodes(content, selectedSeason, episodeNumbers)
         } else {
-            val newTracking = repository.recordEpisodes(content, selectedSeason, episodeNumbers)
-            val lastEp = episodeNumbers.maxOrNull() ?: 0
-            if (lastEp > 0) maybeMarkFinale(content, selectedSeason, lastEp, seasonDetail, newTracking)
-            else newTracking
+            repository.recordEpisodes(content, selectedSeason, episodeNumbers)
         }
-    }
-
-    private suspend fun maybeMarkFinale(
-        content: Content,
-        seasonNumber: Int,
-        episodeNumber: Int,
-        seasonDetail: SeasonDetail?,
-        tracking: SeriesTracking
-    ): SeriesTracking {
-        val stateSeasons = repository.getSeasons(content)
-        val isFinaleType = seasonDetail?.episodes?.any {
-            it.episodeNumber == episodeNumber &&
-                (it.episodeType == "finale" || it.episodeType == "series_finale")
-        } == true
-
-        val isLastOfLastSeason = if (!isFinaleType) {
-            val lastSeason = stateSeasons.maxOfOrNull { it.seasonNumber }
-            val lastEpCount = seasonDetail?.episodes?.size
-            seasonNumber == lastSeason && episodeNumber == lastEpCount &&
-                (content.totalEpisodes == null || seasonNumber == lastSeason)
-        } else true
-
-        if (isFinaleType || isLastOfLastSeason) {
-            repository.markSeriesFinished(content)
-        }
-        return repository.getSeriesTracking(content)
     }
 }

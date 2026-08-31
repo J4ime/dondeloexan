@@ -116,15 +116,11 @@ class MediaDetailUseCasesTest {
     }
 
     @Test
-    fun `marking finale episode finishes the series`() = runTest {
-        coEvery { repository.getSeasons(content) } returns listOf(
-            Season(seasonNumber = 1, name = "T1", episodeCount = 3)
-        )
+    fun `toggleEpisode on finale delegates to recordEpisode (finish is decided by repo)`() = runTest {
         coEvery { repository.recordEpisode(any(), any(), any()) } returns SeriesTracking(exists = true)
         coEvery { repository.getSeriesTracking(any()) } returns SeriesTracking(exists = true)
-        coEvery { repository.markSeriesFinished(content) } returns true
 
-        useCases.toggleEpisode(
+        val result = useCases.toggleEpisode(
             content = content,
             selectedSeason = 1,
             episodeNumber = 3,
@@ -132,18 +128,19 @@ class MediaDetailUseCasesTest {
             seasonDetail = seasonDetail(types = mapOf(3 to "series_finale"))
         )
 
-        coVerify { repository.markSeriesFinished(content) }
+        assert(result is EpisodeToggleResult.Applied)
+        coVerify { repository.recordEpisode(content, 1, 3) }
+        // La terminación ya no se decide en el use case: la maneja el repo
+        // (reconcileSeriesState) con datos de emisión reales.
+        coVerify(exactly = 0) { repository.markSeriesFinished(any()) }
     }
 
     @Test
-    fun `non-final last episode does not finish in-production series`() = runTest {
-        coEvery { repository.getSeasons(content) } returns listOf(
-            Season(seasonNumber = 1, name = "T1", episodeCount = 3)
-        )
+    fun `toggleEpisode non-final last episode does not call markSeriesFinished`() = runTest {
         coEvery { repository.recordEpisode(any(), any(), any()) } returns SeriesTracking(exists = true)
         coEvery { repository.getSeriesTracking(any()) } returns SeriesTracking(exists = true)
 
-        useCases.toggleEpisode(
+        val result = useCases.toggleEpisode(
             content = content,
             selectedSeason = 1,
             episodeNumber = 1,
@@ -151,6 +148,8 @@ class MediaDetailUseCasesTest {
             seasonDetail = seasonDetail()
         )
 
+        assert(result is EpisodeToggleResult.Applied)
+        coVerify { repository.recordEpisode(content, 1, 1) }
         coVerify(exactly = 0) { repository.markSeriesFinished(any()) }
     }
 
