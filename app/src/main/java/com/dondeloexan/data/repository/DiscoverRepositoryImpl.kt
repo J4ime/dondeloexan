@@ -175,6 +175,15 @@ class DiscoverRepositoryImpl(
     }
 
     /**
+     * Fila "pobre" = variante de biblioteca sincronizada desde Room
+     * (MovieEntity/TvShowEntity), que no guarda dirección/reparto/géneros…
+     * En ese caso el detalle carece de ficha técnica y hay que refrescar desde
+     * las APIs y re-escribir la nube con los datos ricos.
+     */
+    private fun Content.isCatalogSparse(): Boolean =
+        directors.isEmpty() && cast.isEmpty() && genres.isEmpty()
+
+    /**
      * Nube primero: si el contenido está en el catálogo global se sirve desde
      * ahí (compartido por todos los usuarios). Si no, se trae de las APIs
      * como hasta ahora y se guarda en la nube (write-through, best-effort).
@@ -189,11 +198,18 @@ class DiscoverRepositoryImpl(
                     ContentType.SERIES -> cloudCatalog?.getTvShow(contentId, session)?.toContent()
                 }
             }
-            if (cached != null) {
-                AppLogger.i("DiscoverRepo", "getDetail: catálogo nube hit para $contentId")
+            if (cached != null && !cached.isCatalogSparse()) {
+                AppLogger.i("DiscoverRepo", "getDetail: catálogo nube hit rico para $contentId")
                 return cached
             }
-            AppLogger.d("DiscoverRepo", "getDetail: catálogo nube miss para $contentId, usando APIs")
+            if (cached != null) {
+                AppLogger.i(
+                    "DiscoverRepo",
+                    "getDetail: hit nube pobre para $contentId (biblioteca); refrescando desde APIs y re-escribiendo nube"
+                )
+            } else {
+                AppLogger.d("DiscoverRepo", "getDetail: catálogo nube miss para $contentId, usando APIs")
+            }
         }
 
         val content = when {
