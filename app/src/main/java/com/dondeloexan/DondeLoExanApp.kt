@@ -5,10 +5,13 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.os.Build
 import com.dondeloexan.data.local.datastore.UserPreferencesDataStore
+import com.dondeloexan.data.local.dao.MovieDao
+import com.dondeloexan.data.local.dao.TvShowDao
 import com.dondeloexan.di.dataModule
 import com.dondeloexan.di.networkModule
 import com.dondeloexan.di.viewModelModule
 import com.dondeloexan.presentation.settings.LibraryRefresher
+import com.dondeloexan.util.TMDB_POSTER_BASE
 import com.dondeloexan.worker.SeriesCheckWorker
 import com.dondeloexan.worker.WorkScheduler
 import kotlinx.coroutines.CancellationException
@@ -39,6 +42,16 @@ class DondeLoExanApp : Application() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val koin = GlobalContext.get()
+                val moviesDao: MovieDao = koin.get()
+                val tvShowsDao: TvShowDao = koin.get()
+                val repairedMovies = moviesDao.repairRelativePosterUrls(TMDB_POSTER_BASE)
+                val repairedTv = tvShowsDao.repairRelativePosterUrls(TMDB_POSTER_BASE)
+                if (repairedMovies + repairedTv > 0) {
+                    android.util.Log.i(
+                        "DondeLoExanApp",
+                        "Pósters reparados: $repairedMovies películas, $repairedTv series"
+                    )
+                }
                 val dataStore: UserPreferencesDataStore = koin.get()
                 val lastUpdate = dataStore.getLastLibraryUpdateTimestamp()
                 if (lastUpdate == null || (System.currentTimeMillis() - lastUpdate) >= 21_600_000L) {

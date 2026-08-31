@@ -282,6 +282,7 @@ class MediaDetailViewModel(
                             loadSeriesRelationships(content)
                         }
                         is DataResult.Error -> {
+                            AppLogger.e("DetailVM", "getDetail error for $contentId", result.exception)
                             _uiState.value = _uiState.value.copy(
                                 isLoading = false,
                                 error = result.exception.message ?: "Error al cargar detalle"

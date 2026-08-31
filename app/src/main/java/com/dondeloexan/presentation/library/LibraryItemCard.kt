@@ -62,6 +62,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import coil.request.CachePolicy
 import com.dondeloexan.util.AppLogger
+import com.dondeloexan.util.normalizePosterUrl
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
@@ -100,11 +101,12 @@ fun LibraryItemCard(
             .clip(RoundedCornerShape(16.dp))
             .clickable(onClick = onClick)
     ) {
-        if (posterUrl != null) {
+        val resolvedPosterUrl = normalizePosterUrl(posterUrl)
+        if (resolvedPosterUrl != null) {
             val context = LocalContext.current
             AsyncImage(
                 model = ImageRequest.Builder(context)
-                    .data(posterUrl)
+                    .data(resolvedPosterUrl)
                     .crossfade(300)
                     .memoryCachePolicy(CachePolicy.ENABLED)
                     .build(),

@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dondeloexan.BuildConfig
 import com.dondeloexan.data.local.datastore.UserPreferencesDataStore
+import com.dondeloexan.data.remote.api.TmdbApi
 import com.dondeloexan.data.sync.SessionState
 import com.dondeloexan.data.sync.SyncSummary
 import com.dondeloexan.data.update.SilentUpdateManager
@@ -31,7 +32,8 @@ class SettingsViewModel(
     private val silentUpdateManager: SilentUpdateManager,
     private val libraryRefresher: LibraryRefresher,
     private val userPreferencesDataStore: UserPreferencesDataStore,
-    private val accountRepository: AccountRepository
+    private val accountRepository: AccountRepository,
+    private val tmdbApi: TmdbApi
 ) : ViewModel() {
 
     private val _updateState = MutableStateFlow<UpdateCheckState>(UpdateCheckState.Idle)
@@ -42,6 +44,9 @@ class SettingsViewModel(
 
     private val _libraryRefreshState = MutableStateFlow<LibraryRefreshState>(LibraryRefreshState.Idle)
     val libraryRefreshState: StateFlow<LibraryRefreshState> = _libraryRefreshState.asStateFlow()
+
+    private val _connectionTest = MutableStateFlow<String?>(null)
+    val connectionTest: StateFlow<String?> = _connectionTest.asStateFlow()
 
     private val _lastLibraryUpdateDate = MutableStateFlow<String?>(null)
     val lastLibraryUpdateDate: StateFlow<String?> = _lastLibraryUpdateDate.asStateFlow()
@@ -196,6 +201,27 @@ class SettingsViewModel(
 
     fun onLibraryRefreshMessageShown() {
         _libraryRefreshState.value = LibraryRefreshState.Idle
+    }
+
+    fun testTmdbConnection() {
+        viewModelScope.launch {
+            _connectionTest.value = "Comprobando..."
+            try {
+                val trending = withContext(Dispatchers.IO) { tmdbApi.getTrending() }
+                val sample = trending.results
+                    .filter { it.mediaType in listOf("movie", "tv") }
+                    .take(3)
+                    .joinToString(", ") { it.title ?: it.name ?: "?" }
+                val total = trending.results.count { it.mediaType in listOf("movie", "tv") }
+                AppLogger.i("SettingsVM", "Test conexión TMDB OK: $total resultados")
+                _connectionTest.value = "TMDB OK · $total resultados (${sample})"
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                AppLogger.e("SettingsVM", "Test conexión TMDB falló", e)
+                _connectionTest.value = "Error TMDB: ${e.message ?: e.javaClass.simpleName}"
+            }
+        }
     }
 
     fun login(email: String, password: String) {

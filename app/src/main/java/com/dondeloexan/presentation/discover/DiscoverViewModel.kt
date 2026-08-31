@@ -196,10 +196,20 @@ class DiscoverViewModel(
                         if (entity.role != null) {
                             val movieCredits = try {
                                 tmdbApi.getPersonMovieCredits(rawId)
-                            } catch (e: Exception) { null }
+                            } catch (e: kotlinx.coroutines.CancellationException) {
+                                throw e
+                            } catch (e: Exception) {
+                                AppLogger.e("DiscoverVM", "filmography movie credits for $rawId", e)
+                                null
+                            }
                             val tvCredits = try {
                                 tmdbApi.getPersonTvCredits(rawId)
-                            } catch (e: Exception) { null }
+                            } catch (e: kotlinx.coroutines.CancellationException) {
+                                throw e
+                            } catch (e: Exception) {
+                                AppLogger.e("DiscoverVM", "filmography tv credits for $rawId", e)
+                                null
+                            }
                             val movieList = if (movieCredits != null) {
                                 val filtered = when (entity.role) {
                                     "Actor", "Actriz" -> movieCredits.cast.orEmpty()
@@ -306,7 +316,10 @@ class DiscoverViewModel(
                     discoverRepository.fetchSearchPage(query, 1)
                         .filter { it.id !in excludedIds() }
                         .filter { it.ratingImdb != null && it.ratingImdb >= 6.0f }
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
                 } catch (e: Exception) {
+                    AppLogger.e("DiscoverVM", "search error for $query", e)
                     hasError = true
                     emptyList()
                 }
@@ -314,14 +327,20 @@ class DiscoverViewModel(
             val peopleDeferred = async {
                 try {
                     discoverRepository.searchPeople(query)
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
                 } catch (e: Exception) {
+                    AppLogger.e("DiscoverVM", "searchPeople error for $query", e)
                     emptyList()
                 }
             }
             val companiesDeferred = async {
                 try {
                     discoverRepository.searchCompanies(query)
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
                 } catch (e: Exception) {
+                    AppLogger.e("DiscoverVM", "searchCompanies error for $query", e)
                     emptyList()
                 }
             }
@@ -336,13 +355,19 @@ class DiscoverViewModel(
                 val roles = mutableSetOf<String>()
                 val personDetail = try {
                     tmdbApi.getPersonDetail(p.id)
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
                 } catch (e: Exception) {
+                    AppLogger.e("DiscoverVM", "personDetail for ${p.id}", e)
                     null
                 }
                 val isFemale = personDetail?.gender == 1
                 val creditsResponse = try {
                     tmdbApi.getPersonMovieCredits(p.id)
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
                 } catch (e: Exception) {
+                    AppLogger.e("DiscoverVM", "personMovieCredits for ${p.id}", e)
                     null
                 }
                 if (creditsResponse != null) {

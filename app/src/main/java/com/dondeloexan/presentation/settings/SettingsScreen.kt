@@ -27,6 +27,7 @@ import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.CloudDone
 import androidx.compose.material.icons.outlined.CloudUpload
 import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material.icons.outlined.FileUpload
@@ -89,6 +90,7 @@ fun SettingsScreen(
     val backupState by viewModel.backupState.collectAsState()
     val libraryRefreshState by viewModel.libraryRefreshState.collectAsState()
     val lastLibraryUpdateDate by viewModel.lastLibraryUpdateDate.collectAsState()
+    val connectionTest by viewModel.connectionTest.collectAsState()
     val session by viewModel.session.collectAsState()
     val accountAction by viewModel.accountAction.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -428,6 +430,14 @@ fun SettingsScreen(
                 }
 
                 item { SettingsGroupHeader("Herramientas") }
+                item {
+                    SettingsItem(
+                        icon = Icons.Outlined.CloudDone,
+                        title = "Probar conexión TMDB",
+                        subtitle = connectionTest ?: "Comprueba si el dispositivo llega a TMDB",
+                        onClick = { viewModel.testTmdbConnection() }
+                    )
+                }
                 item {
                     SettingsItem(
                         icon = Icons.Outlined.BugReport,

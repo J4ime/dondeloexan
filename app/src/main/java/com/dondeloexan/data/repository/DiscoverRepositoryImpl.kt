@@ -146,6 +146,8 @@ class DiscoverRepositoryImpl(
             val prioritized = prioritizePlatforms(content, activePlatforms)
             emit(DataResult.Success(prioritized))
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            AppLogger.e("DiscoverRepo", "getDetail error for $contentId", e)
             emit(DataResult.Error(e))
         }
     }

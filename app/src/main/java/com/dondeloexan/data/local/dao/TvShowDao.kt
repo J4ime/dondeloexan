@@ -105,6 +105,9 @@ interface TvShowDao {
     @Query("UPDATE tv_shows SET fa_id = :faId WHERE content_id = :contentId")
     suspend fun updateFaId(contentId: String, faId: Int?)
 
+    @Query("UPDATE tv_shows SET poster_url = :base || poster_url WHERE poster_url IS NOT NULL AND poster_url LIKE '/%'")
+    suspend fun repairRelativePosterUrls(base: String): Int
+
     @Query("DELETE FROM tv_shows")
     suspend fun deleteAll()
 }

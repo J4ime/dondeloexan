@@ -64,6 +64,9 @@ interface MovieDao {
     @Query("UPDATE movies SET fa_id = :faId WHERE content_id = :contentId")
     suspend fun updateFaId(contentId: String, faId: Int?)
 
+    @Query("UPDATE movies SET poster_url = :base || poster_url WHERE poster_url IS NOT NULL AND poster_url LIKE '/%'")
+    suspend fun repairRelativePosterUrls(base: String): Int
+
     @Query("DELETE FROM movies")
     suspend fun deleteAll()
 }
