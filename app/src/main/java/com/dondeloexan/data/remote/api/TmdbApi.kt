@@ -22,6 +22,8 @@ import io.ktor.client.plugins.timeout
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
 import io.ktor.client.statement.bodyAsChannel
+import io.ktor.client.statement.HttpResponse
+import io.ktor.http.isSuccess
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withTimeout
 
@@ -33,7 +35,19 @@ private suspend fun <T> callWithTimeout(timeoutMs: Long, what: String, block: su
     }
 }
 
+class TmdbApiException(
+    message: String,
+    val statusCode: Int? = null
+) : Exception(message)
+
 class TmdbApi(private val client: HttpClient) {
+
+    private suspend inline fun <reified T> HttpResponse.bodyOrThrow(what: String): T {
+        if (!status.isSuccess()) {
+            throw TmdbApiException("TMDB HTTP ${status.value} en $what", status.value)
+        }
+        return body()
+    }
 
     suspend fun searchMulti(query: String, language: String = "es-ES", page: Int = 1): TmdbMultiSearchResponse {
         return callWithTimeout(10_000, "search/multi '$query'") {
@@ -83,7 +97,7 @@ class TmdbApi(private val client: HttpClient) {
                 parameter("language", language)
                 parameter("append_to_response", "credits")
             }
-            response.body()
+            response.bodyOrThrow<TmdbTvDetailDto>("tv/$tvId")
         }
     }
 
@@ -92,7 +106,7 @@ class TmdbApi(private val client: HttpClient) {
             val response = client.get("tv/$tvId") {
                 parameter("language", language)
             }
-            response.body()
+            response.bodyOrThrow<TmdbTvDetailDto>("tv/$tvId")
         }
     }
 
@@ -239,7 +253,7 @@ class TmdbApi(private val client: HttpClient) {
             val response = client.get("tv/$tvId/season/$seasonNumber") {
                 parameter("language", language)
             }
-            response.body()
+            response.bodyOrThrow<TmdbTvSeasonDetailDto>("tv/$tvId/season/$seasonNumber")
         }
     }
 

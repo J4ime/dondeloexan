@@ -210,54 +210,57 @@ class SeriesViewModel(
                 feedbackManager.emit("Serie quitada de vistos")
             } else {
                 val tmdbId = show.tmdbId
-                if (tmdbId == null) return@launch
-                try {
-                    val detail = tmdbApi.getTvDetailLight(tmdbId)
-                    val seasons = detail.seasons.orEmpty().filter { it.seasonNumber > 0 }
-                    if (detail.numberOfEpisodes != null && detail.numberOfEpisodes > 0) {
-                        tvShowDao.update(show.copy(totalEpisodes = detail.numberOfEpisodes))
-                    }
-                    val progressToInsert = mutableListOf<TvShowProgressEntity>()
-                    val today = LocalDate.now()
-                    for (season in seasons) {
-                        try {
-                            val seasonDetail = tmdbApi.getTvSeason(tmdbId, season.seasonNumber)
-                            for (ep in seasonDetail.episodes) {
-                                val isAired = ep.airDate == null ||
-                                        try { !LocalDate.parse(ep.airDate).isAfter(today) }
-                                        catch (e: Exception) {
-                                            AppLogger.w("SeriesVM", "parse airDate falló: ${ep.airDate} (${e.message})")
-                                            true
-                                        }
-                                if (isAired) {
+                val progressToInsert = mutableListOf<TvShowProgressEntity>()
+                if (tmdbId != null) {
+                    try {
+                        val detail = tmdbApi.getTvDetailLight(tmdbId)
+                        val seasons = detail.seasons.orEmpty().filter { it.seasonNumber > 0 }
+                        if (detail.numberOfEpisodes != null && detail.numberOfEpisodes > 0) {
+                            tvShowDao.update(show.copy(totalEpisodes = detail.numberOfEpisodes))
+                        }
+                        val today = LocalDate.now()
+                        for (season in seasons) {
+                            try {
+                                val seasonDetail = tmdbApi.getTvSeason(tmdbId, season.seasonNumber)
+                                for (ep in seasonDetail.episodes) {
+                                    val isAired = ep.airDate == null ||
+                                            try { !LocalDate.parse(ep.airDate).isAfter(today) }
+                                            catch (e: Exception) {
+                                                AppLogger.w("SeriesVM", "parse airDate falló: ${ep.airDate} (${e.message})")
+                                                true
+                                            }
+                                    if (isAired) {
+                                        progressToInsert.add(
+                                            TvShowProgressEntity(
+                                                tvShowId = show.id,
+                                                season = season.seasonNumber,
+                                                episode = ep.episodeNumber
+                                            )
+                                        )
+                                    }
+                                }
+                            } catch (e: Exception) {
+                                AppLogger.e("SeriesVM", "season ${season.seasonNumber} for show ${show.id}", e)
+                                for (epNum in 1..season.episodeCount) {
                                     progressToInsert.add(
                                         TvShowProgressEntity(
                                             tvShowId = show.id,
                                             season = season.seasonNumber,
-                                            episode = ep.episodeNumber
+                                            episode = epNum
                                         )
                                     )
                                 }
                             }
-                        } catch (e: Exception) {
-                            AppLogger.e("SeriesVM", "season ${season.seasonNumber} for show ${show.id}", e)
-                            for (epNum in 1..season.episodeCount) {
-                                progressToInsert.add(
-                                    TvShowProgressEntity(
-                                        tvShowId = show.id,
-                                        season = season.seasonNumber,
-                                        episode = epNum
-                                    )
-                                )
-                            }
                         }
+                    } catch (e: Exception) {
+                        AppLogger.e("SeriesVM", "mark watched detail error for show ${show.id}", e)
                     }
-                    tvShowProgressDao.insertAll(progressToInsert)
-                    tvShowDao.update(show.copy(status = WatchStatus.YA_VISTA, lastWatchedAt = System.currentTimeMillis()))
-                    feedbackManager.emit("Serie marcada como vista")
-                } catch (e: Exception) {
-                    AppLogger.e("SeriesVM", "mark watched error for show ${show.id}", e)
                 }
+                if (progressToInsert.isNotEmpty()) {
+                    tvShowProgressDao.insertAll(progressToInsert)
+                }
+                tvShowDao.update(show.copy(status = WatchStatus.YA_VISTA, lastWatchedAt = System.currentTimeMillis()))
+                feedbackManager.emit("Serie marcada como vista")
             }
         }
     }

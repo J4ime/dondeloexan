@@ -6,13 +6,11 @@ import com.dondeloexan.data.local.dao.WatchedCount
 import com.dondeloexan.data.local.entity.TvShowEntity
 import com.dondeloexan.data.local.entity.WatchStatus
 import com.dondeloexan.data.remote.api.TmdbApi
+import com.dondeloexan.data.remote.api.TmdbApiException
 import com.dondeloexan.domain.repository.DiscoverRepository
 import com.dondeloexan.presentation.feedback.FeedbackManager
 import com.dondeloexan.util.RefreshCoordinator
-import io.mockk.coEvery
-import io.mockk.coVerify
-import io.mockk.mockk
-import io.mockk.verify
+import io.mockk.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.StateFlow
@@ -169,5 +167,26 @@ class SeriesViewModelTest {
 
         coVerify { tvShowDao.delete(show) }
         verify { feedbackManager.emit("Serie eliminada") }
+    }
+
+    @Test
+    fun `marcar como vista marca la serie aunque falle el detalle de TMDB`() = runTest {
+        val show = TvShowEntity(
+            id = 100,
+            title = "Serie sin detalle TMDB",
+            status = WatchStatus.POR_VER,
+            tmdbId = 324182
+        )
+        coEvery { tmdbApi.getTvDetailLight(324182) } throws TmdbApiException("TMDB HTTP 404 en tv/324182")
+        coEvery { tvShowDao.update(any()) } returns Unit
+        coEvery { feedbackManager.emit("Serie marcada como vista") } returns Unit
+        stubSeries(listOf(show), emptyList())
+
+        viewModel.toggleWatched(show)
+        mainDispatcher.scheduler.advanceUntilIdle()
+        advanceUntilIdle()
+
+        coVerify { tvShowDao.update(match { it.status == WatchStatus.YA_VISTA }) }
+        verify { feedbackManager.emit("Serie marcada como vista") }
     }
 }

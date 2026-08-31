@@ -195,14 +195,6 @@ fun MediaDetailScreen(
                                     tint = if (isWatched) EleganteRose else TextPrimary
                                 )
                             }
-                            val isFavorite = uiState.isSeriesFavorite == true
-                            IconButton(onClick = { viewModel.toggleSeriesFavorite() }) {
-                                Icon(
-                                    if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                                    contentDescription = if (isFavorite) "Quitar de favoritas" else "Marcar como favorita",
-                                    tint = if (isFavorite) EleganteRose else TextPrimary
-                                )
-                            }
                         } else {
                             IconButton(onClick = { viewModel.addSeriesToLibrary() }) {
                                 Icon(
