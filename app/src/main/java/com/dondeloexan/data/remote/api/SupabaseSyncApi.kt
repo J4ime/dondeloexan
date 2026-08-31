@@ -24,6 +24,19 @@ class SupabaseSyncApi(
 ) {
 
     /**
+     * Sesión "anónima": el rol 'anon' se autentica con la anon key como Bearer.
+     * Se usa para todo el catálogo global (compartido entre usuarios, nunca caduca).
+     */
+    fun anonymousSession(): SessionState =
+        SessionState(
+            accessToken = anonKey,
+            refreshToken = "",
+            expiresAt = Long.MAX_VALUE,
+            userId = "",
+            email = "anon"
+        )
+
+    /**
      * Borra todas las filas de [table] del usuario [userId] (RLS lo permite).
      * La sincronización es por reemplazo completo: se borra y se re-sube.
      */

@@ -62,7 +62,7 @@ val dataModule = module {
 
     // Cuenta (login + sync)
     single { SessionStore(androidContext()) }
-    single { CloudCatalogRepository(syncApi = get(), sessionStore = get(), json = get()) }
+    single { CloudCatalogRepository(syncApi = get(), json = get()) }
     single {
         SyncManager(
             syncApi = get(),

@@ -2,9 +2,9 @@ package com.dondeloexan.data.catalog
 
 import com.dondeloexan.data.remote.api.SupabaseSyncApi
 import com.dondeloexan.data.sync.SessionState
-import com.dondeloexan.data.sync.SessionStore
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
 import kotlinx.coroutines.test.runTest
@@ -19,7 +19,6 @@ import org.junit.jupiter.api.Test
 class CloudCatalogRepositoryTest {
 
     private val syncApi: SupabaseSyncApi = mockk()
-    private val sessionStore: SessionStore = mockk()
 
     private val json = Json { ignoreUnknownKeys = true }
     private val session = SessionState(
@@ -29,8 +28,18 @@ class CloudCatalogRepositoryTest {
         userId = "uuid-123",
         email = "usuario@test.es"
     )
+    private val anon = SessionState(
+        accessToken = "anon-key",
+        refreshToken = "",
+        expiresAt = Long.MAX_VALUE,
+        userId = "",
+        email = "anon"
+    )
 
-    private fun repo() = CloudCatalogRepository(syncApi, sessionStore, json)
+    private fun repo(): CloudCatalogRepository {
+        every { syncApi.anonymousSession() } returns anon
+        return CloudCatalogRepository(syncApi, json)
+    }
 
     @Test
     fun `saveMovies usa el RPC catalog_merge con payload uniforme`() = runTest {
@@ -45,7 +54,7 @@ class CloudCatalogRepositoryTest {
         repo().saveMovies(listOf(rich, poor), session)
 
         val body = slot<String>()
-        coVerify { syncApi.rpc("catalog_merge", capture(body), session) }
+        coVerify { syncApi.rpc("catalog_merge", capture(body), anon) }
 
         val obj = json.parseToJsonElement(body.captured).jsonObject
         assertEquals("movies", (obj["_p_table"] as JsonPrimitive).content)
@@ -64,7 +73,7 @@ class CloudCatalogRepositoryTest {
     @Test
     fun `getMovie devuelve la fila del catalogo decodificada`() = runTest {
         coEvery {
-            syncApi.select("movies", "content_id=eq.c1", session)
+            syncApi.select("movies", "content_id=eq.c1", anon)
         } returns """[{"content_id":"c1","title":"Matrix","rating_tmdb":8.7,"updated_at":123}]"""
 
         val row = repo().getMovie("c1", session)
@@ -77,7 +86,7 @@ class CloudCatalogRepositoryTest {
 
     @Test
     fun `lectura con error de la nube no rompe y devuelve null`() = runTest {
-        coEvery { syncApi.select("movies", "content_id=eq.missing", session) } throws RuntimeException("offline")
+        coEvery { syncApi.select("movies", "content_id=eq.missing", anon) } throws RuntimeException("offline")
 
         val movie = repo().getMovie("missing", session)
 

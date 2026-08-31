@@ -2,7 +2,6 @@ package com.dondeloexan.data.catalog
 
 import com.dondeloexan.data.remote.api.SupabaseSyncApi
 import com.dondeloexan.data.sync.SessionState
-import com.dondeloexan.data.sync.SessionStore
 import com.dondeloexan.util.AppLogger
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.ListSerializer
@@ -11,14 +10,14 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
 /**
- * Acceso al catálogo global de la nube (sin user_id, RLS "authenticated").
+ * Acceso al catálogo global de la nube (sin user_id, RLS "anon").
  * Lecturas: devuelven null si no existe (o si la nube no responde, para que el
  * flujo caiga a las APIs). Escrituras: best-effort (nunca rompen el flujo).
- * La sesión se obtiene de SessionStore y se pasa explícitamente por llamada.
+ * El catálogo siempre se accede con la sesión ANÓNIMA (anon key), que nunca
+ * caduca y funciona sin login; los datos de usuario usan su propio JWT aparte.
  */
 class CloudCatalogRepository(
     private val syncApi: SupabaseSyncApi,
-    private val sessionStore: SessionStore,
     private val json: Json
 ) {
 
@@ -27,7 +26,8 @@ class CloudCatalogRepository(
         encodeDefaults = true
     }
 
-    suspend fun currentSession(): SessionState? = sessionStore.current()
+    // El catálogo se lee/escribe siempre con la sesión anónima (anon key).
+    suspend fun currentSession(): SessionState = syncApi.anonymousSession()
 
     // ── Lecturas ───────────────────────────────────────────────────────────
 
@@ -77,7 +77,7 @@ class CloudCatalogRepository(
         serializer: KSerializer<T>,
         session: SessionState
     ): List<T> = try {
-        val body = syncApi.select(table, query, session)
+        val body = syncApi.select(table, query, syncApi.anonymousSession())
         if (body.isBlank()) emptyList()
         else json.decodeFromString(ListSerializer(serializer), body)
     } catch (e: Exception) {
@@ -118,7 +118,7 @@ class CloudCatalogRepository(
         val rowsJson = payloadJson.encodeToString(ListSerializer(serializer), rows)
         val body = """{"_p_table":"$table","_p_rows":$rowsJson}"""
         try {
-            syncApi.rpc("catalog_merge", body, session)
+            syncApi.rpc("catalog_merge", body, syncApi.anonymousSession())
             AppLogger.d("Catalog", "catalog_merge $table OK (${rows.size} filas)")
         } catch (e: Exception) {
             AppLogger.e("Catalog", "catalog_merge $table falló (${rows.size} filas): ${body.take(1000)}", e)
