@@ -500,6 +500,7 @@ private fun NextEpisodeLabel(
 
     if (airDate == null) return
 
+    val startsSeason = episode == 1 || (episode == null && isCaughtUp)
     val label = remember(airDate) {
         try {
             val date = LocalDate.parse(airDate)
@@ -507,10 +508,10 @@ private fun NextEpisodeLabel(
             val days = ChronoUnit.DAYS.between(now, date)
             when {
                 days < 0 -> null
-                days == 0L -> if (isCaughtUp) "¡Hoy nueva temporada!" else "¡Hoy nuevo episodio!"
-                days == 1L -> if (isCaughtUp) "Mañana nueva temporada" else "Mañana nuevo episodio"
-                days <= 7 -> if (isCaughtUp) "Próxima temporada en $days días" else "Próximo en $days días"
-                else -> if (isCaughtUp) "Próxima temporada: ${date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}" else "Próximo: ${date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}"
+                days == 0L -> if (startsSeason) "¡Hoy nueva temporada!" else "¡Hoy nuevo episodio!"
+                days == 1L -> if (startsSeason) "Mañana nueva temporada" else "Mañana nuevo episodio"
+                days <= 7 -> if (startsSeason) "Próxima temporada en $days días" else "Próximo en $days días"
+                else -> if (startsSeason) "Próxima temporada: ${date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}" else "Próximo: ${date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}"
             }
         } catch (e: Exception) {
             AppLogger.e("LibraryItemCard", "nextEpisodeLabel: $airDate", e)

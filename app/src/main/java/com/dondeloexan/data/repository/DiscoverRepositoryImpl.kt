@@ -1535,6 +1535,19 @@ class DiscoverRepositoryImpl(
         }
     }
 
+    override suspend fun reconcileAllLibrarySeries() {
+        val shows = tvShowDao.getAll()
+        for (show in shows) {
+            try {
+                reconcileSeriesState(show)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                AppLogger.w("DiscoverRepo", "reconcileAllLibrarySeries skip ${show.title}: ${e.message}")
+            }
+        }
+    }
+
     override suspend fun getPersonSocialInfo(personId: Int): CastSocialInfo? {
         return try {
             val social = tmdbApi.getPersonExternalIds(personId)

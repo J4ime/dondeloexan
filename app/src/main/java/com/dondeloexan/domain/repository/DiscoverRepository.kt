@@ -59,6 +59,8 @@ interface DiscoverRepository {
     suspend fun markSeriesFinished(content: Content): Boolean
     suspend fun clearSeriesFinished(content: Content)
 
+    suspend fun reconcileAllLibrarySeries()
+
     suspend fun getPersonSocialInfo(personId: Int): CastSocialInfo?
     suspend fun getFaId(content: Content): Int?
 }

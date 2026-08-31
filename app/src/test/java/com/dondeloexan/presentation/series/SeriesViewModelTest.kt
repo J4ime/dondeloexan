@@ -6,6 +6,7 @@ import com.dondeloexan.data.local.dao.WatchedCount
 import com.dondeloexan.data.local.entity.TvShowEntity
 import com.dondeloexan.data.local.entity.WatchStatus
 import com.dondeloexan.data.remote.api.TmdbApi
+import com.dondeloexan.domain.repository.DiscoverRepository
 import com.dondeloexan.presentation.feedback.FeedbackManager
 import com.dondeloexan.util.RefreshCoordinator
 import io.mockk.coEvery
@@ -32,6 +33,7 @@ class SeriesViewModelTest {
     private val tvShowProgressDao: TvShowProgressDao = mockk()
     private val tmdbApi: TmdbApi = mockk()
     private val refreshCoordinator: RefreshCoordinator = mockk()
+    private val discoverRepository: DiscoverRepository = mockk()
     private val feedbackManager: FeedbackManager = mockk()
     private val mainDispatcher = StandardTestDispatcher()
 
@@ -45,7 +47,7 @@ class SeriesViewModelTest {
     private fun stubSeries(series: List<TvShowEntity>, counts: List<WatchedCount>) {
         coEvery { tvShowDao.getAllFlow() } returns flowOf(series)
         coEvery { tvShowProgressDao.getWatchedCounts() } returns flowOf(counts)
-        viewModel = SeriesViewModel(tvShowDao, tvShowProgressDao, tmdbApi, refreshCoordinator, feedbackManager)
+        viewModel = SeriesViewModel(tvShowDao, tvShowProgressDao, tmdbApi, refreshCoordinator, discoverRepository, feedbackManager)
     }
 
     private suspend fun TestScope.stateValue(flow: StateFlow<List<SeriesWithProgress>>): List<SeriesWithProgress> {

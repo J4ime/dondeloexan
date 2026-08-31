@@ -9,6 +9,7 @@ import com.dondeloexan.data.local.entity.TvShowProgressEntity
 import com.dondeloexan.data.local.entity.WatchStatus
 import com.dondeloexan.data.local.entity.toPlatformsString
 import com.dondeloexan.data.remote.api.TmdbApi
+import com.dondeloexan.domain.repository.DiscoverRepository
 import com.dondeloexan.data.remote.mapper.toStreamingAvailability
 import com.dondeloexan.presentation.feedback.FeedbackManager
 import com.dondeloexan.util.AppLogger
@@ -38,6 +39,7 @@ class SeriesViewModel(
     private val tvShowProgressDao: TvShowProgressDao,
     private val tmdbApi: TmdbApi,
     private val refreshCoordinator: RefreshCoordinator,
+    private val discoverRepository: DiscoverRepository,
     private val feedbackManager: FeedbackManager
 ) : ViewModel() {
 
@@ -179,6 +181,16 @@ class SeriesViewModel(
                     }
                 }
             }.forEach { it.await() }
+
+            // Reconciliar la clasificación de TODAS las series (corregir status/finishedAt
+            // para recolocar las que estaban mal preexistentes y que no se tocan capítulo a capítulo).
+            try {
+                discoverRepository.reconcileAllLibrarySeries()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                AppLogger.e("SeriesVM", "reconcileAllLibrarySeries falló", e)
+            }
         }
     }
 
