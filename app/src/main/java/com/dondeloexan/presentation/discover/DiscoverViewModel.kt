@@ -25,10 +25,13 @@ import com.dondeloexan.presentation.feedback.FeedbackManager
 import com.dondeloexan.util.AppLogger
 import com.dondeloexan.util.PersonFlagUtil
 import java.time.LocalDate
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeout
 import com.dondeloexan.data.remote.dto.TmdbCompanySearchResult
 import com.dondeloexan.data.remote.dto.TmdbPersonCreditsResponse
 import com.dondeloexan.data.remote.dto.TmdbPersonSearchResult
@@ -304,12 +307,27 @@ class DiscoverViewModel(
         searchJob?.cancel()
         searchJob = viewModelScope.launch {
             delay(2000)
-            trendingJob?.cancel()
             isSearching = true
             currentPage = 1
             hasMorePages = true
             cachedResults = emptyList()
             _uiState.value = DiscoverUiState.Loading
+
+            try {
+                withTimeout(15_000) {
+                    performSearch(query)
+                }
+            } catch (e: TimeoutCancellationException) {
+                AppLogger.e("DiscoverVM", "search '$query' excedió 15s; se muestra error", e)
+                hasError = true
+                _uiState.value = DiscoverUiState.Error("La búsqueda tardó demasiado; inténtalo de nuevo")
+            }
+        }
+    }
+
+    private suspend fun CoroutineScope.performSearch(query: String) {
+        try {
+            trendingJob?.cancel()
 
             val searchDeferred = async {
                 try {
@@ -427,6 +445,12 @@ class DiscoverViewModel(
             } else {
                 emitWithFaData(DiscoverUiState.Success(cachedResults, personSuggestions = suggestions))
             }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            AppLogger.e("DiscoverVM", "performSearch error for $query", e)
+            hasError = true
+            _uiState.value = DiscoverUiState.Error("Error al buscar: ${e.message ?: "desconocido"}")
         }
     }
     private fun removeAndEmit(contentId: String) {
@@ -927,7 +951,12 @@ class DiscoverViewModel(
             cachedResults = emptyList()
             _uiState.value = DiscoverUiState.Loading
 
-            fillPagesUntil(10)
+            try {
+                withTimeout(25_000) { fillPagesUntil(10) }
+            } catch (e: TimeoutCancellationException) {
+                AppLogger.e("DiscoverVM", "trending excedió 25s; se marca error", e)
+                hasError = true
+            }
 
             when {
                 cachedResults.isNotEmpty() -> emitWithFaData(DiscoverUiState.Success(cachedResults))

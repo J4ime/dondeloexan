@@ -8,7 +8,7 @@ import io.ktor.client.plugins.defaultRequest
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
-import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
@@ -43,7 +43,7 @@ class TmdbDetailMockWebServerTest {
     }
 
     @Test
-    fun `getTvSeason maps real HTTP JSON response to domain SeasonDetail`() = runTest {
+    fun `getTvSeason maps real HTTP JSON response to domain SeasonDetail`() = runBlocking {
         server.enqueue(
             MockResponse()
                 .setResponseCode(200)
@@ -97,7 +97,7 @@ class TmdbDetailMockWebServerTest {
     }
 
     @Test
-    fun `getTvSeason handles unknown fields and nulls gracefully`() = runTest {
+    fun `getTvSeason handles unknown fields and nulls gracefully`() = runBlocking {
         server.enqueue(
             MockResponse()
                 .setResponseCode(200)
@@ -122,7 +122,7 @@ class TmdbDetailMockWebServerTest {
     }
 
     @Test
-    fun `getTvSeason returns domain via mapper for season with many episodes`() = runTest {
+    fun `getTvSeason returns domain via mapper for season with many episodes`() = runBlocking {
         val episodesJson = (1..20).joinToString(",") {
             """{"air_date":"2013-01-01","episode_number":$it,"id":$it,"name":"Ep $it","season_number":1}"""
         }

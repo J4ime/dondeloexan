@@ -7,13 +7,12 @@ import com.dondeloexan.data.remote.api.SupabaseAuthApi
 import com.dondeloexan.data.remote.api.SupabaseSyncApi
 import com.dondeloexan.data.remote.api.TmdbApi
 import com.dondeloexan.data.remote.api.WikidataApi
+import com.dondeloexan.util.HttpTracingInterceptor
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.defaultRequest
-import io.ktor.client.plugins.logging.LogLevel
-import io.ktor.client.plugins.logging.Logging
 import io.ktor.client.request.header
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
@@ -46,6 +45,11 @@ val networkModule = module {
                     })
                     connectionPool(ConnectionPool(10, 30, TimeUnit.SECONDS))
                     retryOnConnectionFailure(true)
+                    connectTimeout(5, TimeUnit.SECONDS)
+                    readTimeout(8, TimeUnit.SECONDS)
+                    writeTimeout(8, TimeUnit.SECONDS)
+                    callTimeout(20, TimeUnit.SECONDS)
+                    addInterceptor(HttpTracingInterceptor("TMDB-HTTP"))
                 }
             }
             install(ContentNegotiation) { json(get()) }
@@ -54,7 +58,6 @@ val networkModule = module {
                 connectTimeoutMillis = 5_000
                 socketTimeoutMillis = 5_000
             }
-            install(Logging) { level = LogLevel.HEADERS }
             defaultRequest {
                 url("https://api.themoviedb.org/3/")
                 header("Authorization", "Bearer ${BuildConfig.TMDB_ACCESS_TOKEN}")
@@ -70,6 +73,10 @@ val networkModule = module {
             engine {
                 config {
                     connectionPool(ConnectionPool(0, 1, TimeUnit.SECONDS))
+                    connectTimeout(5, TimeUnit.SECONDS)
+                    readTimeout(8, TimeUnit.SECONDS)
+                    callTimeout(12, TimeUnit.SECONDS)
+                    addInterceptor(HttpTracingInterceptor("OMDB-HTTP"))
                 }
             }
             install(ContentNegotiation) { json(get()) }
@@ -87,7 +94,15 @@ val networkModule = module {
 
     // ── GitHub ──
     single {
-        val client = HttpClient {
+        val client = HttpClient(OkHttp) {
+            engine {
+                config {
+                    connectTimeout(10, TimeUnit.SECONDS)
+                    readTimeout(8, TimeUnit.SECONDS)
+                    callTimeout(15, TimeUnit.SECONDS)
+                    addInterceptor(HttpTracingInterceptor("GH-HTTP"))
+                }
+            }
             install(ContentNegotiation) { json(get()) }
             install(HttpTimeout) {
                 requestTimeoutMillis = 10_000
@@ -109,6 +124,11 @@ val networkModule = module {
             engine {
                 config {
                     retryOnConnectionFailure(true)
+                    connectTimeout(10, TimeUnit.SECONDS)
+                    readTimeout(15, TimeUnit.SECONDS)
+                    writeTimeout(15, TimeUnit.SECONDS)
+                    callTimeout(30, TimeUnit.SECONDS)
+                    addInterceptor(HttpTracingInterceptor("WIKIDATA-HTTP"))
                 }
             }
             install(HttpTimeout) {
@@ -131,13 +151,17 @@ val networkModule = module {
             engine {
                 config {
                     retryOnConnectionFailure(true)
+                    connectTimeout(10, TimeUnit.SECONDS)
+                    readTimeout(15, TimeUnit.SECONDS)
+                    writeTimeout(15, TimeUnit.SECONDS)
+                    callTimeout(30, TimeUnit.SECONDS)
                 }
             }
             install(ContentNegotiation) { json(get()) }
             install(HttpTimeout) {
-                requestTimeoutMillis = 60_000
-                connectTimeoutMillis = 30_000
-                socketTimeoutMillis = 30_000
+                requestTimeoutMillis = 20_000
+                connectTimeoutMillis = 10_000
+                socketTimeoutMillis = 15_000
             }
             defaultRequest {
                 contentType(ContentType.Application.Json)
@@ -169,6 +193,11 @@ val networkModule = module {
             engine {
                 config {
                     retryOnConnectionFailure(true)
+                    connectTimeout(10, TimeUnit.SECONDS)
+                    readTimeout(15, TimeUnit.SECONDS)
+                    writeTimeout(15, TimeUnit.SECONDS)
+                    callTimeout(30, TimeUnit.SECONDS)
+                    addInterceptor(HttpTracingInterceptor("FA-HTTP"))
                 }
             }
             install(HttpTimeout) {

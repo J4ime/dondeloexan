@@ -1,9 +1,10 @@
 package com.dondeloexan.util
 
 import java.net.SocketTimeoutException
-import java.util.concurrent.Semaphore
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.CoroutineContext
 
@@ -17,19 +18,18 @@ class RefreshCoordinator {
         return withContext(context) {
             if (batchCancelled.get()) throw BatchCancelledException()
 
-            semaphore.acquire()
-            try {
-                val result = block()
-                consecutiveFailures.set(0)
-                result
-            } catch (e: SocketTimeoutException) {
-                val fails = consecutiveFailures.incrementAndGet()
-                if (fails >= 3) {
-                    batchCancelled.set(true)
+            semaphore.withPermit {
+                try {
+                    val result = block()
+                    consecutiveFailures.set(0)
+                    result
+                } catch (e: SocketTimeoutException) {
+                    val fails = consecutiveFailures.incrementAndGet()
+                    if (fails >= 3) {
+                        batchCancelled.set(true)
+                    }
+                    throw e
                 }
-                throw e
-            } finally {
-                semaphore.release()
             }
         }
     }

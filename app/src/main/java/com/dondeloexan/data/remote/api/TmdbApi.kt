@@ -21,87 +21,120 @@ import io.ktor.client.call.body
 import io.ktor.client.plugins.timeout
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
+import io.ktor.client.statement.bodyAsChannel
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.withTimeout
+
+private suspend fun <T> callWithTimeout(timeoutMs: Long, what: String, block: suspend () -> T): T {
+    return try {
+        withTimeout(timeoutMs) { block() }
+    } catch (e: TimeoutCancellationException) {
+        throw java.net.SocketTimeoutException("Timeout de ${timeoutMs}ms en $what")
+    }
+}
 
 class TmdbApi(private val client: HttpClient) {
 
     suspend fun searchMulti(query: String, language: String = "es-ES", page: Int = 1): TmdbMultiSearchResponse {
-        val response = client.get("search/multi") {
-            parameter("query", query)
-            parameter("language", language)
-            parameter("page", page)
+        return callWithTimeout(10_000, "search/multi '$query'") {
+            val response = client.get("search/multi") {
+                parameter("query", query)
+                parameter("language", language)
+                parameter("page", page)
+            }
+            response.body()
         }
-        return response.body()
     }
 
     suspend fun searchMovie(query: String, language: String = "es-ES", year: Int? = null): TmdbMultiSearchResponse {
-        val response = client.get("search/movie") {
-            parameter("query", query)
-            parameter("language", language)
-            year?.let { parameter("year", it) }
+        return callWithTimeout(10_000, "search/movie '$query'") {
+            val response = client.get("search/movie") {
+                parameter("query", query)
+                parameter("language", language)
+                year?.let { parameter("year", it) }
+            }
+            response.body()
         }
-        return response.body()
     }
 
     suspend fun searchTv(query: String, language: String = "es-ES"): TmdbMultiSearchResponse {
-        val response = client.get("search/tv") {
-            parameter("query", query)
-            parameter("language", language)
+        return callWithTimeout(10_000, "search/tv '$query'") {
+            val response = client.get("search/tv") {
+                parameter("query", query)
+                parameter("language", language)
+            }
+            response.body()
         }
-        return response.body()
     }
 
     suspend fun getMovieDetail(movieId: Int, language: String = "es-ES"): TmdbMovieDto {
-        val response = client.get("movie/$movieId") {
-            parameter("language", language)
-            parameter("append_to_response", "credits")
+        return callWithTimeout(12_000, "movie/$movieId") {
+            val response = client.get("movie/$movieId") {
+                parameter("language", language)
+                parameter("append_to_response", "credits")
+            }
+            response.body()
         }
-        return response.body()
     }
 
     suspend fun getTvDetail(tvId: Int, language: String = "es-ES"): TmdbTvDetailDto {
-        val response = client.get("tv/$tvId") {
-            parameter("language", language)
-            parameter("append_to_response", "credits")
+        return callWithTimeout(12_000, "tv/$tvId") {
+            val response = client.get("tv/$tvId") {
+                parameter("language", language)
+                parameter("append_to_response", "credits")
+            }
+            response.body()
         }
-        return response.body()
     }
 
     suspend fun getTvDetailLight(tvId: Int, language: String = "es-ES"): TmdbTvDetailDto {
-        val response = client.get("tv/$tvId") {
-            parameter("language", language)
+        return callWithTimeout(12_000, "tv/$tvId (light)") {
+            val response = client.get("tv/$tvId") {
+                parameter("language", language)
+            }
+            response.body()
         }
-        return response.body()
     }
 
     suspend fun getMovieWatchProviders(movieId: Int): TmdbWatchProvidersResponse {
-        val response = client.get("movie/$movieId/watch/providers")
-        return response.body()
+        return callWithTimeout(8_000, "movie/$movieId/watch/providers") {
+            val response = client.get("movie/$movieId/watch/providers")
+            response.body()
+        }
     }
 
     suspend fun getTvWatchProviders(tvId: Int): TmdbWatchProvidersResponse {
-        val response = client.get("tv/$tvId/watch/providers")
-        return response.body()
+        return callWithTimeout(8_000, "tv/$tvId/watch/providers") {
+            val response = client.get("tv/$tvId/watch/providers")
+            response.body()
+        }
     }
 
     suspend fun findMovieByImdbId(imdbId: String, language: String = "es-ES"): TmdbFindResponse {
-        val response = client.get("find/$imdbId") {
-            parameter("external_source", "imdb_id")
-            parameter("language", language)
+        return callWithTimeout(10_000, "find/$imdbId") {
+            val response = client.get("find/$imdbId") {
+                parameter("external_source", "imdb_id")
+                parameter("language", language)
+            }
+            response.body()
         }
-        return response.body()
     }
 
     suspend fun findTvByImdbId(imdbId: String, language: String = "es-ES"): TmdbFindResponse {
-        val response = client.get("find/$imdbId") {
-            parameter("external_source", "imdb_id")
-            parameter("language", language)
+        return callWithTimeout(10_000, "find/$imdbId") {
+            val response = client.get("find/$imdbId") {
+                parameter("external_source", "imdb_id")
+                parameter("language", language)
+            }
+            response.body()
         }
-        return response.body()
     }
 
     suspend fun getMovieReleaseDates(movieId: Int): TmdbMovieReleaseDatesResponse {
-        val response = client.get("movie/$movieId/release_dates")
-        return response.body()
+        return callWithTimeout(8_000, "movie/$movieId/release_dates") {
+            val response = client.get("movie/$movieId/release_dates")
+            response.body()
+        }
     }
 
     suspend fun discoverMovie(
@@ -165,99 +198,147 @@ class TmdbApi(private val client: HttpClient) {
     }
 
     suspend fun getTrending(language: String = "es-ES"): TmdbTrendingResponse {
-        val response = client.get("trending/all/week") {
-            parameter("language", language)
+        return callWithTimeout(10_000, "trending/all/week") {
+            val response = client.get("trending/all/week") {
+                parameter("language", language)
+            }
+            response.body()
         }
-        return response.body()
     }
 
     suspend fun getMovieCredits(movieId: Int): TmdbCreditsResponse {
-        val response = client.get("movie/$movieId/credits")
-        return response.body()
+        return callWithTimeout(12_000, "movie/$movieId/credits") {
+            val response = client.get("movie/$movieId/credits")
+            response.body()
+        }
     }
 
     suspend fun getMovieExternalIds(movieId: Int): TmdbExternalIdsDto {
-        val response = client.get("movie/$movieId/external_ids")
-        return response.body()
+        return callWithTimeout(8_000, "movie/$movieId/external_ids") {
+            val response = client.get("movie/$movieId/external_ids")
+            response.body()
+        }
     }
 
     suspend fun getTvExternalIds(tvId: Int): TmdbExternalIdsDto {
-        val response = client.get("tv/$tvId/external_ids")
-        return response.body()
+        return callWithTimeout(8_000, "tv/$tvId/external_ids") {
+            val response = client.get("tv/$tvId/external_ids")
+            response.body()
+        }
     }
 
     suspend fun getTvCredits(tvId: Int): TmdbCreditsResponse {
-        val response = client.get("tv/$tvId/credits")
-        return response.body()
+        return callWithTimeout(12_000, "tv/$tvId/credits") {
+            val response = client.get("tv/$tvId/credits")
+            response.body()
+        }
     }
 
     suspend fun getTvSeason(tvId: Int, seasonNumber: Int, language: String = "es-ES"): TmdbTvSeasonDetailDto {
-        val response = client.get("tv/$tvId/season/$seasonNumber") {
-            parameter("language", language)
+        return callWithTimeout(12_000, "tv/$tvId/season/$seasonNumber") {
+            val response = client.get("tv/$tvId/season/$seasonNumber") {
+                parameter("language", language)
+            }
+            response.body()
         }
-        return response.body()
     }
 
     suspend fun searchPerson(query: String, page: Int = 1, language: String = "es-ES"): TmdbPersonSearchResponse {
-        val response = client.get("search/person") {
-            parameter("query", query)
-            parameter("page", page)
-            parameter("language", language)
+        return callWithTimeout(10_000, "search/person '$query'") {
+            val response = client.get("search/person") {
+                parameter("query", query)
+                parameter("page", page)
+                parameter("language", language)
+            }
+            response.body()
         }
-        return response.body()
     }
 
     suspend fun searchCompany(query: String, page: Int = 1, language: String = "es-ES"): TmdbCompanySearchResponse {
-        val response = client.get("search/company") {
-            parameter("query", query)
-            parameter("page", page)
-            parameter("language", language)
+        return callWithTimeout(10_000, "search/company '$query'") {
+            val response = client.get("search/company") {
+                parameter("query", query)
+                parameter("page", page)
+                parameter("language", language)
+            }
+            response.body()
         }
-        return response.body()
     }
 
     suspend fun getPersonDetail(personId: Int): TmdbPersonDetailDto {
-        val response = client.get("person/$personId")
-        return response.body()
+        return callWithTimeout(10_000, "person/$personId") {
+            val response = client.get("person/$personId")
+            response.body()
+        }
     }
 
     suspend fun getPersonExternalIds(personId: Int): TmdbPersonExternalIdsDto {
-        val response = client.get("person/$personId/external_ids")
-        return response.body()
+        return callWithTimeout(8_000, "person/$personId/external_ids") {
+            val response = client.get("person/$personId/external_ids")
+            response.body()
+        }
     }
 
     suspend fun getPersonTvCredits(personId: Int, language: String = "es-ES"): TmdbPersonCreditsResponse {
-        val response = client.get("person/$personId/tv_credits") {
-            parameter("language", language)
+        return callWithTimeout(12_000, "person/$personId/tv_credits") {
+            val response = client.get("person/$personId/tv_credits") {
+                parameter("language", language)
+            }
+            response.body()
         }
-        return response.body()
     }
 
     suspend fun getPersonMovieCredits(personId: Int, language: String = "es-ES"): TmdbPersonCreditsResponse {
-        val response = client.get("person/$personId/movie_credits") {
-            parameter("language", language)
+        return callWithTimeout(12_000, "person/$personId/movie_credits") {
+            val response = client.get("person/$personId/movie_credits") {
+                parameter("language", language)
+            }
+            response.body()
         }
-        return response.body()
     }
 
     suspend fun getCollection(collectionId: Int, language: String = "es-ES"): TmdbCollectionDto {
-        val response = client.get("collection/$collectionId") {
-            parameter("language", language)
+        return callWithTimeout(12_000, "collection/$collectionId") {
+            val response = client.get("collection/$collectionId") {
+                parameter("language", language)
+            }
+            response.body()
         }
-        return response.body()
     }
 
     suspend fun getMovieRecommendations(movieId: Int, language: String = "es-ES"): TmdbTrendingResponse {
-        val response = client.get("movie/$movieId/recommendations") {
-            parameter("language", language)
+        return callWithTimeout(10_000, "movie/$movieId/recommendations") {
+            val response = client.get("movie/$movieId/recommendations") {
+                parameter("language", language)
+            }
+            response.body()
         }
-        return response.body()
     }
 
     suspend fun getTvRecommendations(tvId: Int, language: String = "es-ES"): TmdbTrendingResponse {
-        val response = client.get("tv/$tvId/recommendations") {
-            parameter("language", language)
+        return callWithTimeout(10_000, "tv/$tvId/recommendations") {
+            val response = client.get("tv/$tvId/recommendations") {
+                parameter("language", language)
+            }
+            response.body()
         }
-        return response.body()
+    }
+
+    /**
+     * Descarga un póster real (Coil) de la CDN para verificar de punta a punta
+     * que la misma imagen que carga la app es accesible. Devuelve bytes leídos
+     * o -1 si el body no declara tamaño.
+     */
+    suspend fun pingImage(): Int = callWithTimeout(8_000, "CDN imagen") {
+        val response = client.get("https://image.tmdb.org/t/p/w500/tpW2X2DvxtTHJ61iJ7zNYYrJihs.jpg")
+        val channel = response.bodyAsChannel()
+        val buf = ByteArray(1024)
+        var total = 0
+        while (true) {
+            val n = channel.readAvailable(buf, 0, buf.size)
+            if (n <= 0) break
+            total += n
+        }
+        total
     }
 }

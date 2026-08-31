@@ -61,12 +61,14 @@ import com.dondeloexan.domain.model.detail.SeriesTracking
 import com.dondeloexan.domain.model.detail.SocialLinkType
 import com.dondeloexan.domain.repository.DiscoverRepository
 import com.dondeloexan.util.AppLogger
-import com.dondeloexan.util.retryWithBackoff
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
+import kotlinx.coroutines.withTimeout
 import org.json.JSONArray
 import org.json.JSONObject
 import java.time.LocalDate
@@ -94,6 +96,8 @@ class DiscoverRepositoryImpl(
 
     private val platformsCache = ConcurrentHashMap<String, CachedPlatforms>()
     private val CACHE_TTL_MS = 4 * 60 * 60 * 1000L
+
+    private val providerSemaphore = Semaphore(6)
 
     private data class CachedRelationships(
         val previews: List<ContentPreview>,
@@ -153,15 +157,22 @@ class DiscoverRepositoryImpl(
     }
 
     /**
-     * Lectura nube con registro de fallos: devuelve null si no existe o si la
-     * nube no responde (para que el flujo caiga a las APIs), PERO nunca silenciosa.
+     * Lectura nube con límite de tiempo y registro de fallos: devuelve null si
+     * no existe o si la nube no responde rápido (para que el flujo caiga a las
+     * APIs), NUNCA silenciosa y NUNCA bloqueando más de 4s.
      */
     private suspend inline fun <T> cloudRead(
         context: String,
         crossinline block: suspend () -> T?
-    ): T? = runCatching { block() }.onFailure {
-        AppLogger.w("DiscoverRepo", "lectura nube $context falló; se usa API/cache (${it.message})")
-    }.getOrNull()
+    ): T? = try {
+        withTimeout(4_000) { block() }
+    } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+        AppLogger.w("DiscoverRepo", "lectura nube $context agotó 4s; se usa API/cache")
+        null
+    } catch (e: Exception) {
+        AppLogger.w("DiscoverRepo", "lectura nube $context falló; se usa API/cache (${e.message})")
+        null
+    }
 
     /**
      * Nube primero: si el contenido está en el catálogo global se sirve desde
@@ -490,7 +501,7 @@ class DiscoverRepositoryImpl(
                         if (cached != null && (System.currentTimeMillis() - cached.timestamp) < CACHE_TTL_MS) {
                             cached.platforms
                         } else {
-                            val providerResponse = retryWithBackoff {
+                            val providerResponse = providerSemaphore.withPermit {
                                 if (preview.type == ContentType.SERIES) {
                                     tmdbApi.getTvWatchProviders(tmdbId)
                                 } else {
@@ -527,7 +538,7 @@ class DiscoverRepositoryImpl(
                         if (cached != null && (System.currentTimeMillis() - cached.timestamp) < CACHE_TTL_MS) {
                             cached.platforms
                         } else {
-                            val providerResponse = retryWithBackoff {
+                            val providerResponse = providerSemaphore.withPermit {
                                 if (preview.type == ContentType.SERIES) {
                                     tmdbApi.getTvWatchProviders(tmdbId)
                                 } else {
