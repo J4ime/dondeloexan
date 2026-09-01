@@ -6,6 +6,7 @@ import com.dondeloexan.data.local.dao.MovieDao
 import com.dondeloexan.data.local.dao.TvShowDao
 import com.dondeloexan.data.local.dao.TvShowProgressDao
 import com.dondeloexan.data.local.dao.UserPlatformDao
+import com.dondeloexan.data.local.entity.MovieEntity
 import com.dondeloexan.data.remote.api.TmdbApi
 import com.dondeloexan.domain.model.ContentPreview
 import com.dondeloexan.domain.model.ContentSource
@@ -50,6 +51,8 @@ class DiscoverViewModelTest {
         coEvery { tvShowDao.getLiked() } returns flowOf(emptyList())
         coEvery { movieDao.getByStatus(any()) } returns flowOf(emptyList())
         coEvery { tvShowDao.getByStatus(any()) } returns flowOf(emptyList())
+        coEvery { movieDao.getAll() } returns emptyList()
+        coEvery { tvShowDao.getAll() } returns emptyList()
         coEvery { movieDao.getAllFlow() } returns flowOf(emptyList())
         coEvery { tvShowDao.getAllFlow() } returns flowOf(emptyList())
         coEvery { faMovieDataDao.getByContentId(any()) } returns null
@@ -80,6 +83,15 @@ class DiscoverViewModelTest {
             )
         }
     }
+
+    private fun preview(id: Int): ContentPreview = ContentPreview(
+        id = "tmdb-$id",
+        source = ContentSource.TMDB,
+        tmdbId = id,
+        title = "Item $id",
+        type = ContentType.MOVIE,
+        ratingImdb = 8.0f
+    )
 
     @Test
     fun `loadNextPage during search paginates search results and never trending`() = runTest {
@@ -134,5 +146,35 @@ class DiscoverViewModelTest {
         val afterSecondSearch = (viewModel.uiState.value as DiscoverUiState.Success).results
         assert(afterSecondSearch.size == 5)
         coVerify { discoverRepository.fetchSearchPage("inception", 1) }
+    }
+
+    @Test
+    fun `trending no muestra items duplicados al paginar por scroll`() = runTest {
+        coEvery { discoverRepository.fetchTrendingPage(1, any()) } returns listOf(preview(1), preview(2), preview(3), preview(4), preview(5))
+        coEvery { discoverRepository.fetchTrendingPage(2, any()) } returns listOf(preview(3), preview(4), preview(5), preview(6), preview(7))
+        for (p in 3..12) {
+            coEvery { discoverRepository.fetchTrendingPage(p, any()) } returns emptyList()
+        }
+
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        val results = (viewModel.uiState.value as DiscoverUiState.Success).results
+        val ids = results.map { it.id }
+        assert(ids.size == ids.distinct().size)
+        assert(ids.toSet() == (1..7).map { "tmdb-$it" }.toSet())
+    }
+
+    @Test
+    fun `trending excluye items que ya estan en la biblioteca local aunque no esten vistos`() = runTest {
+        coEvery { movieDao.getAll() } returns listOf(MovieEntity(title = "Ya anotada", tmdbId = 777))
+        coEvery { discoverRepository.fetchTrendingPage(any(), any()) } returns listOf(preview(777), preview(888))
+
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        val results = (viewModel.uiState.value as DiscoverUiState.Success).results
+        assert(results.none { it.id == "tmdb-777" })
+        assert(results.any { it.id == "tmdb-888" })
     }
 }

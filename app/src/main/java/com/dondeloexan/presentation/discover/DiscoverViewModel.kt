@@ -974,8 +974,10 @@ class DiscoverViewModel(
             val page = fetchSearchPageFiltered(query, next)
             if (page.isNotEmpty()) {
                 currentPage = next
-                cachedResults = cachedResults + page
-                emptyPageCount = 0
+                val before = cachedResults.size
+                cachedResults = (cachedResults + page).distinctBy { it.id }
+                if (cachedResults.size > before) emptyPageCount = 0 else emptyPageCount++
+                if (emptyPageCount >= 3) hasMorePages = false
             } else {
                 currentPage = next
                 emptyPageCount++
@@ -1008,16 +1010,11 @@ class DiscoverViewModel(
                 s.tmdbId?.let { add("tmdb-$it") }
             }
         }
-        val watched = buildSet {
-            addAll(watchedIds.value)
-            movieDao.getByStatus(WatchStatus.YA_VISTA).first().forEach { m ->
-                m.tmdbId?.let { add("tmdb-$it") }
-            }
-            tvShowDao.getByStatus(WatchStatus.YA_VISTA).first().forEach { s ->
-                s.tmdbId?.let { add("tmdb-$it") }
-            }
+        val inLibrary = buildSet {
+            movieDao.getAll().forEach { m -> m.tmdbId?.let { add("tmdb-$it") } }
+            tvShowDao.getAll().forEach { s -> s.tmdbId?.let { add("tmdb-$it") } }
         }
-        return liked + blacklistedIds.value + watched
+        return liked + blacklistedIds.value + inLibrary
     }
 
     private suspend fun fillPagesUntil(minItems: Int) {
@@ -1027,8 +1024,10 @@ class DiscoverViewModel(
             val page = fetchTrendingSinglePage(next)
             if (page.isNotEmpty()) {
                 currentPage = next
-                cachedResults = cachedResults + page
-                emptyPageCount = 0
+                val before = cachedResults.size
+                cachedResults = (cachedResults + page).distinctBy { it.id }
+                if (cachedResults.size > before) emptyPageCount = 0 else emptyPageCount++
+                if (emptyPageCount >= 3) hasMorePages = false
             } else {
                 currentPage = next
                 emptyPageCount++
