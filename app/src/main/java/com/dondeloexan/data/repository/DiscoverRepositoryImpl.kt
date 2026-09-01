@@ -582,6 +582,20 @@ class DiscoverRepositoryImpl(
         }
     }
 
+    // Nº de recetas distintas que rotan por página en el Descubrir: populares,
+    // mejor valoradas, novedades y tendencias semanales.
+    private val DISCOVER_RECIPES = 4
+
+    /**
+     * Descubrir sin buscar. Cada página rota por una receta distinta (en vez de
+     * mostrar siempre el mismo pool de populares):
+     *   0 -> populares (popularity.desc, últimos 5 años, vote_count>=100)
+     *   1 -> mejor valoradas (vote_average.desc, sin límite de fecha, vote_count>=200)
+     *   2 -> novedades (release_date desc / first_air_date desc, último año)
+     *   3 -> tendencias de la semana (trending/all/week)
+     * El filtro por plataformas activas se aplica a las recetas de discover
+     * (0-2); las tendencias semanales se muestran sin filtrar por plataforma.
+     */
     override suspend fun fetchTrendingPage(page: Int, filterByPlatforms: Boolean): List<ContentPreview> {
         val activePlatforms = userPlatformDao.getActiveNames().toSet()
         val now = LocalDate.now()
@@ -591,22 +605,81 @@ class DiscoverRepositoryImpl(
         val providerFilter = if (filterByPlatforms && !farFuture) {
             TmdbProviderIds.toPipeSeparated(activePlatforms)
         } else null
-
-        val postFilterByPlatforms = filterByPlatforms && providerFilter == null
         val watchRegion = if (providerFilter == null) null else "ES"
+        val postFilterByPlatforms = filterByPlatforms && providerFilter == null
+        val preferredTypes = if (filterByPlatforms) {
+            userPreferencesDataStore.preferredAvailabilityTypes.first()
+        } else null
+
+        return when ((page - 1) % DISCOVER_RECIPES) {
+            0 -> buildDiscoverMix(
+                page, activePlatforms, providerFilter, watchRegion, postFilterByPlatforms, preferredTypes,
+                movieSortBy = "popularity.desc", tvSortBy = "popularity.desc",
+                movieDateGte = fiveYearsAgo, movieDateLte = oneYearFuture,
+                tvDateGte = fiveYearsAgo, tvDateLte = oneYearFuture,
+                voteCountGte = 100
+            )
+            1 -> buildDiscoverMix(
+                page, activePlatforms, providerFilter, watchRegion, postFilterByPlatforms, preferredTypes,
+                movieSortBy = "vote_average.desc", tvSortBy = "vote_average.desc",
+                movieDateGte = null, movieDateLte = null,
+                tvDateGte = null, tvDateLte = null,
+                voteCountGte = 200
+            )
+            2 -> buildDiscoverMix(
+                page, activePlatforms, providerFilter, watchRegion, postFilterByPlatforms, preferredTypes,
+                movieSortBy = "primary_release_date.desc", tvSortBy = "first_air_date.desc",
+                movieDateGte = now.minusYears(1).toString(), movieDateLte = null,
+                tvDateGte = now.minusYears(1).toString(), tvDateLte = null,
+                voteCountGte = 100
+            )
+            else -> buildTrendingWeek(page)
+        }
+    }
+
+    private suspend fun buildDiscoverMix(
+        page: Int,
+        activePlatforms: Set<String>,
+        providerFilter: String?,
+        watchRegion: String?,
+        postFilterByPlatforms: Boolean,
+        preferredTypes: Set<String>?,
+        movieSortBy: String,
+        tvSortBy: String,
+        movieDateGte: String?,
+        movieDateLte: String?,
+        tvDateGte: String?,
+        tvDateLte: String?,
+        voteCountGte: Int?
+    ): List<ContentPreview> {
+        val takePerType = if (postFilterByPlatforms) 30 else 20
 
         return coroutineScope {
             val movieDeferred = async {
-                tmdbApi.discoverMovie(page = page, watchProviders = providerFilter, watchRegion = watchRegion, releaseDateGte = fiveYearsAgo, releaseDateLte = oneYearFuture, sortBy = null, voteCountGte = 100)
+                tmdbApi.discoverMovie(
+                    page = page,
+                    watchProviders = providerFilter,
+                    watchRegion = watchRegion,
+                    releaseDateGte = movieDateGte,
+                    releaseDateLte = movieDateLte,
+                    sortBy = movieSortBy,
+                    voteCountGte = voteCountGte
+                )
             }
             val tvDeferred = async {
-                tmdbApi.discoverTv(page = page, watchProviders = providerFilter, watchRegion = watchRegion, firstAirDateGte = fiveYearsAgo, firstAirDateLte = oneYearFuture, sortBy = null, voteCountGte = 100)
+                tmdbApi.discoverTv(
+                    page = page,
+                    watchProviders = providerFilter,
+                    watchRegion = watchRegion,
+                    firstAirDateGte = tvDateGte,
+                    firstAirDateLte = tvDateLte,
+                    sortBy = tvSortBy,
+                    voteCountGte = voteCountGte
+                )
             }
 
             val movieResults = movieDeferred.await()
             val tvResults = tvDeferred.await()
-
-            val takePerType = if (postFilterByPlatforms) 30 else 20
 
             val moviePreviews = attachTmbdPlatforms(
                 movieResults.results
@@ -624,10 +697,6 @@ class DiscoverRepositoryImpl(
 
             var combined = (moviePreviews + tvPreviews).shuffled()
 
-            val preferredTypes = if (filterByPlatforms) {
-                userPreferencesDataStore.preferredAvailabilityTypes.first()
-            } else null
-
             if (postFilterByPlatforms) {
                 val before = combined.size
                 combined = combined.filter { preview ->
@@ -642,6 +711,30 @@ class DiscoverRepositoryImpl(
 
             combined
         }
+    }
+
+    private suspend fun buildTrendingWeek(page: Int): List<ContentPreview> {
+        AppLogger.d("DiscoverRepo", "discover receta: tendencias de la semana page=$page")
+        val results = tmdbApi.getTrending()
+        val takePerType = 20
+
+        val moviePreviews = attachTmbdPlatforms(
+            results.results
+                .filter { it.mediaType == "movie" }
+                .filter { !it.adult }
+                .map { it.toContentPreview() }
+                .take(takePerType)
+        )
+
+        val tvPreviews = attachTmbdPlatforms(
+            results.results
+                .filter { it.mediaType == "tv" }
+                .filter { !it.adult }
+                .map { it.toContentPreview() }
+                .take(takePerType)
+        )
+
+        return (moviePreviews + tvPreviews).shuffled()
     }
 
     override suspend fun fetchSearchPage(query: String, page: Int): List<ContentPreview> {
