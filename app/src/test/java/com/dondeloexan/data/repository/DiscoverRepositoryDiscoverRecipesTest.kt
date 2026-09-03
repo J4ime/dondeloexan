@@ -12,6 +12,7 @@ import com.dondeloexan.data.remote.api.TmdbApi
 import com.dondeloexan.data.remote.api.WikidataApi
 import com.dondeloexan.data.remote.dto.TmdbTrendingResponse
 import com.dondeloexan.data.remote.filmaffinity.FilmaffinityScraper
+import com.dondeloexan.domain.repository.TrackingRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
@@ -31,6 +32,7 @@ class DiscoverRepositoryDiscoverRecipesTest {
     private val criticReviewDao: CriticReviewDao = mockk()
     private val wikidataApi: WikidataApi = mockk()
     private val faMovieDataDao: FaMovieDataDao = mockk()
+    private val trackingRepository: TrackingRepository = mockk(relaxed = true)
 
     private val repo: DiscoverRepositoryImpl = DiscoverRepositoryImpl(
         tmdbApi = tmdbApi,
@@ -43,7 +45,8 @@ class DiscoverRepositoryDiscoverRecipesTest {
         userPreferencesDataStore = userPreferencesDataStore,
         filmaffinityScraper = filmaffinityScraper,
         criticReviewDao = criticReviewDao,
-        faMovieDataDao = faMovieDataDao
+        faMovieDataDao = faMovieDataDao,
+        trackingRepository = trackingRepository
     )
 
     private val emptyMovie = TmdbTrendingResponse(page = 1, totalResults = 0, results = emptyList())

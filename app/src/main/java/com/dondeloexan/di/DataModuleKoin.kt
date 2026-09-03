@@ -21,6 +21,7 @@ import com.dondeloexan.data.repository.MovieRepositoryImpl
 import com.dondeloexan.data.repository.PlatformRepositoryImpl
 import com.dondeloexan.data.repository.SeriesRepositoryImpl
 import com.dondeloexan.data.repository.SettingsRepositoryImpl
+import com.dondeloexan.data.repository.TrackingRepositoryImpl
 import com.dondeloexan.data.sync.AccountRepositoryImpl
 import com.dondeloexan.data.sync.SeriesMetadataEnricher
 import com.dondeloexan.data.sync.SessionStore
@@ -35,6 +36,7 @@ import com.dondeloexan.domain.repository.MovieRepository
 import com.dondeloexan.domain.repository.PlatformRepository
 import com.dondeloexan.domain.repository.SeriesRepository
 import com.dondeloexan.domain.repository.SettingsRepository
+import com.dondeloexan.domain.repository.TrackingRepository
 import com.dondeloexan.presentation.feedback.FeedbackManager
 import com.dondeloexan.presentation.settings.LibraryNotificationManager
 import com.dondeloexan.presentation.settings.LibraryRefresher
@@ -76,6 +78,19 @@ val dataModule = module {
 
     // Series
     single<SeriesRepository> { SeriesRepositoryImpl(get(), get(), get(), get(), get()) }
+
+    // Tracking (estado de películas/series + reconciliación)
+    single<TrackingRepository> {
+        TrackingRepositoryImpl(
+            movieDao = get(),
+            tvShowDao = get(),
+            tvShowProgressDao = get(),
+            tmdbApi = get(),
+            cloudCatalog = get(),
+            syncManager = get(),
+            sessionStore = get()
+        )
+    }
 
     // Silent Update
     single { SilentUpdateManager(androidContext()) }
@@ -148,7 +163,8 @@ val dataModule = module {
             faMovieDataDao = get(),
             cloudCatalog = get(),
             syncManager = get(),
-            sessionStore = get()
+            sessionStore = get(),
+            trackingRepository = get()
         )
     }
 

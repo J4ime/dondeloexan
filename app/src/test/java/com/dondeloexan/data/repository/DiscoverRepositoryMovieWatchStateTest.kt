@@ -46,6 +46,15 @@ class DiscoverRepositoryMovieWatchStateTest {
     private val faMovieDataDao: FaMovieDataDao = mockk()
     private val syncManager: SyncManager = mockk(relaxed = true)
     private val sessionStore: SessionStore = mockk(relaxed = true)
+    private val trackingRepository: TrackingRepositoryImpl = TrackingRepositoryImpl(
+        movieDao = movieDao,
+        tvShowDao = tvShowDao,
+        tvShowProgressDao = tvShowProgressDao,
+        tmdbApi = tmdbApi,
+        cloudCatalog = null,
+        syncManager = syncManager,
+        sessionStore = sessionStore
+    )
 
     private lateinit var repo: DiscoverRepositoryImpl
 
@@ -73,7 +82,8 @@ class DiscoverRepositoryMovieWatchStateTest {
             criticReviewDao = criticReviewDao,
             faMovieDataDao = faMovieDataDao,
             syncManager = syncManager,
-            sessionStore = sessionStore
+            sessionStore = sessionStore,
+            trackingRepository = trackingRepository
         )
     }
 
