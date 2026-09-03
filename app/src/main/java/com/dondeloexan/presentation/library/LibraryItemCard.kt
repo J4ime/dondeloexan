@@ -46,9 +46,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import com.dondeloexan.data.local.entity.MovieEntity
-import com.dondeloexan.data.local.entity.TvShowEntity
-import com.dondeloexan.data.local.entity.toStreamingPlatforms
 import com.dondeloexan.domain.model.StreamingAvailability
 import com.dondeloexan.presentation.theme.DarkSurfaceVariant
 import com.dondeloexan.presentation.theme.EleganteRose

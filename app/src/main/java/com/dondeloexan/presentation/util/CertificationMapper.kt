@@ -1,4 +1,4 @@
-package com.dondeloexan.data.remote.mapper
+package com.dondeloexan.presentation.util
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.GppBad

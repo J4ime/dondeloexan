@@ -110,7 +110,7 @@ import com.dondeloexan.presentation.theme.RatingMedium
 import com.dondeloexan.presentation.theme.TextPrimary
 import com.dondeloexan.presentation.theme.TextSecondary
 import com.dondeloexan.presentation.theme.UbuntuTypography
-import com.dondeloexan.data.remote.mapper.toCertificationDisplay
+import com.dondeloexan.presentation.util.toCertificationDisplay
 import com.dondeloexan.util.AppLogger
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
