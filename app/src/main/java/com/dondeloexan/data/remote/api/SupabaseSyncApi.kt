@@ -60,6 +60,29 @@ class SupabaseSyncApi(
     }
 
     /**
+     * Borra las filas de [table] con un [contentId] concreto. Serve para la
+     * sincronización incremental de una sola serie (estado + progreso).
+     */
+    suspend fun deleteTableRowsByContent(table: String, contentId: String, session: SessionState) {
+        val response = client.delete("${url.trimEnd('/')}/rest/v1/$table?content_id=eq.$contentId") {
+            header("apikey", anonKey)
+            header(HttpHeaders.Authorization, "Bearer ${session.accessToken}")
+            header("Prefer", "return=minimal")
+        }
+        if (!response.status.isSuccess()) {
+            val text = response.bodyAsText()
+            AppLogger.e(
+                "SyncApi",
+                "borrar $table por content_id → HTTP ${response.status.value}: ${text.take(500)}"
+            )
+            val message = runCatching {
+                json.decodeFromString<PostgrestError>(text).message
+            }.getOrNull()?.takeIf { it.isNotBlank() }
+            throw SupabaseApiException(message ?: "Error al borrar $table (${response.status.value})")
+        }
+    }
+
+    /**
      * Inserta [payload] (array JSON) en [table] sin conflictos (las filas del
      * usuario ya fueron borradas antes). Con [returnRepresentation] devuelve las
      * filas insertadas (incluido el id UUID autogenerado por la BD).

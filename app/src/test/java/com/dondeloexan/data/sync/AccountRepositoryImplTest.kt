@@ -24,6 +24,7 @@ class AccountRepositoryImplTest {
     private val authApi: SupabaseAuthApi = mockk()
     private val syncManager: SyncManager = mockk()
     private val sessionStore: SessionStore = mockk()
+    private val seriesMetadataEnricher: SeriesMetadataEnricher = mockk(relaxed = true)
 
     private val email = "usuario@test.es"
     private val password = "secreto"
@@ -33,7 +34,7 @@ class AccountRepositoryImplTest {
         every { sessionStore.session } returns flowOf(null)
     }
 
-    private fun repository() = AccountRepositoryImpl(authApi, syncManager, sessionStore)
+    private fun repository() = AccountRepositoryImpl(authApi, syncManager, sessionStore, seriesMetadataEnricher)
 
     private fun auth(): AuthResult = AuthResult(
         accessToken = "atoken",
@@ -228,5 +229,41 @@ class AccountRepositoryImplTest {
         assertFalse(result.isSuccess)
         coVerify(exactly = 0) { authApi.signUp(any(), any()) }
         coVerify(exactly = 0) { syncManager.syncAll(any()) }
+    }
+
+    @Test
+    fun `sync enriquece ficha de series antes de subir a la nube`() = runTest {
+        val session = SessionState(
+            accessToken = "atoken", refreshToken = "rtoken",
+            expiresAt = System.currentTimeMillis() + 3_600_000,
+            userId = "uuid-1", email = email
+        )
+        coEvery { sessionStore.current() } returns session
+        coEvery { seriesMetadataEnricher.enrichAll() } returns 2
+        coEvery { syncManager.syncAll(any()) } returns summary()
+
+        val result = repository().sync()
+
+        assertTrue(result.isSuccess)
+        coVerify(exactly = 1) { seriesMetadataEnricher.enrichAll() }
+        coVerify(exactly = 1) { syncManager.syncAll(session) }
+    }
+
+    @Test
+    fun `sync continua aunque la enrichment de fichas falle`() = runTest {
+        val session = SessionState(
+            accessToken = "atoken", refreshToken = "rtoken",
+            expiresAt = System.currentTimeMillis() + 3_600_000,
+            userId = "uuid-1", email = email
+        )
+        coEvery { sessionStore.current() } returns session
+        coEvery { seriesMetadataEnricher.enrichAll() } throws RuntimeException("TMDB caído")
+        coEvery { syncManager.syncAll(any()) } returns summary()
+
+        val result = repository().sync()
+
+        assertTrue(result.isSuccess)
+        coVerify(exactly = 1) { seriesMetadataEnricher.enrichAll() }
+        coVerify(exactly = 1) { syncManager.syncAll(session) }
     }
 }

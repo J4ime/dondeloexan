@@ -9,6 +9,8 @@ import kotlinx.coroutines.flow.Flow
 
 data class WatchedCount(val tvShowId: Long, val count: Int)
 
+data class TvShowLastWatched(val tvShowId: Long, val lastWatchedAt: Long?)
+
 @Dao
 interface TvShowProgressDao {
 
@@ -26,6 +28,9 @@ interface TvShowProgressDao {
 
     @Query("SELECT tv_show_id AS tvShowId, COUNT(*) AS count FROM tv_show_progress GROUP BY tv_show_id")
     fun getWatchedCounts(): Flow<List<WatchedCount>>
+
+    @Query("SELECT tv_show_id AS tvShowId, MAX(watched_at) AS lastWatchedAt FROM tv_show_progress GROUP BY tv_show_id")
+    fun getLastWatchedAtByShow(): Flow<List<TvShowLastWatched>>
 
     @Query("SELECT MAX(watched_at) FROM tv_show_progress WHERE tv_show_id = :tvShowId")
     suspend fun getLastWatchedAt(tvShowId: Long): Long?

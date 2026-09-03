@@ -96,4 +96,48 @@ class SyncDtosMapperTest {
         assertEquals(userId, dto.userId)
         assertEquals("Netflix", dto.platformName)
     }
+
+    @Test
+    fun `TvShowEntity con ficha tecnica completa mapea todos los campos de catalogo sin nulls`() {
+        val entity = TvShowEntity(
+            id = 1, contentId = "s1", tmdbId = 1396, imdbId = "tt0903747",
+            title = "Breaking Bad", year = 2008, posterUrl = "p",
+            ratingTmdb = 9.5f, ratingImdb = 9.4f, certification = "TV-MA",
+            status = WatchStatus.POR_VER, liked = true, totalEpisodes = 62,
+            streamingPlatforms = "[Netflix]", addedAt = 1000L,
+            seriesStatus = "Ended", inProduction = false, numberOfSeasons = 5,
+            releasedEpisodes = 62, lastRefreshedAt = 2000L,
+            originalTitle = "Breaking Bad", releaseDate = "2008-01-20",
+            spanishReleaseDate = "2008-01-20", tvReleaseDate = "2008-01-20",
+            durationMinutes = 47, ratingRt = 96, ratingMetacritic = 98,
+            ratingFilmaffinity = 8.9f, synopsis = "Un profesor con cáncer...",
+            backdropUrl = "b", directors = "Vince Gilligan", writers = "Vince Gilligan",
+            castJson = "[{\"name\":\"Bryan Cranston\"}]", music = "Dave Porter",
+            cinematography = "Michael Slovis", productionCompanies = "AMC",
+            genres = "Drama,Crimen", countries = "US", externalLinks = "{\"imdb\":\"tt0903747\"}"
+        )
+
+        val row = entity.toCatalogTvShowRow()
+
+        assertEquals("s1", row.contentId)
+        assertEquals("Breaking Bad", row.originalTitle)
+        assertEquals("2008-01-20", row.releaseDate)
+        assertEquals("2008-01-20", row.spanishReleaseDate)
+        assertEquals("2008-01-20", row.tvReleaseDate)
+        assertEquals(47, row.durationMinutes)
+        assertEquals(96, row.ratingRt)
+        assertEquals(98, row.ratingMetacritic)
+        assertEquals(8.9f, row.ratingFilmaffinity)
+        assertEquals("Un profesor con cáncer...", row.synopsis)
+        assertEquals("b", row.backdropUrl)
+        assertEquals("Vince Gilligan", row.directors)
+        assertEquals("Vince Gilligan", row.writers)
+        assertEquals("[{\"name\":\"Bryan Cranston\"}]", row.castJson)
+        assertEquals("Dave Porter", row.music)
+        assertEquals("Michael Slovis", row.cinematography)
+        assertEquals("AMC", row.productionCompanies)
+        assertEquals("Drama,Crimen", row.genres)
+        assertEquals("US", row.countries)
+        assertEquals("{\"imdb\":\"tt0903747\"}", row.externalLinks)
+    }
 }

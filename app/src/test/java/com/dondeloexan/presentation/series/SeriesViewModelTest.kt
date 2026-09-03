@@ -3,6 +3,7 @@ package com.dondeloexan.presentation.series
 import com.dondeloexan.data.local.dao.TvShowDao
 import com.dondeloexan.data.local.dao.TvShowProgressDao
 import com.dondeloexan.data.local.dao.WatchedCount
+import com.dondeloexan.data.local.dao.TvShowLastWatched
 import com.dondeloexan.data.local.entity.TvShowEntity
 import com.dondeloexan.data.local.entity.WatchStatus
 import com.dondeloexan.data.remote.api.TmdbApi
@@ -42,9 +43,10 @@ class SeriesViewModelTest {
         Dispatchers.setMain(mainDispatcher)
     }
 
-    private fun stubSeries(series: List<TvShowEntity>, counts: List<WatchedCount>) {
+    private fun stubSeries(series: List<TvShowEntity>, counts: List<WatchedCount>, lastWatched: List<TvShowLastWatched> = emptyList()) {
         coEvery { tvShowDao.getAllFlow() } returns flowOf(series)
         coEvery { tvShowProgressDao.getWatchedCounts() } returns flowOf(counts)
+        coEvery { tvShowProgressDao.getLastWatchedAtByShow() } returns flowOf(lastWatched)
         viewModel = SeriesViewModel(tvShowDao, tvShowProgressDao, tmdbApi, refreshCoordinator, discoverRepository, feedbackManager)
     }
 
@@ -188,5 +190,28 @@ class SeriesViewModelTest {
 
         coVerify { tvShowDao.update(match { it.status == WatchStatus.YA_VISTA }) }
         verify { feedbackManager.emit("Serie marcada como vista") }
+    }
+
+    @Test
+    fun `en curso se ordena por el ultimo capitulo realmente visto`() = runTest {
+        val antigua = TvShowEntity(
+            id = 21, title = "Vista hace tiempo", status = WatchStatus.POR_VER,
+            releasedEpisodes = 10, totalEpisodes = 24, seriesStatus = "Returning Series", inProduction = true
+        )
+        val reciente = TvShowEntity(
+            id = 22, title = "Vista recientemente", status = WatchStatus.POR_VER,
+            releasedEpisodes = 10, totalEpisodes = 24, seriesStatus = "Returning Series", inProduction = true
+        )
+        stubSeries(
+            listOf(antigua, reciente),
+            listOf(WatchedCount(21, 3), WatchedCount(22, 3)),
+            listOf(TvShowLastWatched(21, lastWatchedAt = 1000L), TvShowLastWatched(22, lastWatchedAt = 5000L))
+        )
+
+        val inProgress = stateValue(viewModel.inProgress)
+
+        assert(inProgress.size == 2)
+        assert(inProgress[0].show.id == 22L)
+        assert(inProgress[1].show.id == 21L)
     }
 }

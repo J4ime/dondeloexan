@@ -9,6 +9,7 @@ import com.dondeloexan.data.local.dao.SearchHistoryDao
 import com.dondeloexan.data.local.dao.TvShowDao
 import com.dondeloexan.data.local.dao.TvShowProgressDao
 import com.dondeloexan.data.local.dao.UserPlatformDao
+import com.dondeloexan.data.local.entity.TvShowEntity
 import com.dondeloexan.data.remote.api.SupabaseSyncApi
 import com.dondeloexan.util.AppLogger
 import kotlinx.serialization.builtins.ListSerializer
@@ -201,6 +202,49 @@ class SyncManager(
             "Sync completado para ${session.email}: ${summary.total} datos (movies=${summary.movies}, tvShows=${summary.tvShows}, progress=${summary.tvShowProgress}, history=${summary.searchHistory}, platforms=${summary.userPlatforms}, blacklist=${summary.blacklist}, criticReviews=${summary.criticReviews}, faMovieData=${summary.faMovieData})"
         )
         return summary
+    }
+
+    suspend fun syncSingleTvShow(session: SessionState, tvShow: TvShowEntity) {
+        val contentId = tvShow.contentId
+        if (contentId.isNullOrBlank()) {
+            AppLogger.w("Sync", "syncSingleTvShow omitido: serie '${tvShow.title}' sin content_id")
+            return
+        }
+        val userId = session.userId
+
+        deleteTableRowsByContent("user_tv_shows", contentId, session)
+        deleteTableRowsByContent("tv_show_progress", contentId, session)
+
+        syncApi.insertAll(
+            "user_tv_shows",
+            syncJson.encodeToString(
+                ListSerializer(UserTvShowSyncDto.serializer()),
+                listOf(tvShow.toUserTvShowSyncDto(userId))
+            ),
+            session
+        )
+
+        val progress = tvShowProgressDao.getByTvShowId(tvShow.id)
+        if (progress.isNotEmpty()) {
+            val dtos = progress.map { it.toSyncDto(userId, contentId) }
+            syncApi.insertAll(
+                "tv_show_progress",
+                syncJson.encodeToString(
+                    ListSerializer(TvShowProgressSyncDto.serializer()),
+                    dtos
+                ),
+                session
+            )
+        }
+    }
+
+    private suspend fun deleteTableRowsByContent(table: String, contentId: String, session: SessionState) {
+        try {
+            syncApi.deleteTableRowsByContent(table, contentId, session)
+        } catch (e: Exception) {
+            AppLogger.e("Sync", "borrar $table ($contentId) falló", e)
+            throw e
+        }
     }
 
     private suspend fun deleteUserTables(userId: String, session: SessionState) {

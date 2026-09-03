@@ -17,6 +17,7 @@ import com.dondeloexan.data.remote.filmaffinity.FilmaffinityScraper
 import com.dondeloexan.data.repository.DiscoverRepositoryImpl
 import com.dondeloexan.data.repository.SettingsRepositoryImpl
 import com.dondeloexan.data.sync.AccountRepositoryImpl
+import com.dondeloexan.data.sync.SeriesMetadataEnricher
 import com.dondeloexan.data.sync.SessionStore
 import com.dondeloexan.data.sync.SyncManager
 import com.dondeloexan.data.update.SilentUpdateManager
@@ -78,7 +79,15 @@ val dataModule = module {
             json = get()
         )
     }
-    single<AccountRepository> { AccountRepositoryImpl(authApi = get(), syncManager = get(), sessionStore = get()) }
+    single<AccountRepository> {
+        AccountRepositoryImpl(
+            authApi = get(),
+            syncManager = get(),
+            sessionStore = get(),
+            seriesMetadataEnricher = get()
+        )
+    }
+    single { SeriesMetadataEnricher(tmdbApi = get(), tvShowDao = get()) }
 
     // Library
     single { LibraryNotificationManager(androidContext()) }
@@ -112,7 +121,9 @@ val dataModule = module {
             filmaffinityScraper = get(),
             criticReviewDao = get(),
             faMovieDataDao = get(),
-            cloudCatalog = get()
+            cloudCatalog = get(),
+            syncManager = get(),
+            sessionStore = get()
         )
     }
 

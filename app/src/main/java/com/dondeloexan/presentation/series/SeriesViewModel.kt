@@ -7,6 +7,9 @@ import com.dondeloexan.data.local.dao.TvShowProgressDao
 import com.dondeloexan.data.local.entity.TvShowEntity
 import com.dondeloexan.data.local.entity.TvShowProgressEntity
 import com.dondeloexan.data.local.entity.WatchStatus
+import com.dondeloexan.data.local.entity.hasFutureSeasons
+import com.dondeloexan.data.local.entity.isCaughtUpBy
+import com.dondeloexan.data.local.entity.isFinishedBy
 import com.dondeloexan.data.local.entity.toPlatformsString
 import com.dondeloexan.data.remote.api.TmdbApi
 import com.dondeloexan.domain.repository.DiscoverRepository
@@ -31,7 +34,8 @@ import java.time.LocalDate
 data class SeriesWithProgress(
     val show: TvShowEntity,
     val watchedCount: Int,
-    val totalEpisodes: Int?
+    val totalEpisodes: Int?,
+    val lastWatchedAt: Long? = null
 )
 
 class SeriesViewModel(
@@ -50,48 +54,41 @@ class SeriesViewModel(
 
     val seriesWithProgress: StateFlow<List<SeriesWithProgress>> = combine(
         tvShowDao.getAllFlow(),
-        tvShowProgressDao.getWatchedCounts()
-    ) { series, counts ->
+        tvShowProgressDao.getWatchedCounts(),
+        tvShowProgressDao.getLastWatchedAtByShow()
+    ) { series, counts, lastWatched ->
         val countMap = counts.associate { it.tvShowId to it.count }
+        val lastWatchedMap = lastWatched.associate { it.tvShowId to it.lastWatchedAt }
         series.map { show ->
             val watchedCount = countMap[show.id] ?: 0
             SeriesWithProgress(
                 show = show,
                 watchedCount = watchedCount,
-                totalEpisodes = deriveTotalEpisodes(show.totalEpisodes)
+                totalEpisodes = deriveTotalEpisodes(show.totalEpisodes),
+                lastWatchedAt = lastWatchedMap[show.id]
             )
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    private fun SeriesWithProgress.hasFutureSeasons(): Boolean {
-        return when (show.seriesStatus) {
-            "Ended", "Canceled" -> false
-            null -> show.inProduction != false
-            else -> true
-        }
-    }
+    private fun SeriesWithProgress.hasFutureSeasons(): Boolean = show.hasFutureSeasons()
 
-    private fun SeriesWithProgress.isCaughtUp(): Boolean {
-        val aired = show.releasedEpisodes ?: show.totalEpisodes ?: return false
-        return aired > 0 && watchedCount >= aired
-    }
+    private fun SeriesWithProgress.isCaughtUp(): Boolean = show.isCaughtUpBy(watchedCount)
 
-    private fun SeriesWithProgress.isFinished(): Boolean {
-        if (show.finishedAt != null && isCaughtUp() && !hasFutureSeasons()) return true
-        if (!isCaughtUp()) return false
-        return !hasFutureSeasons()
-    }
+    private fun SeriesWithProgress.isFinished(): Boolean = show.isFinishedBy(watchedCount)
+
+    private fun List<SeriesWithProgress>.sortedByLastWatched(): List<SeriesWithProgress> =
+        sortedWith(compareByDescending<SeriesWithProgress> { it.lastWatchedAt ?: Long.MIN_VALUE }.thenBy { it.show.addedAt })
 
     val pending: StateFlow<List<SeriesWithProgress>> = seriesWithProgress.map { list ->
-        list.filter { s -> s.watchedCount == 0 }
+        list.filter { s -> s.watchedCount == 0 }.sortedByLastWatched()
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val inProgress: StateFlow<List<SeriesWithProgress>> = seriesWithProgress.map { list ->
-        list.filter { s -> s.watchedCount > 0 && !s.isCaughtUp() && !s.isFinished() }
+        list.filter { s -> s.watchedCount > 0 && !s.isCaughtUp() && !s.isFinished() }.sortedByLastWatched()
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val finished: StateFlow<List<SeriesWithProgress>> = seriesWithProgress.map { list ->
-        list.filter { s -> s.isFinished() }
+        list.filter { s -> s.isFinished() }.sortedByLastWatched()
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val upcomingAgenda: StateFlow<List<SeriesWithProgress>> = seriesWithProgress.map { list ->

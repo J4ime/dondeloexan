@@ -17,6 +17,9 @@ import com.dondeloexan.data.remote.dto.TmdbMultiSearchResponse
 import com.dondeloexan.data.remote.dto.TmdbMultiSearchResult
 import com.dondeloexan.data.remote.dto.TmdbWatchProvidersResponse
 import com.dondeloexan.data.remote.filmaffinity.FilmaffinityScraper
+import com.dondeloexan.data.sync.SessionState
+import com.dondeloexan.data.sync.SessionStore
+import com.dondeloexan.data.sync.SyncManager
 import com.dondeloexan.domain.model.Content
 import com.dondeloexan.domain.model.ContentSource
 import com.dondeloexan.domain.model.ContentType
@@ -41,6 +44,8 @@ class DiscoverRepositoryMovieWatchStateTest {
     private val criticReviewDao: CriticReviewDao = mockk()
     private val wikidataApi: WikidataApi = mockk()
     private val faMovieDataDao: FaMovieDataDao = mockk()
+    private val syncManager: SyncManager = mockk(relaxed = true)
+    private val sessionStore: SessionStore = mockk(relaxed = true)
 
     private lateinit var repo: DiscoverRepositoryImpl
 
@@ -66,7 +71,9 @@ class DiscoverRepositoryMovieWatchStateTest {
             userPreferencesDataStore = userPreferencesDataStore,
             filmaffinityScraper = filmaffinityScraper,
             criticReviewDao = criticReviewDao,
-            faMovieDataDao = faMovieDataDao
+            faMovieDataDao = faMovieDataDao,
+            syncManager = syncManager,
+            sessionStore = sessionStore
         )
     }
 
@@ -247,6 +254,7 @@ class DiscoverRepositoryMovieWatchStateTest {
         coEvery { tvShowProgressDao?.insert(any()) } returns 1L
         coEvery { tvShowDao.updateLastWatchedAt(any(), any()) } returns Unit
         coEvery { tvShowProgressDao?.getByTvShowId(any()) } returns emptyList()
+        coEvery { tvShowProgressDao?.getLastWatchedAt(any()) } returns null
     }
 
     @Test
@@ -334,5 +342,48 @@ class DiscoverRepositoryMovieWatchStateTest {
         val updated = captured.captured
         assert(updated.status == WatchStatus.POR_VER)
         assert(updated.finishedAt == null)
+    }
+
+    @Test
+    fun `recordEpisode al llegar a terminada sube el estado a la nube con sesion real`() = runTest {
+        coEvery { tvShowDao.getByContentId("tmdb-1396") } returns TvShowEntity(
+            id = 7, contentId = "tmdb-1396", tmdbId = 1396, title = "Breaking Bad",
+            totalEpisodes = 62, releasedEpisodes = 62, seriesStatus = "Ended",
+            inProduction = false, status = WatchStatus.POR_VER
+        )
+        coEvery { tvShowDao.getByTmdbId(any()) } returns null
+        coEvery { tvShowDao.getByImdbId(any()) } returns null
+        coEvery { tvShowProgressDao?.getEpisodeCount(7) } returns 62
+        stubRecordPrimitives()
+        coEvery { sessionStore.current() } returns SessionState(
+            accessToken = "at", refreshToken = "rt",
+            expiresAt = System.currentTimeMillis() + 3_600_000,
+            userId = "u1", email = "e@e.es"
+        )
+        coEvery { syncManager.syncSingleTvShow(any(), any()) } returns Unit
+        coEvery { tvShowDao.update(any()) } returns Unit
+
+        repo.recordEpisode(breakingBadContent, 5, 16)
+
+        coVerify { syncManager.syncSingleTvShow(match { it.userId == "u1" }, match { it.contentId == "tmdb-1396" }) }
+    }
+
+    @Test
+    fun `recordEpisode sin sesion activa no intenta subir a la nube`() = runTest {
+        coEvery { tvShowDao.getByContentId("tmdb-1396") } returns TvShowEntity(
+            id = 7, contentId = "tmdb-1396", tmdbId = 1396, title = "Breaking Bad",
+            totalEpisodes = 62, releasedEpisodes = 62, seriesStatus = "Ended",
+            inProduction = false, status = WatchStatus.POR_VER
+        )
+        coEvery { tvShowDao.getByTmdbId(any()) } returns null
+        coEvery { tvShowDao.getByImdbId(any()) } returns null
+        coEvery { tvShowProgressDao?.getEpisodeCount(7) } returns 62
+        stubRecordPrimitives()
+        coEvery { sessionStore.current() } returns null
+        coEvery { tvShowDao.update(any()) } returns Unit
+
+        repo.recordEpisode(breakingBadContent, 5, 16)
+
+        coVerify(exactly = 0) { syncManager.syncSingleTvShow(any(), any()) }
     }
 }

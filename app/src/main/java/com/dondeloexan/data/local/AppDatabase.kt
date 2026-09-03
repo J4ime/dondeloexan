@@ -36,7 +36,7 @@ import com.dondeloexan.data.local.entity.UserPlatformEntity
         CriticReviewEntity::class,
         FaMovieDataEntity::class
     ],
-    version = 20,
+    version = 21,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -214,9 +214,32 @@ abstract class AppDatabase : RoomDatabase() {
             db.execSQL("UPDATE tv_shows SET liked = 1 WHERE status = 'POR_VER'")
         }
 
+        private val MIGRATION_20_21 = Migration(20, 21) { db ->
+            db.execSQL("ALTER TABLE tv_shows ADD COLUMN original_title TEXT")
+            db.execSQL("ALTER TABLE tv_shows ADD COLUMN release_date TEXT")
+            db.execSQL("ALTER TABLE tv_shows ADD COLUMN spanish_release_date TEXT")
+            db.execSQL("ALTER TABLE tv_shows ADD COLUMN digital_release_date TEXT")
+            db.execSQL("ALTER TABLE tv_shows ADD COLUMN tv_release_date TEXT")
+            db.execSQL("ALTER TABLE tv_shows ADD COLUMN duration_minutes INTEGER")
+            db.execSQL("ALTER TABLE tv_shows ADD COLUMN rating_rt INTEGER")
+            db.execSQL("ALTER TABLE tv_shows ADD COLUMN rating_metacritic INTEGER")
+            db.execSQL("ALTER TABLE tv_shows ADD COLUMN rating_filmaffinity REAL")
+            db.execSQL("ALTER TABLE tv_shows ADD COLUMN synopsis TEXT")
+            db.execSQL("ALTER TABLE tv_shows ADD COLUMN backdrop_url TEXT")
+            db.execSQL("ALTER TABLE tv_shows ADD COLUMN directors TEXT")
+            db.execSQL("ALTER TABLE tv_shows ADD COLUMN writers TEXT")
+            db.execSQL("ALTER TABLE tv_shows ADD COLUMN cast_json TEXT")
+            db.execSQL("ALTER TABLE tv_shows ADD COLUMN music TEXT")
+            db.execSQL("ALTER TABLE tv_shows ADD COLUMN cinematography TEXT")
+            db.execSQL("ALTER TABLE tv_shows ADD COLUMN production_companies TEXT")
+            db.execSQL("ALTER TABLE tv_shows ADD COLUMN genres TEXT")
+            db.execSQL("ALTER TABLE tv_shows ADD COLUMN countries TEXT")
+            db.execSQL("ALTER TABLE tv_shows ADD COLUMN external_links TEXT")
+        }
+
         fun create(context: Context): AppDatabase {
             return Room.databaseBuilder(context, AppDatabase::class.java, DB_NAME)
-                .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20)
+                .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21)
                 .fallbackToDestructiveMigration()
                 .addCallback(seedCallback)
                 .build()

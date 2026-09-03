@@ -263,4 +263,40 @@ class SyncManagerTest {
         }
         assertEquals(0, summary.tvShowProgress)
     }
+
+    @Test
+    fun `syncSingleTvShow borra por content_id y re-sube solo esa serie y su progreso`() = runTest {
+        coEvery { syncApi.deleteTableRowsByContent(any(), any(), any()) } returns Unit
+        coEvery { syncApi.insertAll(any(), any(), any(), any()) } returns ""
+        coEvery { tvShowProgressDao.getByTvShowId(7) } returns listOf(
+            TvShowProgressEntity(id = 1, tvShowId = 7, season = 1, episode = 1, watchedAt = 5000),
+            TvShowProgressEntity(id = 2, tvShowId = 7, season = 2, episode = 1, watchedAt = 6000)
+        )
+        val show = TvShowEntity(id = 7, contentId = "showA", title = "S1", status = WatchStatus.YA_VISTA, addedAt = 3000)
+
+        manager().syncSingleTvShow(session, show)
+
+        coVerify(exactly = 1) { syncApi.deleteTableRowsByContent("user_tv_shows", "showA", session) }
+        coVerify(exactly = 1) { syncApi.deleteTableRowsByContent("tv_show_progress", "showA", session) }
+        val userPayload = slot<String>()
+        coVerify { syncApi.insertAll("user_tv_shows", capture(userPayload), session, false) }
+        assertTrue(userPayload.captured.contains("\"content_id\":\"showA\""))
+        val progressPayload = slot<String>()
+        coVerify { syncApi.insertAll("tv_show_progress", capture(progressPayload), session, false) }
+        assertTrue(progressPayload.captured.contains("\"content_id\":\"showA\""))
+        coVerify(exactly = 0) { syncApi.insertAll("user_movies", any(), any(), any()) }
+        coVerify(exactly = 0) { cloudCatalog.saveTvShows(any(), any()) }
+    }
+
+    @Test
+    fun `syncSingleTvShow sin content_id se omite sin subir nada`() = runTest {
+        coEvery { syncApi.deleteTableRowsByContent(any(), any(), any()) } returns Unit
+        coEvery { syncApi.insertAll(any(), any(), any(), any()) } returns ""
+        val show = TvShowEntity(id = 9, title = "Sin contenido", status = WatchStatus.POR_VER)
+
+        manager().syncSingleTvShow(session, show)
+
+        coVerify(exactly = 0) { syncApi.deleteTableRowsByContent(any(), any(), any()) }
+        coVerify(exactly = 0) { syncApi.insertAll(any(), any(), any(), any()) }
+    }
 }

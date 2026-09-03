@@ -11,7 +11,8 @@ import kotlinx.coroutines.flow.Flow
 class AccountRepositoryImpl(
     private val authApi: SupabaseAuthApi,
     private val syncManager: SyncManager,
-    private val sessionStore: SessionStore
+    private val sessionStore: SessionStore,
+    private val seriesMetadataEnricher: SeriesMetadataEnricher
 ) : AccountRepository {
 
     override val session: Flow<SessionState?> = sessionStore.session
@@ -68,7 +69,14 @@ class AccountRepositoryImpl(
     }
 
     override suspend fun sync(): Result<SyncSummary> = runCatching {
-        syncManager.syncAll(requireSession())
+        val session = requireSession()
+        // Antes de subir, completamos la ficha técnica de las series que aún
+        // la tienen incompleta (batch desde Ajustes → Sincronizar nube), para
+        // que la nube no reciba campos null.
+        runCatching { seriesMetadataEnricher.enrichAll() }.onFailure { e ->
+            AppLogger.e("AccountRepo", "enrichAll falló (se continúa con el sync)", e)
+        }
+        syncManager.syncAll(session)
     }
 
     companion object {

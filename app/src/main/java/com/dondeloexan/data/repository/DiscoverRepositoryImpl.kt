@@ -29,6 +29,8 @@ import com.dondeloexan.data.local.entity.MovieEntity
 import com.dondeloexan.data.local.entity.TvShowEntity
 import com.dondeloexan.data.local.entity.TvShowProgressEntity
 import com.dondeloexan.data.local.entity.WatchStatus
+import com.dondeloexan.data.local.entity.hasFutureSeasons
+import com.dondeloexan.data.local.entity.isCaughtUpBy
 import com.dondeloexan.data.remote.mapper.toEpisode
 import com.dondeloexan.data.remote.mapper.toSeason
 import com.dondeloexan.data.remote.mapper.toSeasonDetail
@@ -42,7 +44,10 @@ import com.dondeloexan.data.remote.dto.TmdbPersonCredit
 import com.dondeloexan.data.remote.dto.TmdbPersonSearchResult
 import com.dondeloexan.data.remote.dto.TmdbTvDetailDto
 import com.dondeloexan.data.remote.mapper.toContentPreview
+import com.dondeloexan.data.sync.SessionStore
+import com.dondeloexan.data.sync.SyncManager
 import com.dondeloexan.data.sync.toCatalogTvShowRow as toEntityCatalogTvShowRow
+import com.dondeloexan.data.sync.toTvShowEntity
 import com.dondeloexan.data.remote.mapper.toDomain
 import com.dondeloexan.data.remote.mapper.toStreamingAvailability
 import com.dondeloexan.domain.model.AvailabilityType
@@ -88,7 +93,9 @@ class DiscoverRepositoryImpl(
     private val filmaffinityScraper: FilmaffinityScraper,
     private val criticReviewDao: CriticReviewDao,
     private val faMovieDataDao: FaMovieDataDao,
-    private val cloudCatalog: CloudCatalogRepository? = null
+    private val cloudCatalog: CloudCatalogRepository? = null,
+    private val syncManager: SyncManager? = null,
+    private val sessionStore: SessionStore? = null
 ) : DiscoverRepository {
 
     private data class CachedPlatforms(
@@ -393,21 +400,6 @@ class DiscoverRepositoryImpl(
             val providers = tmdbApi.getTvWatchProviders(tmdbId)
             val platforms = providers.results?.get("ES")?.toStreamingAvailability().orEmpty()
 
-            val existing = tvShowDao.getByContentId("tmdb-$tmdbId")
-            if (existing != null) {
-                tvShowDao.update(
-                    existing.copy(
-                        totalEpisodes = tv.numberOfEpisodes ?: existing.totalEpisodes,
-                        nextEpisodeAirDate = tv.nextEpisodeToAir?.airDate,
-                        nextEpisodeNumber = tv.nextEpisodeToAir?.episodeNumber,
-                        nextEpisodeSeasonNumber = tv.nextEpisodeToAir?.seasonNumber,
-                        seriesStatus = tv.status,
-                        inProduction = tv.inProduction,
-                        numberOfSeasons = tv.numberOfSeasons
-                    )
-                )
-            }
-
             val externalLinks = try {
                 val social = tmdbApi.getTvExternalIds(tmdbId)
                 ExternalLinks(
@@ -424,7 +416,25 @@ class DiscoverRepositoryImpl(
                 null
             }
 
-            tv.toDomain(null, platforms, credits, externalLinks)
+            val content = tv.toDomain(null, platforms, credits, externalLinks)
+
+            val existing = tvShowDao.getByContentId("tmdb-$tmdbId")
+            if (existing != null) {
+                tvShowDao.update(
+                    existing.copy(
+                        totalEpisodes = tv.numberOfEpisodes ?: existing.totalEpisodes,
+                        nextEpisodeAirDate = tv.nextEpisodeToAir?.airDate,
+                        nextEpisodeNumber = tv.nextEpisodeToAir?.episodeNumber,
+                        nextEpisodeSeasonNumber = tv.nextEpisodeToAir?.seasonNumber,
+                        seriesStatus = tv.status,
+                        inProduction = tv.inProduction,
+                        numberOfSeasons = tv.numberOfSeasons,
+                        releasedEpisodes = existing.releasedEpisodes ?: computeReleasedEpisodes(tv)
+                    ).let { content.toTvShowEntity(it) }
+                )
+            }
+
+            content
         } else {
             val movie = tmdbApi.getMovieDetail(tmdbId)
             val credits = tmdbApi.getMovieCredits(tmdbId)
@@ -1573,28 +1583,56 @@ class DiscoverRepositoryImpl(
             }
         }
 
-        val hasFuture = when (current.seriesStatus) {
-            "Ended", "Canceled" -> false
-            null -> current.inProduction != false
-            else -> true
-        }
-        val caughtUp = aired != null && aired > 0 && watchedCount >= aired
+        val hasFuture = current.hasFutureSeasons()
+        val caughtUp = current.isCaughtUpBy(watchedCount)
         val now = System.currentTimeMillis()
+        val knownLastWatched = tvShowProgressDao?.getLastWatchedAt(tvShow.id) ?: tvShow.lastWatchedAt
+        val base = current.copy(lastWatchedAt = knownLastWatched)
         val reconciled = when {
-            !caughtUp -> current.copy(status = WatchStatus.POR_VER, finishedAt = null, lastWatchedAt = now)
-            hasFuture -> current.copy(status = WatchStatus.YA_VISTA, finishedAt = null, lastWatchedAt = now)
-            else -> current.copy(status = WatchStatus.YA_VISTA, finishedAt = now, lastWatchedAt = now)
+            !caughtUp -> base.copy(status = WatchStatus.POR_VER, finishedAt = null)
+            hasFuture -> base.copy(status = WatchStatus.YA_VISTA, finishedAt = null)
+            else -> base.copy(status = WatchStatus.YA_VISTA, finishedAt = now)
         }
+        val state = if (!caughtUp) "EN_CURSO" else if (hasFuture) "AL_DIA" else "TERMINADA"
+
+        val stateChanged = reconciled.status != tvShow.status || reconciled.finishedAt != tvShow.finishedAt
+
+        // Persistir siempre (también datos de emisión refrescados), sin pisar
+        // lastWatchedAt: se toma de la DB (MAX(watched_at)) para no romper el
+        // orden real de "En curso".
         tvShowDao.update(reconciled)
-        val state = when {
-            !caughtUp -> "EN_CURSO"
-            hasFuture -> "AL_DIA"
-            else -> "TERMINADA"
+        if (stateChanged) {
+            pushTvShowStateToCloud(reconciled)
+            AppLogger.i(
+                "DiscoverRepo",
+                "reconcile ${reconciled.title}: vistos=$watchedCount aired=$aired hasFuture=$hasFuture -> $state (cambio de estado)"
+            )
+        } else {
+            AppLogger.i(
+                "DiscoverRepo",
+                "reconcile ${reconciled.title}: vistos=$watchedCount aired=$aired hasFuture=$hasFuture -> $state (sin cambios)"
+            )
         }
-        AppLogger.i(
-            "DiscoverRepo",
-            "reconcile ${reconciled.title}: vistos=$watchedCount aired=$aired hasFuture=$hasFuture -> $state"
-        )
+    }
+
+    /**
+     * Si el usuario está logueado (sesión real), sube el estado y progreso de la
+     * serie a la nube (planos user_tv_shows / tv_show_progress). Best-effort:
+     * los fallos se registran pero no rompen el flujo local.
+     */
+    private suspend fun pushTvShowStateToCloud(reconciled: TvShowEntity) {
+        val session = sessionStore?.current() ?: return
+        val sync = syncManager ?: return
+        try {
+            cloudRead("syncSingle-${reconciled.contentId}") {
+                sync.syncSingleTvShow(session, reconciled)
+                null
+            }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            AppLogger.e("DiscoverRepo", "push estado a nube falló para ${reconciled.title}", e)
+        }
     }
 
     private fun computeReleasedEpisodes(tv: TmdbTvDetailDto): Int? =
