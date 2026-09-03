@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dondeloexan.BuildConfig
+import com.dondeloexan.data.library.LibraryRefresher
 import com.dondeloexan.data.local.datastore.UserPreferencesDataStore
 import com.dondeloexan.data.remote.api.TmdbApi
 import com.dondeloexan.data.update.SilentUpdateManager

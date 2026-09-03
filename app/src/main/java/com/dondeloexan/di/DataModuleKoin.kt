@@ -38,8 +38,8 @@ import com.dondeloexan.domain.repository.SeriesRepository
 import com.dondeloexan.domain.repository.SettingsRepository
 import com.dondeloexan.domain.repository.TrackingRepository
 import com.dondeloexan.presentation.feedback.FeedbackManager
-import com.dondeloexan.presentation.settings.LibraryNotificationManager
-import com.dondeloexan.presentation.settings.LibraryRefresher
+import com.dondeloexan.data.library.LibraryNotificationManager
+import com.dondeloexan.data.library.LibraryRefresher
 import com.dondeloexan.util.RefreshCoordinator
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.qualifier.named

@@ -10,7 +10,7 @@ import com.dondeloexan.data.local.dao.TvShowDao
 import com.dondeloexan.di.dataModule
 import com.dondeloexan.di.networkModule
 import com.dondeloexan.di.viewModelModule
-import com.dondeloexan.presentation.settings.LibraryRefresher
+import com.dondeloexan.data.library.LibraryRefresher
 import com.dondeloexan.util.TMDB_POSTER_BASE
 import com.dondeloexan.worker.SeriesCheckWorker
 import com.dondeloexan.worker.WorkScheduler

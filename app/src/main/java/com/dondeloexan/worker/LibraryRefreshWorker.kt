@@ -3,7 +3,7 @@ package com.dondeloexan.worker
 import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.dondeloexan.presentation.settings.LibraryRefresher
+import com.dondeloexan.data.library.LibraryRefresher
 import com.dondeloexan.util.AppLogger
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject

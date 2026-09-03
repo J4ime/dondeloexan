@@ -1,4 +1,4 @@
-package com.dondeloexan.presentation.settings
+package com.dondeloexan.data.library
 
 import com.dondeloexan.data.local.dao.MovieDao
 import com.dondeloexan.data.local.dao.TvShowDao
