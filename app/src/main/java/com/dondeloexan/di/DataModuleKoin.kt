@@ -14,7 +14,10 @@ import com.dondeloexan.data.local.dao.TvShowProgressDao
 import com.dondeloexan.data.local.dao.UserPlatformDao
 import com.dondeloexan.data.local.datastore.UserPreferencesDataStore
 import com.dondeloexan.data.remote.filmaffinity.FilmaffinityScraper
+import com.dondeloexan.data.repository.AvailabilityRepositoryImpl
+import com.dondeloexan.data.repository.BlacklistRepositoryImpl
 import com.dondeloexan.data.repository.DiscoverRepositoryImpl
+import com.dondeloexan.data.repository.PlatformRepositoryImpl
 import com.dondeloexan.data.repository.SettingsRepositoryImpl
 import com.dondeloexan.data.sync.AccountRepositoryImpl
 import com.dondeloexan.data.sync.SeriesMetadataEnricher
@@ -22,8 +25,11 @@ import com.dondeloexan.data.sync.SessionStore
 import com.dondeloexan.data.sync.SyncManager
 import com.dondeloexan.data.update.SilentUpdateManager
 import com.dondeloexan.domain.repository.AccountRepository
+import com.dondeloexan.domain.repository.AvailabilityRepository
 import com.dondeloexan.domain.repository.BackupRepository
+import com.dondeloexan.domain.repository.BlacklistRepository
 import com.dondeloexan.domain.repository.DiscoverRepository
+import com.dondeloexan.domain.repository.PlatformRepository
 import com.dondeloexan.domain.repository.SettingsRepository
 import com.dondeloexan.presentation.feedback.FeedbackManager
 import com.dondeloexan.presentation.settings.LibraryNotificationManager
@@ -51,6 +57,15 @@ val dataModule = module {
     // Backup
     single { BackupManager(get(), androidContext().contentResolver) }
     single<BackupRepository> { BackupRepositoryImpl(get()) }
+
+    // Blacklist
+    single<BlacklistRepository> { BlacklistRepositoryImpl(get()) }
+
+    // Platforms
+    single<PlatformRepository> { PlatformRepositoryImpl(get()) }
+
+    // Availability preferences
+    single<AvailabilityRepository> { AvailabilityRepositoryImpl(get()) }
 
     // Silent Update
     single { SilentUpdateManager(androidContext()) }

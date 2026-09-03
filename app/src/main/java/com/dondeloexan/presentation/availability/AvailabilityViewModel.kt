@@ -1,23 +1,21 @@
 package com.dondeloexan.presentation.availability
 
 import androidx.lifecycle.ViewModel
-import com.dondeloexan.data.local.datastore.UserPreferencesDataStore
+import androidx.lifecycle.viewModelScope
+import com.dondeloexan.domain.repository.AvailabilityRepository
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import androidx.lifecycle.viewModelScope
 
 class AvailabilityViewModel(
-    private val dataStore: UserPreferencesDataStore
+    private val repository: AvailabilityRepository
 ) : ViewModel() {
 
-    val selectedTypes: StateFlow<Set<String>> = dataStore.preferredAvailabilityTypes
+    val selectedTypes: StateFlow<Set<String>> = repository.selectedTypes
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
 
     fun toggle(type: String) {
-        viewModelScope.launch {
-            dataStore.toggleAvailabilityType(type)
-        }
+        viewModelScope.launch { repository.toggle(type) }
     }
 }
