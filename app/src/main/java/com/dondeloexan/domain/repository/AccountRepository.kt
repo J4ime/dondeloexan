@@ -1,7 +1,7 @@
 package com.dondeloexan.domain.repository
 
-import com.dondeloexan.data.sync.SessionState
-import com.dondeloexan.data.sync.SyncSummary
+import com.dondeloexan.domain.model.SessionState
+import com.dondeloexan.domain.model.SyncSummary
 import kotlinx.coroutines.flow.Flow
 
 interface AccountRepository {

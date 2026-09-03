@@ -6,11 +6,11 @@ import androidx.lifecycle.viewModelScope
 import com.dondeloexan.BuildConfig
 import com.dondeloexan.data.local.datastore.UserPreferencesDataStore
 import com.dondeloexan.data.remote.api.TmdbApi
-import com.dondeloexan.data.sync.SessionState
-import com.dondeloexan.data.sync.SyncSummary
 import com.dondeloexan.data.update.SilentUpdateManager
 import com.dondeloexan.domain.model.BackupState
 import com.dondeloexan.domain.model.GitHubRelease
+import com.dondeloexan.domain.model.SessionState
+import com.dondeloexan.domain.model.SyncSummary
 import com.dondeloexan.domain.repository.AccountRepository
 import com.dondeloexan.domain.repository.BackupRepository
 import com.dondeloexan.domain.repository.SettingsRepository

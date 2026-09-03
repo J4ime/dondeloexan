@@ -1,6 +1,6 @@
 package com.dondeloexan.data.remote.api
 
-import com.dondeloexan.data.sync.SessionState
+import com.dondeloexan.domain.model.SessionState
 import com.dondeloexan.util.AppLogger
 import io.ktor.client.HttpClient
 import io.ktor.client.request.delete

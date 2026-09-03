@@ -6,22 +6,12 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.dondeloexan.domain.model.SessionState
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 val Context.sessionDataStore: DataStore<Preferences> by preferencesDataStore(name = "session_store")
-
-data class SessionState(
-    val accessToken: String,
-    val refreshToken: String,
-    val expiresAt: Long,
-    val userId: String,
-    val email: String
-) {
-    val isExpired: Boolean
-        get() = System.currentTimeMillis() > expiresAt - 60_000
-}
 
 class SessionStore(private val context: Context) {
 

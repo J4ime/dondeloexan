@@ -1,12 +1,12 @@
 package com.dondeloexan.domain.repository
 
-import com.dondeloexan.data.remote.dto.TmdbCompanySearchResult
-import com.dondeloexan.data.remote.dto.TmdbPersonSearchResult
+import com.dondeloexan.domain.model.CompanySearchResult
 import com.dondeloexan.domain.model.Content
 import com.dondeloexan.domain.model.ContentPreview
 import com.dondeloexan.domain.model.ContentType
 import com.dondeloexan.domain.model.CriticReview
 import com.dondeloexan.domain.model.DataResult
+import com.dondeloexan.domain.model.PersonSearchResult
 import com.dondeloexan.domain.model.PlatformReleaseDate
 import com.dondeloexan.domain.model.detail.CastSocialInfo
 import com.dondeloexan.domain.model.detail.MovieWatchState
@@ -24,8 +24,8 @@ interface DiscoverRepository {
     suspend fun fetchTrendingPage(page: Int, filterByPlatforms: Boolean = true): List<ContentPreview>
     suspend fun fetchSearchPage(query: String, page: Int): List<ContentPreview>
     suspend fun resolveTmdbId(imdbId: String, type: ContentType): Int?
-    suspend fun searchPeople(query: String): List<TmdbPersonSearchResult>
-    suspend fun searchCompanies(query: String): List<TmdbCompanySearchResult>
+    suspend fun searchPeople(query: String): List<PersonSearchResult>
+    suspend fun searchCompanies(query: String): List<CompanySearchResult>
     suspend fun getPersonMovieCredits(personId: Int): List<ContentPreview>
     suspend fun getPersonTvCredits(personId: Int): List<ContentPreview>
     suspend fun getDirectorTopMovies(directorId: Int, excludeTmdbId: Int? = null): List<ContentPreview>

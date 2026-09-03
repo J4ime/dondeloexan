@@ -11,25 +11,12 @@ import com.dondeloexan.data.local.dao.TvShowProgressDao
 import com.dondeloexan.data.local.dao.UserPlatformDao
 import com.dondeloexan.data.local.entity.TvShowEntity
 import com.dondeloexan.data.remote.api.SupabaseSyncApi
+import com.dondeloexan.domain.model.SessionState
+import com.dondeloexan.domain.model.SyncSummary
 import com.dondeloexan.util.AppLogger
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-
-data class SyncSummary(
-    val movies: Int,
-    val tvShows: Int,
-    val tvShowProgress: Int,
-    val searchHistory: Int,
-    val userPlatforms: Int,
-    val blacklist: Int,
-    val criticReviews: Int,
-    val faMovieData: Int
-) {
-    val total: Int
-        get() = movies + tvShows + tvShowProgress + searchHistory +
-            userPlatforms + blacklist + criticReviews + faMovieData
-}
 
 class SyncManager(
     private val syncApi: SupabaseSyncApi,

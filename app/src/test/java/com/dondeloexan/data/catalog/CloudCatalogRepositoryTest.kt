@@ -1,7 +1,7 @@
 package com.dondeloexan.data.catalog
 
 import com.dondeloexan.data.remote.api.SupabaseSyncApi
-import com.dondeloexan.data.sync.SessionState
+import com.dondeloexan.domain.model.SessionState
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every

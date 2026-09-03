@@ -17,7 +17,7 @@ import com.dondeloexan.data.remote.dto.TmdbMultiSearchResponse
 import com.dondeloexan.data.remote.dto.TmdbMultiSearchResult
 import com.dondeloexan.data.remote.dto.TmdbWatchProvidersResponse
 import com.dondeloexan.data.remote.filmaffinity.FilmaffinityScraper
-import com.dondeloexan.data.sync.SessionState
+import com.dondeloexan.domain.model.SessionState
 import com.dondeloexan.data.sync.SessionStore
 import com.dondeloexan.data.sync.SyncManager
 import com.dondeloexan.domain.model.Content

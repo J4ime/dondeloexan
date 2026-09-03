@@ -4,6 +4,8 @@ import com.dondeloexan.data.remote.api.AuthResult
 import com.dondeloexan.data.remote.api.SupabaseApiException
 import com.dondeloexan.data.remote.api.SupabaseAuthApi
 import com.dondeloexan.data.remote.api.toSessionState
+import com.dondeloexan.domain.model.SessionState
+import com.dondeloexan.domain.model.SyncSummary
 import io.mockk.Runs
 import io.mockk.coEvery
 import io.mockk.coVerify

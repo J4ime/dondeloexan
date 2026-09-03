@@ -1,7 +1,7 @@
 package com.dondeloexan.data.catalog
 
 import com.dondeloexan.data.remote.api.SupabaseSyncApi
-import com.dondeloexan.data.sync.SessionState
+import com.dondeloexan.domain.model.SessionState
 import com.dondeloexan.util.AppLogger
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.ListSerializer

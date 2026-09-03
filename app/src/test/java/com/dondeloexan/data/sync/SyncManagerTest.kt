@@ -19,6 +19,8 @@ import com.dondeloexan.data.local.entity.TvShowProgressEntity
 import com.dondeloexan.data.local.entity.UserPlatformEntity
 import com.dondeloexan.data.local.entity.WatchStatus
 import com.dondeloexan.data.remote.api.SupabaseSyncApi
+import com.dondeloexan.domain.model.SessionState
+import com.dondeloexan.domain.model.SyncSummary
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk

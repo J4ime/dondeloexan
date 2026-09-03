@@ -146,3 +146,39 @@ tasks.withType<Test> {
     useJUnitPlatform()
 }
 
+/**
+ * Reglas de arquitectura por paquete. Cada regla escanea los .kt de un directorio
+ * de origen y falla el build si aparece una importación prohibida.
+ * Se extiende por fases (por ahora: dominio no puede importar data).
+ */
+val verifyArchitecture by tasks.registering {
+    doLast {
+        val srcRoot = layout.projectDirectory.dir("src/main/java")
+        var failures = 0
+        val rules = listOf(
+            // packageName -> (relativeSourceDir, forbiddenImportRegex, label)
+            Triple("com/dondeloexan/domain", Regex("""^import com\.dondeloexan\.data\."""), "dominio puro: domain no debe importar data")
+        )
+        rules.forEach { (relDir, forbidden, label) ->
+            val dir = srcRoot.dir(relDir).asFile
+            if (!dir.exists()) return@forEach
+            dir.walkTopDown().filter { it.isFile && it.name.endsWith(".kt") }.forEach { file ->
+                file.readLines().forEach { line ->
+                    val trimmed = line.trim()
+                    if (trimmed.startsWith("import ") && forbidden.containsMatchIn(trimmed)) {
+                        failures++
+                        logger.error("verifyArchitecture [$label]: $file -> $trimmed")
+                    }
+                }
+            }
+        }
+        if (failures > 0) {
+            throw GradleException("verifyArchitecture: $failures violación(es) de frontera")
+        }
+    }
+}
+
+tasks.named("preBuild").configure {
+    dependsOn(verifyArchitecture)
+}
+

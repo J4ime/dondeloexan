@@ -4,6 +4,8 @@ import com.dondeloexan.data.remote.api.SupabaseApiException
 import com.dondeloexan.data.remote.api.SupabaseAuthApi
 import com.dondeloexan.data.remote.api.toResult
 import com.dondeloexan.data.remote.api.toSessionState
+import com.dondeloexan.domain.model.SessionState
+import com.dondeloexan.domain.model.SyncSummary
 import com.dondeloexan.domain.repository.AccountRepository
 import com.dondeloexan.util.AppLogger
 import kotlinx.coroutines.flow.Flow

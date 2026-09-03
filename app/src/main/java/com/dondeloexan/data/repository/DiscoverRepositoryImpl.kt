@@ -39,9 +39,7 @@ import com.dondeloexan.data.remote.api.OmdbApi
 import com.dondeloexan.data.remote.api.TmdbApi
 import com.dondeloexan.data.remote.api.WikidataApi
 import com.dondeloexan.data.remote.api.WikidataRelationship
-import com.dondeloexan.data.remote.dto.TmdbCompanySearchResult
 import com.dondeloexan.data.remote.dto.TmdbPersonCredit
-import com.dondeloexan.data.remote.dto.TmdbPersonSearchResult
 import com.dondeloexan.data.remote.dto.TmdbTvDetailDto
 import com.dondeloexan.data.remote.mapper.toContentPreview
 import com.dondeloexan.data.sync.SessionStore
@@ -51,12 +49,14 @@ import com.dondeloexan.data.sync.toTvShowEntity
 import com.dondeloexan.data.remote.mapper.toDomain
 import com.dondeloexan.data.remote.mapper.toStreamingAvailability
 import com.dondeloexan.domain.model.AvailabilityType
+import com.dondeloexan.domain.model.CompanySearchResult
 import com.dondeloexan.domain.model.Content
 import com.dondeloexan.domain.model.ContentPreview
 import com.dondeloexan.domain.model.ContentSource
 import com.dondeloexan.domain.model.ContentType
 import com.dondeloexan.domain.model.DataResult
 import com.dondeloexan.domain.model.ExternalLinks
+import com.dondeloexan.domain.model.PersonSearchResult
 import com.dondeloexan.domain.model.PlatformReleaseDate
 import com.dondeloexan.domain.model.Sentiment
 import com.dondeloexan.domain.model.StreamingAvailability
@@ -799,9 +799,16 @@ class DiscoverRepositoryImpl(
         return sb.toString()
     }
 
-    override suspend fun searchPeople(query: String): List<TmdbPersonSearchResult> {
+    override suspend fun searchPeople(query: String): List<PersonSearchResult> {
         return try {
-            tmdbApi.searchPerson(query).results
+            tmdbApi.searchPerson(query).results.map {
+                PersonSearchResult(
+                    id = it.id,
+                    name = it.name,
+                    profilePath = it.profilePath,
+                    knownForDepartment = it.knownForDepartment
+                )
+            }
         } catch (e: Exception) {
             if (e is kotlinx.coroutines.CancellationException) throw e
             AppLogger.e("DiscoverRepo", "searchPeople error for $query", e)
@@ -809,9 +816,15 @@ class DiscoverRepositoryImpl(
         }
     }
 
-    override suspend fun searchCompanies(query: String): List<TmdbCompanySearchResult> {
+    override suspend fun searchCompanies(query: String): List<CompanySearchResult> {
         return try {
-            tmdbApi.searchCompany(query).results
+            tmdbApi.searchCompany(query).results.map {
+                CompanySearchResult(
+                    id = it.id,
+                    name = it.name,
+                    logoPath = it.logoPath
+                )
+            }
         } catch (e: Exception) {
             if (e is kotlinx.coroutines.CancellationException) throw e
             AppLogger.e("DiscoverRepo", "searchCompanies error for $query", e)

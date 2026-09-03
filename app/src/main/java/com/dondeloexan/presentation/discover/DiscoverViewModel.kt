@@ -32,10 +32,10 @@ import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeout
-import com.dondeloexan.data.remote.dto.TmdbCompanySearchResult
 import com.dondeloexan.data.remote.dto.TmdbPersonCreditsResponse
-import com.dondeloexan.data.remote.dto.TmdbPersonSearchResult
 import com.dondeloexan.data.remote.mapper.toContentPreview
+import com.dondeloexan.domain.model.CompanySearchResult
+import com.dondeloexan.domain.model.PersonSearchResult
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -141,7 +141,7 @@ class DiscoverViewModel(
     private var hasError = false
     private var isSearching = false
     private var cachedResults = listOf<ContentPreview>()
-    private var lastCompanySearchResults: List<TmdbCompanySearchResult> = emptyList()
+    private var lastCompanySearchResults: List<CompanySearchResult> = emptyList()
     private var filmographyCache = listOf<ContentPreview>()
     private var filmographyPage = 0
     private var searchJob: Job? = null
