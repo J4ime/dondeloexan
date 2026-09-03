@@ -1,19 +1,14 @@
 package com.dondeloexan.presentation.movies
 
-import app.cash.turbine.test
-import com.dondeloexan.data.local.dao.MovieDao
-import com.dondeloexan.data.local.entity.MovieEntity
-import com.dondeloexan.data.local.entity.WatchStatus
-import com.dondeloexan.data.remote.api.TmdbApi
+import com.dondeloexan.domain.model.MovieItem
+import com.dondeloexan.domain.repository.MovieRepository
 import com.dondeloexan.presentation.feedback.FeedbackManager
-import com.dondeloexan.util.RefreshCoordinator
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.mockk
-import io.mockk.slot
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -25,9 +20,7 @@ import org.junit.jupiter.api.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class MoviesViewModelTest {
 
-    private val movieDao: MovieDao = mockk()
-    private val tmdbApi: TmdbApi = mockk()
-    private val refreshCoordinator: RefreshCoordinator = mockk()
+    private val repository: MovieRepository = mockk()
     private val feedbackManager: FeedbackManager = mockk()
 
     private lateinit var viewModel: MoviesViewModel
@@ -35,97 +28,70 @@ class MoviesViewModelTest {
     @BeforeEach
     fun setUp() {
         Dispatchers.setMain(StandardTestDispatcher())
-        coEvery { movieDao.getPendingFlow() } returns flowOf(emptyList())
-        coEvery { movieDao.getWatchedMoviesFlow() } returns flowOf(emptyList())
-        coEvery { movieDao.getFavoritesFlow() } returns flowOf(emptyList())
-        viewModel = MoviesViewModel(movieDao, tmdbApi, refreshCoordinator, feedbackManager)
+        every { repository.pending } returns flowOf(emptyList())
+        every { repository.watched } returns flowOf(emptyList())
+        every { repository.favorites } returns flowOf(emptyList())
+        coEvery { feedbackManager.emit(any()) } returns Unit
+        viewModel = MoviesViewModel(repository, feedbackManager)
     }
 
     @Test
-    fun `toggleLike when movie not liked only sets liked true and keeps pending status`() = runTest {
-        val movie = MovieEntity(
-            id = 1,
-            title = "Test Movie",
-            liked = false,
-            status = WatchStatus.POR_VER
-        )
-        val slot = slot<MovieEntity>()
-        coEvery { movieDao.update(capture(slot)) } returns Unit
-        coEvery { feedbackManager.emit(any()) } returns Unit
+    fun `toggleLike when movie not liked marks as favorite`() = runTest {
+        val movie = MovieItem(id = 1, title = "Test Movie", isLiked = false)
+        coEvery { repository.toggleFavorite(1) } returns true
 
         viewModel.toggleLike(movie)
         advanceUntilIdle()
 
-        coVerify { movieDao.update(any()) }
-        val updated = slot.captured
-        assert(updated.liked)
-        assert(updated.status == WatchStatus.POR_VER)
-        assert(updated.watchedAt == null)
+        coVerify { repository.toggleFavorite(1) }
+        coVerify { feedbackManager.emit("Película marcada como favorita") }
     }
 
     @Test
-    fun `toggleLike when movie liked sets liked false and keeps watched status`() = runTest {
-        val movie = MovieEntity(
-            id = 2,
-            title = "Test Movie",
-            liked = true,
-            status = WatchStatus.YA_VISTA,
-            watchedAt = 1000L
-        )
-        val slot = slot<MovieEntity>()
-        coEvery { movieDao.update(capture(slot)) } returns Unit
-        coEvery { feedbackManager.emit(any()) } returns Unit
+    fun `toggleLike when movie liked removes favorite`() = runTest {
+        val movie = MovieItem(id = 2, title = "Test Movie", isLiked = true)
+        coEvery { repository.toggleFavorite(2) } returns false
 
         viewModel.toggleLike(movie)
         advanceUntilIdle()
 
-        coVerify { movieDao.update(any()) }
-        val updated = slot.captured
-        assert(!updated.liked)
-        assert(updated.status == WatchStatus.YA_VISTA)
-        assert(updated.watchedAt == 1000L)
+        coVerify { repository.toggleFavorite(2) }
+        coVerify { feedbackManager.emit("Película quitada de favoritas") }
     }
 
     @Test
-    fun `toggleWatched keeps liked flag untouched`() = runTest {
-        val movie = MovieEntity(
-            id = 3,
-            title = "Test Movie",
-            liked = true,
-            status = WatchStatus.POR_VER
-        )
-        val slot = slot<MovieEntity>()
-        coEvery { movieDao.update(capture(slot)) } returns Unit
-        coEvery { feedbackManager.emit(any()) } returns Unit
+    fun `toggleWatched marks as watched`() = runTest {
+        val movie = MovieItem(id = 3, title = "Test Movie", isWatched = false)
+        coEvery { repository.toggleWatched(3) } returns true
 
         viewModel.toggleWatched(movie)
         advanceUntilIdle()
 
-        val updated = slot.captured
-        assert(updated.status == WatchStatus.YA_VISTA)
-        assert(updated.liked)
-        assert(updated.watchedAt != null)
+        coVerify { repository.toggleWatched(3) }
+        coVerify { feedbackManager.emit("Película marcada como vista") }
     }
 
     @Test
-    fun `toggleWatched back to pending keeps liked flag untouched`() = runTest {
-        val movie = MovieEntity(
-            id = 4,
-            title = "Test Movie",
-            liked = true,
-            status = WatchStatus.YA_VISTA,
-            watchedAt = 5000L
-        )
-        val slot = slot<MovieEntity>()
-        coEvery { movieDao.update(capture(slot)) } returns Unit
-        coEvery { feedbackManager.emit(any()) } returns Unit
+    fun `toggleWatched back to pending`() = runTest {
+        val movie = MovieItem(id = 4, title = "Test Movie", isWatched = true)
+        coEvery { repository.toggleWatched(4) } returns false
 
         viewModel.toggleWatched(movie)
         advanceUntilIdle()
 
-        val updated = slot.captured
-        assert(updated.status == WatchStatus.POR_VER)
-        assert(updated.liked)
-        assert(updated.watchedAt == null)
+        coVerify { repository.toggleWatched(4) }
+        coVerify { feedbackManager.emit("Película quitada de vistos") }
+    }
+
+    @Test
+    fun `deleteMovie calls repository and emits feedback`() = runTest {
+        val movie = MovieItem(id = 9, title = "Test Movie")
+        coEvery { repository.delete(9) } returns Unit
+
+        viewModel.deleteMovie(movie)
+        advanceUntilIdle()
+
+        coVerify { repository.delete(9) }
+        coVerify { feedbackManager.emit("Película eliminada") }
     }
 }

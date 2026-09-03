@@ -250,9 +250,9 @@ private fun MainPagerContent(
     inProgress: List<com.dondeloexan.presentation.series.SeriesWithProgress>,
     finished: List<com.dondeloexan.presentation.series.SeriesWithProgress>,
     upcoming: List<com.dondeloexan.presentation.series.SeriesWithProgress>,
-    pendingMovies: List<com.dondeloexan.data.local.entity.MovieEntity>,
-    favoriteMovies: List<com.dondeloexan.data.local.entity.MovieEntity>,
-    watchedMovies: List<com.dondeloexan.data.local.entity.MovieEntity>
+    pendingMovies: List<com.dondeloexan.domain.model.MovieItem>,
+    favoriteMovies: List<com.dondeloexan.domain.model.MovieItem>,
+    watchedMovies: List<com.dondeloexan.domain.model.MovieItem>
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
         FeedbackBanner(
@@ -801,7 +801,7 @@ private fun SeriesFinishedTab(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun MoviesPendingTab(
-    movies: List<com.dondeloexan.data.local.entity.MovieEntity>,
+    movies: List<com.dondeloexan.domain.model.MovieItem>,
     isGridView: Boolean,
     navController: NavController,
     viewModel: MoviesViewModel
@@ -834,9 +834,9 @@ private fun MoviesPendingTab(
                     title = movie.title,
                     year = movie.year,
                     ratingImdb = movie.ratingImdb,
-                    streamingPlatforms = movie.streamingPlatforms.toStreamingPlatforms(),
+                    streamingPlatforms = movie.streamingPlatforms,
                     releaseDate = movie.releaseDate,
-                    isWatched = movie.status.name == "YA_VISTA",
+                    isWatched = movie.isWatched,
                     watchedAt = movie.watchedAt,
                     onDeleteClick = { viewModel.deleteMovie(movie) },
                     onWatchedClick = { viewModel.toggleWatched(movie) },
@@ -857,9 +857,9 @@ private fun MoviesPendingTab(
                     title = movie.title,
                     year = movie.year,
                     ratingImdb = movie.ratingImdb,
-                    streamingPlatforms = movie.streamingPlatforms.toStreamingPlatforms(),
+                    streamingPlatforms = movie.streamingPlatforms,
                     releaseDate = movie.releaseDate,
-                    isWatched = movie.status.name == "YA_VISTA",
+                    isWatched = movie.isWatched,
                     watchedAt = movie.watchedAt,
                     onDeleteClick = { viewModel.deleteMovie(movie) },
                     onWatchedClick = { viewModel.toggleWatched(movie) },
@@ -874,7 +874,7 @@ private fun MoviesPendingTab(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun MoviesFavoritesTab(
-    movies: List<com.dondeloexan.data.local.entity.MovieEntity>,
+    movies: List<com.dondeloexan.domain.model.MovieItem>,
     isGridView: Boolean,
     navController: NavController,
     viewModel: MoviesViewModel
@@ -907,7 +907,7 @@ private fun MoviesFavoritesTab(
                     title = movie.title,
                     year = movie.year,
                     ratingImdb = movie.ratingImdb,
-                    streamingPlatforms = movie.streamingPlatforms.toStreamingPlatforms(),
+                    streamingPlatforms = movie.streamingPlatforms,
                     releaseDate = movie.releaseDate,
                     isWatched = true,
                     isLiked = true,
@@ -931,7 +931,7 @@ private fun MoviesFavoritesTab(
                     title = movie.title,
                     year = movie.year,
                     ratingImdb = movie.ratingImdb,
-                    streamingPlatforms = movie.streamingPlatforms.toStreamingPlatforms(),
+                    streamingPlatforms = movie.streamingPlatforms,
                     releaseDate = movie.releaseDate,
                     isWatched = true,
                     isLiked = true,
@@ -949,7 +949,7 @@ private fun MoviesFavoritesTab(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun MoviesWatchedTab(
-    movies: List<com.dondeloexan.data.local.entity.MovieEntity>,
+    movies: List<com.dondeloexan.domain.model.MovieItem>,
     isGridView: Boolean,
     navController: NavController,
     viewModel: MoviesViewModel
@@ -982,7 +982,7 @@ private fun MoviesWatchedTab(
                     title = movie.title,
                     year = movie.year,
                     ratingImdb = movie.ratingImdb,
-                    streamingPlatforms = movie.streamingPlatforms.toStreamingPlatforms(),
+                    streamingPlatforms = movie.streamingPlatforms,
                     releaseDate = movie.releaseDate,
                     isWatched = true,
                     isLiked = false,
@@ -1006,7 +1006,7 @@ private fun MoviesWatchedTab(
                     title = movie.title,
                     year = movie.year,
                     ratingImdb = movie.ratingImdb,
-                    streamingPlatforms = movie.streamingPlatforms.toStreamingPlatforms(),
+                    streamingPlatforms = movie.streamingPlatforms,
                     releaseDate = movie.releaseDate,
                     isWatched = true,
                     isLiked = false,

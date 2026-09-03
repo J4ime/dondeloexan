@@ -17,6 +17,7 @@ import com.dondeloexan.data.remote.filmaffinity.FilmaffinityScraper
 import com.dondeloexan.data.repository.AvailabilityRepositoryImpl
 import com.dondeloexan.data.repository.BlacklistRepositoryImpl
 import com.dondeloexan.data.repository.DiscoverRepositoryImpl
+import com.dondeloexan.data.repository.MovieRepositoryImpl
 import com.dondeloexan.data.repository.PlatformRepositoryImpl
 import com.dondeloexan.data.repository.SettingsRepositoryImpl
 import com.dondeloexan.data.sync.AccountRepositoryImpl
@@ -29,6 +30,7 @@ import com.dondeloexan.domain.repository.AvailabilityRepository
 import com.dondeloexan.domain.repository.BackupRepository
 import com.dondeloexan.domain.repository.BlacklistRepository
 import com.dondeloexan.domain.repository.DiscoverRepository
+import com.dondeloexan.domain.repository.MovieRepository
 import com.dondeloexan.domain.repository.PlatformRepository
 import com.dondeloexan.domain.repository.SettingsRepository
 import com.dondeloexan.presentation.feedback.FeedbackManager
@@ -66,6 +68,9 @@ val dataModule = module {
 
     // Availability preferences
     single<AvailabilityRepository> { AvailabilityRepositoryImpl(get()) }
+
+    // Movies
+    single<MovieRepository> { MovieRepositoryImpl(get(), get(), get()) }
 
     // Silent Update
     single { SilentUpdateManager(androidContext()) }
