@@ -19,6 +19,7 @@ import com.dondeloexan.data.repository.BlacklistRepositoryImpl
 import com.dondeloexan.data.repository.DiscoverRepositoryImpl
 import com.dondeloexan.data.repository.MovieRepositoryImpl
 import com.dondeloexan.data.repository.PlatformRepositoryImpl
+import com.dondeloexan.data.repository.SeriesRepositoryImpl
 import com.dondeloexan.data.repository.SettingsRepositoryImpl
 import com.dondeloexan.data.sync.AccountRepositoryImpl
 import com.dondeloexan.data.sync.SeriesMetadataEnricher
@@ -32,6 +33,7 @@ import com.dondeloexan.domain.repository.BlacklistRepository
 import com.dondeloexan.domain.repository.DiscoverRepository
 import com.dondeloexan.domain.repository.MovieRepository
 import com.dondeloexan.domain.repository.PlatformRepository
+import com.dondeloexan.domain.repository.SeriesRepository
 import com.dondeloexan.domain.repository.SettingsRepository
 import com.dondeloexan.presentation.feedback.FeedbackManager
 import com.dondeloexan.presentation.settings.LibraryNotificationManager
@@ -71,6 +73,9 @@ val dataModule = module {
 
     // Movies
     single<MovieRepository> { MovieRepositoryImpl(get(), get(), get()) }
+
+    // Series
+    single<SeriesRepository> { SeriesRepositoryImpl(get(), get(), get(), get(), get()) }
 
     // Silent Update
     single { SilentUpdateManager(androidContext()) }

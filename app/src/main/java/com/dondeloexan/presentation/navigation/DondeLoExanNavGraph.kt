@@ -66,7 +66,6 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.navArgument
-import com.dondeloexan.data.local.entity.toStreamingPlatforms
 import com.dondeloexan.domain.model.ContentType
 import com.dondeloexan.presentation.detail.MediaDetailScreen
 import com.dondeloexan.presentation.discover.DiscoverScreen
@@ -246,10 +245,10 @@ private fun MainPagerContent(
     navController: NavController,
     seriesViewModel: SeriesViewModel,
     moviesViewModel: MoviesViewModel,
-    pending: List<com.dondeloexan.presentation.series.SeriesWithProgress>,
-    inProgress: List<com.dondeloexan.presentation.series.SeriesWithProgress>,
-    finished: List<com.dondeloexan.presentation.series.SeriesWithProgress>,
-    upcoming: List<com.dondeloexan.presentation.series.SeriesWithProgress>,
+    pending: List<com.dondeloexan.domain.model.SeriesItem>,
+    inProgress: List<com.dondeloexan.domain.model.SeriesItem>,
+    finished: List<com.dondeloexan.domain.model.SeriesItem>,
+    upcoming: List<com.dondeloexan.domain.model.SeriesItem>,
     pendingMovies: List<com.dondeloexan.domain.model.MovieItem>,
     favoriteMovies: List<com.dondeloexan.domain.model.MovieItem>,
     watchedMovies: List<com.dondeloexan.domain.model.MovieItem>
@@ -435,7 +434,7 @@ private fun MainPagerContent(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun SeriesPendingTab(
-    series: List<com.dondeloexan.presentation.series.SeriesWithProgress>,
+    series: List<com.dondeloexan.domain.model.SeriesItem>,
     isGridView: Boolean,
     navController: NavController,
     viewModel: SeriesViewModel
@@ -462,15 +461,15 @@ private fun SeriesPendingTab(
             verticalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxSize()
         ) {
-            items(series, key = { it.show.id }) { item ->
-                val s = item.show
+            items(series, key = { it.id }) { item ->
+                val s = item
                 LibraryItemCard(
                     posterUrl = s.posterUrl,
                     title = s.title,
                     year = s.year,
-                    streamingPlatforms = s.streamingPlatforms.toStreamingPlatforms(),
-                    watchedCount = item.watchedCount,
-                    totalEpisodes = item.totalEpisodes,
+                    streamingPlatforms = s.streamingPlatforms,
+                    watchedCount = s.watchedCount,
+                    totalEpisodes = s.totalEpisodes,
                     releasedEpisodes = s.releasedEpisodes,
                     nextEpisodeAirDate = s.nextEpisodeAirDate,
                     nextEpisodeNumber = s.nextEpisodeNumber,
@@ -478,8 +477,8 @@ private fun SeriesPendingTab(
                     seriesStatus = s.seriesStatus,
                     inProduction = s.inProduction,
                     numberOfSeasons = s.numberOfSeasons,
-                    isLiked = s.liked,
-                    isWatched = s.status.name == "YA_VISTA",
+                    isLiked = s.isLiked,
+                    isWatched = s.isWatched,
                     isSeries = true,
                     onDeleteClick = { viewModel.deleteSeries(s) },
                     onWatchedClick = { viewModel.toggleWatched(s) },
@@ -494,15 +493,15 @@ private fun SeriesPendingTab(
             verticalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxSize()
         ) {
-            items(series, key = { it.show.id }) { item ->
-                val s = item.show
+            items(series, key = { it.id }) { item ->
+                val s = item
                 LibraryItemCard(
                     posterUrl = s.posterUrl,
                     title = s.title,
                     year = s.year,
-                    streamingPlatforms = s.streamingPlatforms.toStreamingPlatforms(),
-                    watchedCount = item.watchedCount,
-                    totalEpisodes = item.totalEpisodes,
+                    streamingPlatforms = s.streamingPlatforms,
+                    watchedCount = s.watchedCount,
+                    totalEpisodes = s.totalEpisodes,
                     releasedEpisodes = s.releasedEpisodes,
                     nextEpisodeAirDate = s.nextEpisodeAirDate,
                     nextEpisodeNumber = s.nextEpisodeNumber,
@@ -510,8 +509,8 @@ private fun SeriesPendingTab(
                     seriesStatus = s.seriesStatus,
                     inProduction = s.inProduction,
                     numberOfSeasons = s.numberOfSeasons,
-                    isLiked = s.liked,
-                    isWatched = s.status.name == "YA_VISTA",
+                    isLiked = s.isLiked,
+                    isWatched = s.isWatched,
                     isSeries = true,
                     onDeleteClick = { viewModel.deleteSeries(s) },
                     onWatchedClick = { viewModel.toggleWatched(s) },
@@ -526,7 +525,7 @@ private fun SeriesPendingTab(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun SeriesInProgressTab(
-    series: List<com.dondeloexan.presentation.series.SeriesWithProgress>,
+    series: List<com.dondeloexan.domain.model.SeriesItem>,
     isGridView: Boolean,
     navController: NavController,
     viewModel: SeriesViewModel
@@ -553,15 +552,15 @@ private fun SeriesInProgressTab(
             verticalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxSize()
         ) {
-            items(series, key = { it.show.id }) { item ->
-                val s = item.show
+            items(series, key = { it.id }) { item ->
+                val s = item
                 LibraryItemCard(
                     posterUrl = s.posterUrl,
                     title = s.title,
                     year = s.year,
-                    streamingPlatforms = s.streamingPlatforms.toStreamingPlatforms(),
-                    watchedCount = item.watchedCount,
-                    totalEpisodes = item.totalEpisodes,
+                    streamingPlatforms = s.streamingPlatforms,
+                    watchedCount = s.watchedCount,
+                    totalEpisodes = s.totalEpisodes,
                     releasedEpisodes = s.releasedEpisodes,
                     nextEpisodeAirDate = s.nextEpisodeAirDate,
                     nextEpisodeNumber = s.nextEpisodeNumber,
@@ -569,8 +568,8 @@ private fun SeriesInProgressTab(
                     seriesStatus = s.seriesStatus,
                     inProduction = s.inProduction,
                     numberOfSeasons = s.numberOfSeasons,
-                    isLiked = s.liked,
-                    isWatched = s.status.name == "YA_VISTA",
+                    isLiked = s.isLiked,
+                    isWatched = s.isWatched,
                     isSeries = true,
                     onDeleteClick = { viewModel.deleteSeries(s) },
                     onWatchedClick = { viewModel.toggleWatched(s) },
@@ -585,15 +584,15 @@ private fun SeriesInProgressTab(
             verticalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxSize()
         ) {
-            items(series, key = { it.show.id }) { item ->
-                val s = item.show
+            items(series, key = { it.id }) { item ->
+                val s = item
                 LibraryItemCard(
                     posterUrl = s.posterUrl,
                     title = s.title,
                     year = s.year,
-                    streamingPlatforms = s.streamingPlatforms.toStreamingPlatforms(),
-                    watchedCount = item.watchedCount,
-                    totalEpisodes = item.totalEpisodes,
+                    streamingPlatforms = s.streamingPlatforms,
+                    watchedCount = s.watchedCount,
+                    totalEpisodes = s.totalEpisodes,
                     releasedEpisodes = s.releasedEpisodes,
                     nextEpisodeAirDate = s.nextEpisodeAirDate,
                     nextEpisodeNumber = s.nextEpisodeNumber,
@@ -601,8 +600,8 @@ private fun SeriesInProgressTab(
                     seriesStatus = s.seriesStatus,
                     inProduction = s.inProduction,
                     numberOfSeasons = s.numberOfSeasons,
-                    isLiked = s.liked,
-                    isWatched = s.status.name == "YA_VISTA",
+                    isLiked = s.isLiked,
+                    isWatched = s.isWatched,
                     isSeries = true,
                     onDeleteClick = { viewModel.deleteSeries(s) },
                     onWatchedClick = { viewModel.toggleWatched(s) },
@@ -617,7 +616,7 @@ private fun SeriesInProgressTab(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun SeriesAgendaTab(
-    series: List<com.dondeloexan.presentation.series.SeriesWithProgress>,
+    series: List<com.dondeloexan.domain.model.SeriesItem>,
     isGridView: Boolean,
     navController: NavController,
     viewModel: SeriesViewModel
@@ -644,15 +643,15 @@ private fun SeriesAgendaTab(
             verticalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxSize()
         ) {
-            items(series, key = { it.show.id }) { item ->
-                val s = item.show
+            items(series, key = { it.id }) { item ->
+                val s = item
                 LibraryItemCard(
                     posterUrl = s.posterUrl,
                     title = s.title,
                     year = s.year,
-                    streamingPlatforms = s.streamingPlatforms.toStreamingPlatforms(),
-                    watchedCount = item.watchedCount,
-                    totalEpisodes = item.totalEpisodes,
+                    streamingPlatforms = s.streamingPlatforms,
+                    watchedCount = s.watchedCount,
+                    totalEpisodes = s.totalEpisodes,
                     releasedEpisodes = s.releasedEpisodes,
                     nextEpisodeAirDate = s.nextEpisodeAirDate,
                     nextEpisodeNumber = s.nextEpisodeNumber,
@@ -660,8 +659,8 @@ private fun SeriesAgendaTab(
                     seriesStatus = s.seriesStatus,
                     inProduction = s.inProduction,
                     numberOfSeasons = s.numberOfSeasons,
-                    isLiked = s.liked,
-                    isWatched = s.status.name == "YA_VISTA",
+                    isLiked = s.isLiked,
+                    isWatched = s.isWatched,
                     isSeries = true,
                     onDeleteClick = { viewModel.deleteSeries(s) },
                     onWatchedClick = { viewModel.toggleWatched(s) },
@@ -676,15 +675,15 @@ private fun SeriesAgendaTab(
             verticalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxSize()
         ) {
-            items(series, key = { it.show.id }) { item ->
-                val s = item.show
+            items(series, key = { it.id }) { item ->
+                val s = item
                 LibraryItemCard(
                     posterUrl = s.posterUrl,
                     title = s.title,
                     year = s.year,
-                    streamingPlatforms = s.streamingPlatforms.toStreamingPlatforms(),
-                    watchedCount = item.watchedCount,
-                    totalEpisodes = item.totalEpisodes,
+                    streamingPlatforms = s.streamingPlatforms,
+                    watchedCount = s.watchedCount,
+                    totalEpisodes = s.totalEpisodes,
                     releasedEpisodes = s.releasedEpisodes,
                     nextEpisodeAirDate = s.nextEpisodeAirDate,
                     nextEpisodeNumber = s.nextEpisodeNumber,
@@ -692,8 +691,8 @@ private fun SeriesAgendaTab(
                     seriesStatus = s.seriesStatus,
                     inProduction = s.inProduction,
                     numberOfSeasons = s.numberOfSeasons,
-                    isLiked = s.liked,
-                    isWatched = s.status.name == "YA_VISTA",
+                    isLiked = s.isLiked,
+                    isWatched = s.isWatched,
                     isSeries = true,
                     onDeleteClick = { viewModel.deleteSeries(s) },
                     onWatchedClick = { viewModel.toggleWatched(s) },
@@ -708,7 +707,7 @@ private fun SeriesAgendaTab(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun SeriesFinishedTab(
-    series: List<com.dondeloexan.presentation.series.SeriesWithProgress>,
+    series: List<com.dondeloexan.domain.model.SeriesItem>,
     isGridView: Boolean,
     navController: NavController,
     viewModel: SeriesViewModel
@@ -735,15 +734,15 @@ private fun SeriesFinishedTab(
             verticalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxSize()
         ) {
-            items(series, key = { it.show.id }) { item ->
-                val s = item.show
+            items(series, key = { it.id }) { item ->
+                val s = item
                 LibraryItemCard(
                     posterUrl = s.posterUrl,
                     title = s.title,
                     year = s.year,
-                    streamingPlatforms = s.streamingPlatforms.toStreamingPlatforms(),
-                    watchedCount = item.watchedCount,
-                    totalEpisodes = item.totalEpisodes,
+                    streamingPlatforms = s.streamingPlatforms,
+                    watchedCount = s.watchedCount,
+                    totalEpisodes = s.totalEpisodes,
                     releasedEpisodes = s.releasedEpisodes,
                     nextEpisodeAirDate = s.nextEpisodeAirDate,
                     nextEpisodeNumber = s.nextEpisodeNumber,
@@ -751,7 +750,7 @@ private fun SeriesFinishedTab(
                     seriesStatus = s.seriesStatus,
                     inProduction = s.inProduction,
                     numberOfSeasons = s.numberOfSeasons,
-                    isLiked = s.liked,
+                    isLiked = s.isLiked,
                     isWatched = true,
                     showLikeButton = true,
                     onDeleteClick = { viewModel.deleteSeries(s) },
@@ -767,15 +766,15 @@ private fun SeriesFinishedTab(
             verticalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxSize()
         ) {
-            items(series, key = { it.show.id }) { item ->
-                val s = item.show
+            items(series, key = { it.id }) { item ->
+                val s = item
                 LibraryItemCard(
                     posterUrl = s.posterUrl,
                     title = s.title,
                     year = s.year,
-                    streamingPlatforms = s.streamingPlatforms.toStreamingPlatforms(),
-                    watchedCount = item.watchedCount,
-                    totalEpisodes = item.totalEpisodes,
+                    streamingPlatforms = s.streamingPlatforms,
+                    watchedCount = s.watchedCount,
+                    totalEpisodes = s.totalEpisodes,
                     releasedEpisodes = s.releasedEpisodes,
                     nextEpisodeAirDate = s.nextEpisodeAirDate,
                     nextEpisodeNumber = s.nextEpisodeNumber,
@@ -783,7 +782,7 @@ private fun SeriesFinishedTab(
                     seriesStatus = s.seriesStatus,
                     inProduction = s.inProduction,
                     numberOfSeasons = s.numberOfSeasons,
-                    isLiked = s.liked,
+                    isLiked = s.isLiked,
                     isWatched = true,
                     showLikeButton = true,
                     onDeleteClick = { viewModel.deleteSeries(s) },

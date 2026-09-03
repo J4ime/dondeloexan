@@ -1,17 +1,13 @@
 package com.dondeloexan.presentation.series
 
-import com.dondeloexan.data.local.dao.TvShowDao
-import com.dondeloexan.data.local.dao.TvShowProgressDao
-import com.dondeloexan.data.local.dao.WatchedCount
-import com.dondeloexan.data.local.dao.TvShowLastWatched
-import com.dondeloexan.data.local.entity.TvShowEntity
-import com.dondeloexan.data.local.entity.WatchStatus
-import com.dondeloexan.data.remote.api.TmdbApi
-import com.dondeloexan.data.remote.api.TmdbApiException
-import com.dondeloexan.domain.repository.DiscoverRepository
+import com.dondeloexan.domain.model.SeriesItem
+import com.dondeloexan.domain.repository.SeriesRepository
 import com.dondeloexan.presentation.feedback.FeedbackManager
-import com.dondeloexan.util.RefreshCoordinator
-import io.mockk.*
+import io.mockk.coEvery
+import io.mockk.coVerify
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.StateFlow
@@ -28,11 +24,7 @@ import org.junit.jupiter.api.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class SeriesViewModelTest {
 
-    private val tvShowDao: TvShowDao = mockk()
-    private val tvShowProgressDao: TvShowProgressDao = mockk()
-    private val tmdbApi: TmdbApi = mockk()
-    private val refreshCoordinator: RefreshCoordinator = mockk()
-    private val discoverRepository: DiscoverRepository = mockk()
+    private val repository: SeriesRepository = mockk()
     private val feedbackManager: FeedbackManager = mockk()
     private val mainDispatcher = StandardTestDispatcher()
 
@@ -41,16 +33,15 @@ class SeriesViewModelTest {
     @BeforeEach
     fun setUp() {
         Dispatchers.setMain(mainDispatcher)
+        coEvery { feedbackManager.emit(any()) } returns Unit
     }
 
-    private fun stubSeries(series: List<TvShowEntity>, counts: List<WatchedCount>, lastWatched: List<TvShowLastWatched> = emptyList()) {
-        coEvery { tvShowDao.getAllFlow() } returns flowOf(series)
-        coEvery { tvShowProgressDao.getWatchedCounts() } returns flowOf(counts)
-        coEvery { tvShowProgressDao.getLastWatchedAtByShow() } returns flowOf(lastWatched)
-        viewModel = SeriesViewModel(tvShowDao, tvShowProgressDao, tmdbApi, refreshCoordinator, discoverRepository, feedbackManager)
+    private fun stubSeries(series: List<SeriesItem>) {
+        every { repository.all } returns flowOf(series)
+        viewModel = SeriesViewModel(repository, feedbackManager)
     }
 
-    private suspend fun TestScope.stateValue(flow: StateFlow<List<SeriesWithProgress>>): List<SeriesWithProgress> {
+    private suspend fun TestScope.stateValue(flow: StateFlow<List<SeriesItem>>): List<SeriesItem> {
         val job = launch { flow.collect { } }
         advanceUntilIdle()
         mainDispatcher.scheduler.advanceUntilIdle()
@@ -61,35 +52,37 @@ class SeriesViewModelTest {
 
     @Test
     fun `serie al dia sin liked aparece en agenda de estrenos`() = runTest {
-        val show = TvShowEntity(
+        val item = SeriesItem(
             id = 1,
             title = "Stuart no consigue salvar el universo",
-            liked = false,
-            status = WatchStatus.YA_VISTA,
+            isLiked = false,
+            isWatched = true,
             totalEpisodes = 10,
             releasedEpisodes = 10,
+            watchedCount = 10,
             seriesStatus = "Returning Series",
             inProduction = true
         )
-        stubSeries(listOf(show), listOf(WatchedCount(1, 10)))
+        stubSeries(listOf(item))
 
         val agenda = stateValue(viewModel.upcomingAgenda)
         assert(agenda.size == 1)
-        assert(agenda[0].show.title == show.title)
+        assert(agenda[0].title == item.title)
     }
 
     @Test
     fun `serie al dia sin liked no aparece en pendientes`() = runTest {
-        val show = TvShowEntity(
+        val item = SeriesItem(
             id = 1,
             title = "Stuart no consigue salvar el universo",
-            liked = false,
-            status = WatchStatus.YA_VISTA,
+            isLiked = false,
+            isWatched = true,
             releasedEpisodes = 10,
+            watchedCount = 10,
             seriesStatus = "Returning Series",
             inProduction = true
         )
-        stubSeries(listOf(show), listOf(WatchedCount(1, 10)))
+        stubSeries(listOf(item))
 
         val pending = stateValue(viewModel.pending)
         assert(pending.isEmpty())
@@ -97,121 +90,106 @@ class SeriesViewModelTest {
 
     @Test
     fun `serie terminada sin liked aparece en terminadas`() = runTest {
-        val show = TvShowEntity(
+        val item = SeriesItem(
             id = 2,
             title = "Serie Terminada",
-            liked = false,
-            status = WatchStatus.YA_VISTA,
+            isLiked = false,
+            isWatched = true,
             releasedEpisodes = 8,
             totalEpisodes = 8,
+            watchedCount = 8,
             seriesStatus = "Ended",
             inProduction = false
         )
-        stubSeries(listOf(show), listOf(WatchedCount(2, 8)))
+        stubSeries(listOf(item))
 
         val finished = stateValue(viewModel.finished)
         assert(finished.size == 1)
-        assert(finished[0].show.title == show.title)
+        assert(finished[0].title == item.title)
     }
 
     @Test
     fun `serie sin liked y sin episodios vistos aparece en pendientes`() = runTest {
-        val show = TvShowEntity(
+        val item = SeriesItem(
             id = 3,
             title = "Serie Pendiente",
-            liked = false,
-            status = WatchStatus.POR_VER,
+            isLiked = false,
+            isWatched = false,
             releasedEpisodes = 0,
             totalEpisodes = 10,
+            watchedCount = 0,
             seriesStatus = "Returning Series",
             inProduction = true
         )
-        stubSeries(listOf(show), listOf(WatchedCount(3, 0)))
+        stubSeries(listOf(item))
 
         val pending = stateValue(viewModel.pending)
         assert(pending.size == 1)
-        assert(pending[0].show.title == show.title)
+        assert(pending[0].title == item.title)
     }
 
     @Test
     fun `serie en curso sin liked pero no al dia aparece en en curso`() = runTest {
-        val show = TvShowEntity(
+        val item = SeriesItem(
             id = 4,
             title = "Serie En Curso",
-            liked = false,
-            status = WatchStatus.POR_VER,
+            isLiked = false,
+            isWatched = false,
             releasedEpisodes = 10,
             totalEpisodes = 24,
+            watchedCount = 3,
             seriesStatus = "Returning Series",
             inProduction = true
         )
-        stubSeries(listOf(show), listOf(WatchedCount(4, 3)))
+        stubSeries(listOf(item))
 
         val inProgress = stateValue(viewModel.inProgress)
         assert(inProgress.size == 1)
-        assert(inProgress[0].show.title == show.title)
+        assert(inProgress[0].title == item.title)
     }
 
     @Test
     fun `deleteSeries borra la serie y emite feedback`() = runTest {
-        val show = TvShowEntity(
-            id = 5,
-            title = "Serie a eliminar",
-            status = WatchStatus.POR_VER
-        )
-        coEvery { tvShowDao.delete(show) } returns Unit
-        coEvery { feedbackManager.emit("Serie eliminada") } returns Unit
-        stubSeries(emptyList(), emptyList())
+        coEvery { repository.delete(5) } returns Unit
+        stubSeries(emptyList())
 
-        viewModel.deleteSeries(show)
-        mainDispatcher.scheduler.advanceUntilIdle()
+        viewModel.deleteSeries(SeriesItem(id = 5, title = "Serie a eliminar"))
         advanceUntilIdle()
 
-        coVerify { tvShowDao.delete(show) }
+        coVerify { repository.delete(5) }
         verify { feedbackManager.emit("Serie eliminada") }
     }
 
     @Test
-    fun `marcar como vista marca la serie aunque falle el detalle de TMDB`() = runTest {
-        val show = TvShowEntity(
-            id = 100,
-            title = "Serie sin detalle TMDB",
-            status = WatchStatus.POR_VER,
-            tmdbId = 324182
-        )
-        coEvery { tmdbApi.getTvDetailLight(324182) } throws TmdbApiException("TMDB HTTP 404 en tv/324182")
-        coEvery { tvShowDao.update(any()) } returns Unit
-        coEvery { feedbackManager.emit("Serie marcada como vista") } returns Unit
-        stubSeries(listOf(show), emptyList())
+    fun `marcar como vista emite feedback`() = runTest {
+        coEvery { repository.toggleWatched(100) } returns true
+        stubSeries(emptyList())
 
-        viewModel.toggleWatched(show)
-        mainDispatcher.scheduler.advanceUntilIdle()
+        viewModel.toggleWatched(SeriesItem(id = 100, title = "Serie sin detalle TMDB"))
         advanceUntilIdle()
 
-        coVerify { tvShowDao.update(match { it.status == WatchStatus.YA_VISTA }) }
+        coVerify { repository.toggleWatched(100) }
         verify { feedbackManager.emit("Serie marcada como vista") }
     }
 
     @Test
     fun `en curso se ordena por el ultimo capitulo realmente visto`() = runTest {
-        val antigua = TvShowEntity(
-            id = 21, title = "Vista hace tiempo", status = WatchStatus.POR_VER,
-            releasedEpisodes = 10, totalEpisodes = 24, seriesStatus = "Returning Series", inProduction = true
+        val antigua = SeriesItem(
+            id = 21, title = "Vista hace tiempo", isWatched = false,
+            releasedEpisodes = 10, totalEpisodes = 24, watchedCount = 3,
+            seriesStatus = "Returning Series", inProduction = true, lastWatchedAt = 1000L
         )
-        val reciente = TvShowEntity(
-            id = 22, title = "Vista recientemente", status = WatchStatus.POR_VER,
-            releasedEpisodes = 10, totalEpisodes = 24, seriesStatus = "Returning Series", inProduction = true
+        val reciente = SeriesItem(
+            id = 22, title = "Vista recientemente", isWatched = false,
+            releasedEpisodes = 10, totalEpisodes = 24, watchedCount = 3,
+            seriesStatus = "Returning Series", inProduction = true, lastWatchedAt = 5000L
         )
-        stubSeries(
-            listOf(antigua, reciente),
-            listOf(WatchedCount(21, 3), WatchedCount(22, 3)),
-            listOf(TvShowLastWatched(21, lastWatchedAt = 1000L), TvShowLastWatched(22, lastWatchedAt = 5000L))
-        )
+        stubSeries(listOf(antigua, reciente))
 
         val inProgress = stateValue(viewModel.inProgress)
 
         assert(inProgress.size == 2)
-        assert(inProgress[0].show.id == 22L)
-        assert(inProgress[1].show.id == 21L)
+        assert(inProgress[0].id == 22L)
+        assert(inProgress[1].id == 21L)
     }
 }
