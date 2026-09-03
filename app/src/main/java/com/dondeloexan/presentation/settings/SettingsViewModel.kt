@@ -5,27 +5,23 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dondeloexan.BuildConfig
 import com.dondeloexan.data.library.LibraryRefresher
-import com.dondeloexan.data.local.datastore.UserPreferencesDataStore
-import com.dondeloexan.data.remote.api.TmdbApi
 import com.dondeloexan.data.update.SilentUpdateManager
 import com.dondeloexan.domain.model.BackupState
 import com.dondeloexan.domain.model.GitHubRelease
 import com.dondeloexan.domain.model.SessionState
 import com.dondeloexan.domain.model.SyncSummary
 import com.dondeloexan.domain.repository.AccountRepository
+import com.dondeloexan.domain.repository.AppSystemRepository
 import com.dondeloexan.domain.repository.BackupRepository
 import com.dondeloexan.domain.repository.SettingsRepository
 import com.dondeloexan.util.AppLogger
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
-import java.net.SocketTimeoutException
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -35,9 +31,8 @@ class SettingsViewModel(
     private val backupRepository: BackupRepository,
     private val silentUpdateManager: SilentUpdateManager,
     private val libraryRefresher: LibraryRefresher,
-    private val userPreferencesDataStore: UserPreferencesDataStore,
-    private val accountRepository: AccountRepository,
-    private val tmdbApi: TmdbApi
+    private val appSystemRepository: AppSystemRepository,
+    private val accountRepository: AccountRepository
 ) : ViewModel() {
 
     private val _updateState = MutableStateFlow<UpdateCheckState>(UpdateCheckState.Idle)
@@ -65,7 +60,7 @@ class SettingsViewModel(
 
     init {
         viewModelScope.launch {
-            userPreferencesDataStore.lastLibraryUpdateTimestamp.collect { timestamp ->
+            appSystemRepository.lastLibraryUpdateTimestamp.collect { timestamp ->
                 _lastLibraryUpdateDate.value = timestamp?.let { formatDateTime(it) }
             }
         }
@@ -210,40 +205,7 @@ class SettingsViewModel(
     fun testTmdbConnection() {
         viewModelScope.launch {
             _connectionTest.value = "Comprobando..."
-            AppLogger.i("SettingsVM", "Test conexión TMDB: iniciando (pasos: API TMDB + CDN imagen)")
-            try {
-                AppLogger.i("SettingsVM", "Test conexión: paso 1/2 llama trending/all/week")
-                val trending = withContext(Dispatchers.IO) {
-                    try {
-                        withTimeout(12_000) { tmdbApi.getTrending() }
-                    } catch (e: TimeoutCancellationException) {
-                        throw SocketTimeoutException("TMDB API no respondió en 12s")
-                    }
-                }
-                val sample = trending.results
-                    .filter { it.mediaType in listOf("movie", "tv") }
-                    .take(3)
-                    .joinToString(", ") { it.title ?: it.name ?: "?" }
-                val total = trending.results.count { it.mediaType in listOf("movie", "tv") }
-                AppLogger.i("SettingsVM", "Test conexión: paso 1/2 OK ($total resultados; muestra: $sample)")
-
-                AppLogger.i("SettingsVM", "Test conexión: paso 2/2 pingImage CDN")
-                val bytes = withContext(Dispatchers.IO) { tmdbApi.pingImage() }
-                AppLogger.i("SettingsVM", "Test conexión: paso 2/2 OK ($bytes bytes)")
-
-                val responseText = if (bytes > 0) {
-                    "TMDB OK · $total resultados (${sample}) · CDN $bytes bytes"
-                } else {
-                    "TMDB OK · $total resultados (${sample}) · CDN sin tamaño declarado"
-                }
-                AppLogger.i("SettingsVM", "Test conexión TMDB: fin OK -> $responseText")
-                _connectionTest.value = responseText
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                AppLogger.e("SettingsVM", "Test conexión TMDB falló", e)
-                _connectionTest.value = "Error TMDB: ${e.message ?: e.javaClass.simpleName}"
-            }
+            _connectionTest.value = appSystemRepository.testTmdbConnection()
         }
     }
 

@@ -157,7 +157,8 @@ val verifyArchitecture by tasks.registering {
         var failures = 0
         val rules = listOf(
             // packageName -> (relativeSourceDir, forbiddenImportRegex, label)
-            Triple("com/dondeloexan/domain", Regex("""^import com\.dondeloexan\.data\."""), "dominio puro: domain no debe importar data")
+            Triple("com/dondeloexan/domain", Regex("""^import com\.dondeloexan\.data\."""), "dominio puro: domain no debe importar data"),
+            Triple("com/dondeloexan/presentation", Regex("""^import com\.dondeloexan\.data\.local\.(dao|entity|datastore)\."""), "presentación no debe tocar persistencia/entidades/DataStore")
         )
         rules.forEach { (relDir, forbidden, label) ->
             val dir = srcRoot.dir(relDir).asFile

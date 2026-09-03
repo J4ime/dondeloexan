@@ -15,6 +15,7 @@ import com.dondeloexan.data.local.dao.UserPlatformDao
 import com.dondeloexan.data.local.datastore.UserPreferencesDataStore
 import com.dondeloexan.data.remote.filmaffinity.FilmaffinityScraper
 import com.dondeloexan.data.repository.AvailabilityRepositoryImpl
+import com.dondeloexan.data.repository.AppSystemRepositoryImpl
 import com.dondeloexan.data.repository.BlacklistRepositoryImpl
 import com.dondeloexan.data.repository.DiscoverRepositoryImpl
 import com.dondeloexan.data.repository.LibraryRepositoryImpl
@@ -29,6 +30,7 @@ import com.dondeloexan.data.sync.SessionStore
 import com.dondeloexan.data.sync.SyncManager
 import com.dondeloexan.data.update.SilentUpdateManager
 import com.dondeloexan.domain.repository.AccountRepository
+import com.dondeloexan.domain.repository.AppSystemRepository
 import com.dondeloexan.domain.repository.AvailabilityRepository
 import com.dondeloexan.domain.repository.BackupRepository
 import com.dondeloexan.domain.repository.BlacklistRepository
@@ -74,6 +76,9 @@ val dataModule = module {
 
     // Availability preferences
     single<AvailabilityRepository> { AvailabilityRepositoryImpl(get()) }
+
+    // Sistema / preferencias (timestamp de refresco, test de conexión TMDB)
+    single<AppSystemRepository> { AppSystemRepositoryImpl(get(), get()) }
 
     // Movies
     single<MovieRepository> { MovieRepositoryImpl(get(), get(), get()) }
