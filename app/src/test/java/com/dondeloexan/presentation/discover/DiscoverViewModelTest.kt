@@ -1,17 +1,11 @@
 package com.dondeloexan.presentation.discover
 
-import com.dondeloexan.data.local.dao.BlacklistDao
-import com.dondeloexan.data.local.dao.FaMovieDataDao
-import com.dondeloexan.data.local.dao.MovieDao
-import com.dondeloexan.data.local.dao.TvShowDao
-import com.dondeloexan.data.local.dao.TvShowProgressDao
-import com.dondeloexan.data.local.dao.UserPlatformDao
-import com.dondeloexan.data.local.entity.MovieEntity
 import com.dondeloexan.data.remote.api.TmdbApi
 import com.dondeloexan.domain.model.ContentPreview
 import com.dondeloexan.domain.model.ContentSource
 import com.dondeloexan.domain.model.ContentType
 import com.dondeloexan.domain.repository.DiscoverRepository
+import com.dondeloexan.domain.repository.LibraryRepository
 import com.dondeloexan.presentation.feedback.FeedbackManager
 import io.mockk.clearMocks
 import io.mockk.coEvery
@@ -31,44 +25,30 @@ import org.junit.jupiter.api.Test
 class DiscoverViewModelTest {
 
     private val discoverRepository: DiscoverRepository = mockk()
-    private val userPlatformDao: UserPlatformDao = mockk()
-    private val movieDao: MovieDao = mockk()
-    private val tvShowDao: TvShowDao = mockk()
-    private val tvShowProgressDao: TvShowProgressDao = mockk()
-    private val blacklistDao: BlacklistDao = mockk()
+    private val libraryRepository: LibraryRepository = mockk(relaxed = true)
     private val tmdbApi: TmdbApi = mockk()
     private val feedbackManager: FeedbackManager = mockk()
-    private val faMovieDataDao: FaMovieDataDao = mockk()
 
     private lateinit var viewModel: DiscoverViewModel
 
     @BeforeEach
     fun setUp() {
         Dispatchers.setMain(StandardTestDispatcher())
-        coEvery { userPlatformDao.getActiveFlow() } returns flowOf(emptyList())
-        coEvery { blacklistDao.getAllFlow() } returns flowOf(emptyList())
-        coEvery { movieDao.getLiked() } returns flowOf(emptyList())
-        coEvery { tvShowDao.getLiked() } returns flowOf(emptyList())
-        coEvery { movieDao.getByStatus(any()) } returns flowOf(emptyList())
-        coEvery { tvShowDao.getByStatus(any()) } returns flowOf(emptyList())
-        coEvery { movieDao.getAll() } returns emptyList()
-        coEvery { tvShowDao.getAll() } returns emptyList()
-        coEvery { movieDao.getAllFlow() } returns flowOf(emptyList())
-        coEvery { tvShowDao.getAllFlow() } returns flowOf(emptyList())
-        coEvery { faMovieDataDao.getByContentId(any()) } returns null
+        coEvery { libraryRepository.activePlatforms } returns flowOf(emptySet())
+        coEvery { libraryRepository.blacklistedIds } returns flowOf(emptySet())
+        coEvery { libraryRepository.likedIds } returns flowOf(emptySet())
+        coEvery { libraryRepository.watchedIds } returns flowOf(emptySet())
+        coEvery { libraryRepository.libraryIds } returns flowOf(emptySet())
+        coEvery { libraryRepository.discoverExcludedIds() } returns emptySet()
+        coEvery { libraryRepository.faReleases(any()) } returns emptyList()
         coEvery { feedbackManager.emit(any()) } returns Unit
     }
 
     private fun createViewModel(): DiscoverViewModel = DiscoverViewModel(
         discoverRepository = discoverRepository,
-        userPlatformDao = userPlatformDao,
-        movieDao = movieDao,
-        tvShowDao = tvShowDao,
-        tvShowProgressDao = tvShowProgressDao,
-        blacklistDao = blacklistDao,
+        libraryRepository = libraryRepository,
         tmdbApi = tmdbApi,
-        feedbackManager = feedbackManager,
-        faMovieDataDao = faMovieDataDao
+        feedbackManager = feedbackManager
     )
 
     private fun searchPage(page: Int, count: Int = 10): List<ContentPreview> {
@@ -167,7 +147,7 @@ class DiscoverViewModelTest {
 
     @Test
     fun `trending excluye items que ya estan en la biblioteca local aunque no esten vistos`() = runTest {
-        coEvery { movieDao.getAll() } returns listOf(MovieEntity(title = "Ya anotada", tmdbId = 777))
+        coEvery { libraryRepository.discoverExcludedIds() } returns setOf("tmdb-777")
         coEvery { discoverRepository.fetchTrendingPage(any(), any()) } returns listOf(preview(777), preview(888))
 
         viewModel = createViewModel()

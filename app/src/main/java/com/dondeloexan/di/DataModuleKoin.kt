@@ -17,6 +17,7 @@ import com.dondeloexan.data.remote.filmaffinity.FilmaffinityScraper
 import com.dondeloexan.data.repository.AvailabilityRepositoryImpl
 import com.dondeloexan.data.repository.BlacklistRepositoryImpl
 import com.dondeloexan.data.repository.DiscoverRepositoryImpl
+import com.dondeloexan.data.repository.LibraryRepositoryImpl
 import com.dondeloexan.data.repository.MovieRepositoryImpl
 import com.dondeloexan.data.repository.PlatformRepositoryImpl
 import com.dondeloexan.data.repository.SeriesRepositoryImpl
@@ -32,6 +33,7 @@ import com.dondeloexan.domain.repository.AvailabilityRepository
 import com.dondeloexan.domain.repository.BackupRepository
 import com.dondeloexan.domain.repository.BlacklistRepository
 import com.dondeloexan.domain.repository.DiscoverRepository
+import com.dondeloexan.domain.repository.LibraryRepository
 import com.dondeloexan.domain.repository.MovieRepository
 import com.dondeloexan.domain.repository.PlatformRepository
 import com.dondeloexan.domain.repository.SeriesRepository
@@ -78,6 +80,20 @@ val dataModule = module {
 
     // Series
     single<SeriesRepository> { SeriesRepositoryImpl(get(), get(), get(), get(), get()) }
+
+    // Estado de la biblioteca (favoritos/pendientes/vistos/blacklist) desde Descubrir
+    single<LibraryRepository> {
+        LibraryRepositoryImpl(
+            movieDao = get(),
+            tvShowDao = get(),
+            tvShowProgressDao = get(),
+            blacklistDao = get(),
+            faMovieDataDao = get(),
+            userPlatformDao = get(),
+            tmdbApi = get(),
+            discoverRepository = get()
+        )
+    }
 
     // Tracking (estado de películas/series + reconciliación)
     single<TrackingRepository> {

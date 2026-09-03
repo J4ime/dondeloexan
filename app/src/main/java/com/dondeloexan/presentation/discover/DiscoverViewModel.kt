@@ -2,37 +2,23 @@ package com.dondeloexan.presentation.discover
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.dondeloexan.data.local.dao.BlacklistDao
-import com.dondeloexan.data.local.dao.FaMovieDataDao
-import com.dondeloexan.data.local.dao.MovieDao
-import com.dondeloexan.data.local.dao.TvShowDao
-import com.dondeloexan.data.local.dao.TvShowProgressDao
-import com.dondeloexan.data.local.dao.UserPlatformDao
-import com.dondeloexan.data.local.entity.MovieEntity
-import com.dondeloexan.data.local.entity.TvShowEntity
-import com.dondeloexan.data.local.entity.TvShowProgressEntity
-import com.dondeloexan.data.local.entity.WatchStatus
-import com.dondeloexan.data.local.entity.toPlatformsString
 import com.dondeloexan.data.remote.api.TmdbApi
-import com.dondeloexan.data.remote.mapper.toStreamingAvailability
+import com.dondeloexan.data.remote.mapper.toContentPreview
 import com.dondeloexan.domain.model.ContentPreview
-import com.dondeloexan.domain.model.ContentSource
 import com.dondeloexan.domain.model.DataResult
-import com.dondeloexan.domain.model.PlatformReleaseDate
-import com.dondeloexan.domain.model.StreamingAvailability
 import com.dondeloexan.domain.repository.DiscoverRepository
+import com.dondeloexan.domain.repository.LibraryAction
+import com.dondeloexan.domain.repository.LibraryMutationResult
+import com.dondeloexan.domain.repository.LibraryRepository
 import com.dondeloexan.presentation.feedback.FeedbackManager
 import com.dondeloexan.util.AppLogger
 import com.dondeloexan.util.PersonFlagUtil
-import java.time.LocalDate
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeout
-import com.dondeloexan.data.remote.dto.TmdbPersonCreditsResponse
 import com.dondeloexan.data.remote.mapper.toContentPreview
 import com.dondeloexan.domain.model.CompanySearchResult
 import com.dondeloexan.domain.model.PersonSearchResult
@@ -41,61 +27,18 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import org.json.JSONArray
-import org.json.JSONObject
 
 class DiscoverViewModel(
     private val discoverRepository: DiscoverRepository,
-    private val userPlatformDao: UserPlatformDao,
-    private val movieDao: MovieDao,
-    private val tvShowDao: TvShowDao,
-    private val tvShowProgressDao: TvShowProgressDao,
-    private val blacklistDao: BlacklistDao,
+    private val libraryRepository: LibraryRepository,
     private val tmdbApi: TmdbApi,
-    private val feedbackManager: FeedbackManager,
-    private val faMovieDataDao: FaMovieDataDao
+    private val feedbackManager: FeedbackManager
 ) : ViewModel() {
-
-    private suspend fun enrichTvShowFromTmdb(entity: TvShowEntity) {
-        val tmdbId = entity.tmdbId ?: return
-        try {
-            val tvDetail = tmdbApi.getTvDetailLight(tmdbId)
-            val lastEp = tvDetail.lastEpisodeToAir
-            val seasons = tvDetail.seasons
-            val releasedEpisodes = if (lastEp != null && seasons != null) {
-                seasons.filter { it.seasonNumber > 0 }
-                    .sumOf { season ->
-                        when {
-                            season.seasonNumber < lastEp.seasonNumber -> season.episodeCount
-                            season.seasonNumber == lastEp.seasonNumber -> lastEp.episodeNumber
-                            else -> 0
-                        }
-                    }
-            } else tvDetail.numberOfEpisodes
-            tvShowDao.update(
-                entity.copy(
-                    totalEpisodes = tvDetail.numberOfEpisodes ?: entity.totalEpisodes,
-                    releasedEpisodes = releasedEpisodes,
-                    nextEpisodeAirDate = tvDetail.nextEpisodeToAir?.airDate,
-                    nextEpisodeNumber = tvDetail.nextEpisodeToAir?.episodeNumber,
-                    nextEpisodeSeasonNumber = tvDetail.nextEpisodeToAir?.seasonNumber,
-                    seriesStatus = tvDetail.status,
-                    inProduction = tvDetail.inProduction ?: entity.inProduction,
-                    numberOfSeasons = tvDetail.numberOfSeasons ?: entity.numberOfSeasons
-                )
-            )
-        } catch (e: Exception) {
-            AppLogger.e("DiscoverVM", "enrichTvShowFromTmdb error for ${entity.title}", e)
-        }
-    }
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
@@ -106,33 +49,19 @@ class DiscoverViewModel(
     private val _filterByPlatforms = MutableStateFlow(true)
     val filterByPlatforms: StateFlow<Boolean> = _filterByPlatforms.asStateFlow()
 
-    val activePlatforms: StateFlow<Set<String>> = userPlatformDao.getActiveFlow()
-        .map { it.map { p -> p.platformName }.toSet() }
+    val activePlatforms: StateFlow<Set<String>> = libraryRepository.activePlatforms
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
 
-    val blacklistedIds: StateFlow<Set<String>> = blacklistDao.getAllFlow()
-        .map { list -> list.map { it.contentId }.toSet() }
+    val blacklistedIds: StateFlow<Set<String>> = libraryRepository.blacklistedIds
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
 
-    val likedIds: StateFlow<Set<String>> = combine(
-        movieDao.getLiked().map { list -> list.mapNotNull { it.contentId }.toSet() },
-        tvShowDao.getLiked().map { list -> list.mapNotNull { it.contentId }.toSet() }
-    ) { movieLiked, tvLiked -> movieLiked + tvLiked }
-        .distinctUntilChanged()
+    val likedIds: StateFlow<Set<String>> = libraryRepository.likedIds
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
 
-    val watchedIds: StateFlow<Set<String>> = combine(
-        movieDao.getByStatus(WatchStatus.YA_VISTA).map { list -> list.mapNotNull { it.contentId }.toSet() },
-        tvShowDao.getByStatus(WatchStatus.YA_VISTA).map { list -> list.mapNotNull { it.contentId }.toSet() }
-    ) { movieWatched, tvWatched -> movieWatched + tvWatched }
-        .distinctUntilChanged()
+    val watchedIds: StateFlow<Set<String>> = libraryRepository.watchedIds
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
 
-    val allIds: StateFlow<Set<String>> = combine(
-        movieDao.getAllFlow().map { list -> list.mapNotNull { it.contentId }.toSet() },
-        tvShowDao.getAllFlow().map { list -> list.mapNotNull { it.contentId }.toSet() }
-    ) { movieIds, tvIds -> movieIds + tvIds }
-        .distinctUntilChanged()
+    val allIds: StateFlow<Set<String>> = libraryRepository.libraryIds
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
 
     private var currentPage = 1
@@ -460,142 +389,11 @@ class DiscoverViewModel(
         }
     }
 
-    private suspend fun resolveContentForSave(preview: ContentPreview): SaveContentInfo {
-        if (preview.type == com.dondeloexan.domain.model.ContentType.MOVIE) {
-            val byTmdb = preview.tmdbId?.let { movieDao.getByTmdbId(it) }
-            if (byTmdb != null) return SaveContentInfo(
-                byTmdb.contentId ?: preview.id, byTmdb.tmdbId, byTmdb.imdbId
-            )
-            val byImdb = preview.imdbId?.let { movieDao.getByImdbId(it) }
-            if (byImdb != null) return SaveContentInfo(
-                byImdb.contentId ?: preview.id, byImdb.tmdbId, byImdb.imdbId
-            )
-            if (preview.tmdbId != null || preview.source != ContentSource.IMDB) {
-                return SaveContentInfo(preview.id, preview.tmdbId, preview.imdbId)
-            }
-            val rawImdbId = preview.id.removePrefix("imdb-")
-            val resolvedTmdbId = discoverRepository.resolveTmdbId(rawImdbId, preview.type)
-            return SaveContentInfo(preview.id, resolvedTmdbId, rawImdbId)
-        } else {
-            val byTmdb = preview.tmdbId?.let { tvShowDao.getByTmdbId(it) }
-            if (byTmdb != null) return SaveContentInfo(
-                byTmdb.contentId ?: preview.id, byTmdb.tmdbId, byTmdb.imdbId
-            )
-            val byImdb = preview.imdbId?.let { tvShowDao.getByImdbId(it) }
-            if (byImdb != null) return SaveContentInfo(
-                byImdb.contentId ?: preview.id, byImdb.tmdbId, byImdb.imdbId
-            )
-            if (preview.tmdbId != null || preview.source != ContentSource.IMDB) {
-                return SaveContentInfo(preview.id, preview.tmdbId, preview.imdbId)
-            }
-            val rawImdbId = preview.id.removePrefix("imdb-")
-            val resolvedTmdbId = discoverRepository.resolveTmdbId(rawImdbId, preview.type)
-            return SaveContentInfo(preview.id, resolvedTmdbId, rawImdbId)
-        }
-    }
-
-    private data class SaveContentInfo(
-        val contentId: String,
-        val tmdbId: Int?,
-        val imdbId: String?
-    )
-
-    private suspend fun fetchPlatformsIfEmpty(preview: ContentPreview): List<StreamingAvailability> {
-        if (preview.streamingPlatforms.isNotEmpty()) return preview.streamingPlatforms
-        val tmdbId = preview.tmdbId ?: return emptyList()
-        return try {
-            val providers = if (preview.type == com.dondeloexan.domain.model.ContentType.SERIES) {
-                tmdbApi.getTvWatchProviders(tmdbId)
-            } else {
-                tmdbApi.getMovieWatchProviders(tmdbId)
-            }
-            providers.results?.get("ES")?.toStreamingAvailability().orEmpty()
-        } catch (e: Exception) {
-            AppLogger.e("DiscoverVM", "fetchPlatformsIfEmpty for ${preview.title}", e)
-            emptyList()
-        }
-    }
-
     fun onToggleFavorite(preview: ContentPreview) {
         viewModelScope.launch {
             try {
-                val info = resolveContentForSave(preview)
-                val platforms = fetchPlatformsIfEmpty(preview)
-                val platformsStr = platforms.toPlatformsString()
-                AppLogger.d("DiscoverVM", "toggleFavorite ${preview.title}: platforms.size=${platforms.size}, platformsStr=${platformsStr != null}, preview=${platformsStr?.take(120)}")
-                when (preview.type) {
-                    com.dondeloexan.domain.model.ContentType.MOVIE -> {
-                        val existing = movieDao.getByContentId(info.contentId)
-                            ?: (info.tmdbId?.let { movieDao.getByTmdbId(it) }
-                                ?: info.imdbId?.let { movieDao.getByImdbId(it) })
-                        if (existing != null) {
-                            val newLiked = !existing.liked
-                            movieDao.update(existing.copy(
-                                liked = newLiked,
-                                ratingImdb = preview.ratingImdb ?: existing.ratingImdb,
-                                streamingPlatforms = if (platformsStr.isNullOrEmpty() || platformsStr == "[]") existing.streamingPlatforms else platformsStr,
-                                releaseDate = preview.releaseDate ?: existing.releaseDate
-                            ))
-                            feedbackManager.emit(
-                                if (newLiked) "Película marcada como favorita"
-                                else "Película quitada de favoritas"
-                            )
-                            if (newLiked) removeAndEmit(preview.id)
-                        } else {
-                            movieDao.insert(
-                                MovieEntity(
-                                    contentId = info.contentId,
-                                    tmdbId = info.tmdbId,
-                                    imdbId = info.imdbId,
-                                    title = preview.title,
-                                    year = preview.year,
-                                    releaseDate = preview.releaseDate,
-                                    posterUrl = preview.coverUrl,
-                                    ratingImdb = preview.ratingImdb,
-                                    streamingPlatforms = platformsStr,
-                                    liked = true,
-                                    status = WatchStatus.POR_VER
-                                )
-                            )
-                            feedbackManager.emit("Película marcada como favorita")
-                            removeAndEmit(preview.id)
-                        }
-                    }
-                    com.dondeloexan.domain.model.ContentType.SERIES -> {
-                        val existing = tvShowDao.getByContentId(info.contentId)
-                            ?: (info.tmdbId?.let { tvShowDao.getByTmdbId(it) }
-                                ?: info.imdbId?.let { tvShowDao.getByImdbId(it) })
-                        if (existing != null) {
-                            val newLiked = !existing.liked
-                            tvShowDao.update(existing.copy(
-                                liked = newLiked,
-                                streamingPlatforms = platformsStr ?: existing.streamingPlatforms
-                            ))
-                            feedbackManager.emit(
-                                if (newLiked) "Serie añadida"
-                                else "Serie quitada"
-                            )
-                            if (newLiked) removeAndEmit(preview.id)
-                        } else {
-                            tvShowDao.insert(
-                                TvShowEntity(
-                                    contentId = info.contentId,
-                                    tmdbId = info.tmdbId,
-                                    imdbId = info.imdbId,
-                                    title = preview.title,
-                                    year = preview.year,
-                                    posterUrl = preview.coverUrl,
-                                    totalEpisodes = preview.totalEpisodes,
-                                    streamingPlatforms = platformsStr,
-                                    liked = true
-                                )
-                            )
-                            feedbackManager.emit("Serie añadida")
-                            removeAndEmit(preview.id)
-                            tvShowDao.getByContentId(info.contentId)?.let { enrichTvShowFromTmdb(it) }
-                        }
-                    }
-                }
+                val result = libraryRepository.toggleFavorite(preview)
+                applyMutation(result, preview)
             } catch (e: Exception) {
                 AppLogger.e("DiscoverVM", "Toggle favorite error", e)
             }
@@ -605,56 +403,8 @@ class DiscoverViewModel(
     fun onToggleAdd(preview: ContentPreview) {
         viewModelScope.launch {
             try {
-                val info = resolveContentForSave(preview)
-                val platforms = fetchPlatformsIfEmpty(preview)
-                val platformsStr = platforms.toPlatformsString()
-                when (preview.type) {
-                    com.dondeloexan.domain.model.ContentType.MOVIE -> {
-                        val existing = movieDao.getByContentId(info.contentId)
-                            ?: (info.tmdbId?.let { movieDao.getByTmdbId(it) }
-                                ?: info.imdbId?.let { movieDao.getByImdbId(it) })
-                        if (existing == null) {
-                            movieDao.insert(
-                                MovieEntity(
-                                    contentId = info.contentId,
-                                    tmdbId = info.tmdbId,
-                                    imdbId = info.imdbId,
-                                    title = preview.title,
-                                    year = preview.year,
-                                    releaseDate = preview.releaseDate,
-                                    posterUrl = preview.coverUrl,
-                                    ratingImdb = preview.ratingImdb,
-                                    streamingPlatforms = platformsStr,
-                                    liked = false,
-                                    status = WatchStatus.POR_VER
-                                )
-                            )
-                            feedbackManager.emit("Película añadida a pendientes")
-                        }
-                    }
-                    com.dondeloexan.domain.model.ContentType.SERIES -> {
-                        val existing = tvShowDao.getByContentId(info.contentId)
-                            ?: (info.tmdbId?.let { tvShowDao.getByTmdbId(it) }
-                                ?: info.imdbId?.let { tvShowDao.getByImdbId(it) })
-                        if (existing == null) {
-                            tvShowDao.insert(
-                                TvShowEntity(
-                                    contentId = info.contentId,
-                                    tmdbId = info.tmdbId,
-                                    imdbId = info.imdbId,
-                                    title = preview.title,
-                                    year = preview.year,
-                                    posterUrl = preview.coverUrl,
-                                    ratingImdb = preview.ratingImdb,
-                                    streamingPlatforms = platformsStr,
-                                    liked = false,
-                                    status = WatchStatus.POR_VER
-                                )
-                            )
-                            feedbackManager.emit("Serie añadida a pendientes")
-                        }
-                    }
-                }
+                val result = libraryRepository.toggleInLibrary(preview)
+                applyMutation(result, preview)
             } catch (e: Exception) {
                 AppLogger.e("DiscoverVM", "Toggle add error", e)
             }
@@ -664,189 +414,8 @@ class DiscoverViewModel(
     fun onToggleWatched(preview: ContentPreview) {
         viewModelScope.launch {
             try {
-                val info = resolveContentForSave(preview)
-                val platforms = fetchPlatformsIfEmpty(preview)
-                val platformsStr = platforms.toPlatformsString()
-                when (preview.type) {
-                    com.dondeloexan.domain.model.ContentType.MOVIE -> {
-                        val existing = movieDao.getByContentId(info.contentId)
-                            ?: (info.tmdbId?.let { movieDao.getByTmdbId(it) }
-                                ?: info.imdbId?.let { movieDao.getByImdbId(it) })
-                        if (existing != null) {
-                            val wasWatched = existing.status == WatchStatus.YA_VISTA
-                            val newStatus = if (wasWatched) WatchStatus.POR_VER else WatchStatus.YA_VISTA
-                            movieDao.update(
-                                existing.copy(
-                                    status = newStatus,
-                                    watchedAt = if (wasWatched) null else System.currentTimeMillis()
-                                )
-                            )
-                            feedbackManager.emit(
-                                if (!wasWatched) "Película marcada como vista"
-                                else "Película quitada de vistos"
-                            )
-                            if (!wasWatched) removeAndEmit(preview.id)
-                        } else {
-                            movieDao.insert(
-                                MovieEntity(
-                                    contentId = info.contentId,
-                                    tmdbId = info.tmdbId,
-                                    imdbId = info.imdbId,
-                                    title = preview.title,
-                                    year = preview.year,
-                                    releaseDate = preview.releaseDate,
-                                    posterUrl = preview.coverUrl,
-                                    ratingImdb = preview.ratingImdb,
-                                    streamingPlatforms = platformsStr,
-                                    status = WatchStatus.YA_VISTA,
-                                    watchedAt = System.currentTimeMillis()
-                                )
-                            )
-                            feedbackManager.emit("Película marcada como vista")
-                            removeAndEmit(preview.id)
-                        }
-                    }
-                    com.dondeloexan.domain.model.ContentType.SERIES -> {
-                        val existing = tvShowDao.getByContentId(info.contentId)
-                            ?: (info.tmdbId?.let { tvShowDao.getByTmdbId(it) }
-                                ?: info.imdbId?.let { tvShowDao.getByImdbId(it) })
-                        val platformsStrFinal = platformsStr ?: existing?.streamingPlatforms
-                        if (existing != null) {
-                            val wasWatched = existing.status == WatchStatus.YA_VISTA
-                            if (wasWatched) {
-                                tvShowProgressDao.deleteByTvShowId(existing.id)
-                                tvShowDao.update(existing.copy(status = WatchStatus.POR_VER))
-                                feedbackManager.emit("Serie quitada de vistos")
-                            } else {
-                                tvShowProgressDao.deleteByTvShowId(existing.id)
-                                val tmdbId = existing.tmdbId ?: info.tmdbId
-                                if (tmdbId != null) {
-                                    try {
-                                        val detail = tmdbApi.getTvDetailLight(tmdbId)
-                                        val seasons = detail.seasons.orEmpty().filter { it.seasonNumber > 0 }
-                                        if (detail.numberOfEpisodes != null && detail.numberOfEpisodes > 0) {
-                                            tvShowDao.update(existing.copy(totalEpisodes = detail.numberOfEpisodes))
-                                        }
-                                        val progressToInsert = mutableListOf<TvShowProgressEntity>()
-                                        val today = LocalDate.now()
-                                        for (season in seasons) {
-                                            try {
-                                                val seasonDetail = tmdbApi.getTvSeason(tmdbId, season.seasonNumber)
-                                                for (ep in seasonDetail.episodes) {
-                                                    val isAired = ep.airDate == null ||
-                                                            try { !LocalDate.parse(ep.airDate).isAfter(today) } catch (_: Exception) { true }
-                                                    if (isAired) {
-                                                        progressToInsert.add(
-                                                            TvShowProgressEntity(
-                                                                tvShowId = existing.id,
-                                                                season = season.seasonNumber,
-                                                                episode = ep.episodeNumber
-                                                            )
-                                                        )
-                                                    }
-                                                }
-                                            } catch (e: Exception) {
-                                                AppLogger.e("DiscoverVM", "season ${season.seasonNumber} for ${existing.id}", e)
-                                                for (epNum in 1..season.episodeCount) {
-                                                    progressToInsert.add(
-                                                        TvShowProgressEntity(
-                                                            tvShowId = existing.id,
-                                                            season = season.seasonNumber,
-                                                            episode = epNum
-                                                        )
-                                                    )
-                                                }
-                                            }
-                                        }
-                                        tvShowProgressDao.insertAll(progressToInsert)
-                                        tvShowDao.update(existing.copy(status = WatchStatus.YA_VISTA, lastWatchedAt = System.currentTimeMillis()))
-                                        feedbackManager.emit("Serie marcada como vista")
-                                    } catch (e: Exception) {
-                                        AppLogger.e("DiscoverVM", "mark watched error for ${existing.id}", e)
-                                    }
-                                } else {
-                                    val totalEp = existing.totalEpisodes ?: preview.totalEpisodes ?: 0
-                                    if (totalEp > 0) {
-                                        val allEpisodes = (1..totalEp).map { epNum ->
-                                            TvShowProgressEntity(tvShowId = existing.id, season = 1, episode = epNum)
-                                        }
-                                        tvShowProgressDao.insertAll(allEpisodes)
-                                    }
-                                    tvShowDao.update(existing.copy(status = WatchStatus.YA_VISTA, lastWatchedAt = System.currentTimeMillis()))
-                                    feedbackManager.emit("Serie marcada como vista")
-                                }
-                                removeAndEmit(preview.id)
-                            }
-                        } else {
-                            val newShowId = tvShowDao.insert(
-                                TvShowEntity(
-                                    contentId = info.contentId,
-                                    tmdbId = info.tmdbId,
-                                    imdbId = info.imdbId,
-                                    title = preview.title,
-                                    year = preview.year,
-                                    posterUrl = preview.coverUrl,
-                                    totalEpisodes = preview.totalEpisodes,
-                                    streamingPlatforms = platformsStrFinal,
-                                    status = WatchStatus.YA_VISTA
-                                )
-                            )
-                            val tmdbId = info.tmdbId
-                            if (tmdbId != null) {
-                                try {
-                                    val detail = tmdbApi.getTvDetailLight(tmdbId)
-                                    val seasons = detail.seasons.orEmpty().filter { it.seasonNumber > 0 }
-                                    val progressToInsert = mutableListOf<TvShowProgressEntity>()
-                                    val today = LocalDate.now()
-                                    for (season in seasons) {
-                                        try {
-                                            val seasonDetail = tmdbApi.getTvSeason(tmdbId, season.seasonNumber)
-                                            for (ep in seasonDetail.episodes) {
-                                                val isAired = ep.airDate == null ||
-                                                        try { !LocalDate.parse(ep.airDate).isAfter(today) } catch (_: Exception) { true }
-                                                if (isAired) {
-                                                    progressToInsert.add(
-                                                        TvShowProgressEntity(
-                                                            tvShowId = newShowId,
-                                                            season = season.seasonNumber,
-                                                            episode = ep.episodeNumber
-                                                        )
-                                                    )
-                                                }
-                                            }
-                                        } catch (e: Exception) {
-                                            AppLogger.e("DiscoverVM", "season ${season.seasonNumber} for $newShowId", e)
-                                            for (epNum in 1..season.episodeCount) {
-                                                progressToInsert.add(
-                                                    TvShowProgressEntity(
-                                                        tvShowId = newShowId,
-                                                        season = season.seasonNumber,
-                                                        episode = epNum
-                                                    )
-                                                )
-                                            }
-                                        }
-                                    }
-                                    tvShowProgressDao.insertAll(progressToInsert)
-                                    tvShowDao.updateLastWatchedAt(newShowId, System.currentTimeMillis())
-                                } catch (e: Exception) {
-                                    AppLogger.e("DiscoverVM", "mark watched error for $newShowId", e)
-                                }
-                            } else {
-                                val totalEp = preview.totalEpisodes ?: 0
-                                if (totalEp > 0) {
-                                    val allEpisodes = (1..totalEp).map { epNum ->
-                                        TvShowProgressEntity(tvShowId = newShowId, season = 1, episode = epNum)
-                                    }
-                                    tvShowProgressDao.insertAll(allEpisodes)
-                                    tvShowDao.updateLastWatchedAt(newShowId, System.currentTimeMillis())
-                                }
-                            }
-                            feedbackManager.emit("Serie marcada como vista")
-                            removeAndEmit(preview.id)
-                        }
-                    }
-                }
+                val result = libraryRepository.toggleWatched(preview)
+                applyMutation(result, preview)
             } catch (e: Exception) {
                 AppLogger.e("DiscoverVM", "Toggle watched error", e)
             }
@@ -856,19 +425,36 @@ class DiscoverViewModel(
     fun onToggleBlacklist(preview: ContentPreview) {
         viewModelScope.launch {
             try {
-                blacklistDao.insert(
-                    com.dondeloexan.data.local.entity.BlacklistedEntity(
-                        contentId = preview.id,
-                        title = preview.title,
-                        type = preview.type.name
-                    )
-                )
-                feedbackManager.emit("${preview.title} ocultado")
-                removeAndEmit(preview.id)
+                val result = libraryRepository.toggleBlacklist(preview)
+                applyMutation(result, preview)
             } catch (e: Exception) {
                 AppLogger.e("DiscoverVM", "Blacklist error", e)
             }
         }
+    }
+
+    private suspend fun applyMutation(result: LibraryMutationResult, preview: ContentPreview) {
+        val message = when (result.action) {
+            LibraryAction.FAVORITE ->
+                if (result.toggledOn) {
+                    if (result.isMovie) "Película marcada como favorita" else "Serie añadida"
+                } else {
+                    if (result.isMovie) "Película quitada de favoritas" else "Serie quitada"
+                }
+            LibraryAction.ADD ->
+                if (result.isMovie) "Película añadida a pendientes" else "Serie añadida a pendientes"
+            LibraryAction.WATCHED ->
+                if (result.toggledOn) {
+                    if (result.isMovie) "Película marcada como vista" else "Serie marcada como vista"
+                } else {
+                    if (result.isMovie) "Película quitada de vistos" else "Serie quitada de vistos"
+                }
+            LibraryAction.BLACKLIST -> "${result.title} ocultado"
+        }
+        feedbackManager.emit(message)
+        val shouldRemove = result.action == LibraryAction.BLACKLIST ||
+            (result.action != LibraryAction.ADD && result.toggledOn)
+        if (shouldRemove) removeAndEmit(preview.id)
     }
 
     fun loadNextPage() {
@@ -1000,22 +586,8 @@ class DiscoverViewModel(
         }
     }
 
-    private suspend fun excludedIds(): Set<String> {
-        val liked = buildSet {
-            addAll(likedIds.value)
-            movieDao.getLiked().first().forEach { m ->
-                m.tmdbId?.let { add("tmdb-$it") }
-            }
-            tvShowDao.getLiked().first().forEach { s ->
-                s.tmdbId?.let { add("tmdb-$it") }
-            }
-        }
-        val inLibrary = buildSet {
-            movieDao.getAll().forEach { m -> m.tmdbId?.let { add("tmdb-$it") } }
-            tvShowDao.getAll().forEach { s -> s.tmdbId?.let { add("tmdb-$it") } }
-        }
-        return liked + blacklistedIds.value + inLibrary
-    }
+    private suspend fun excludedIds(): Set<String> =
+        libraryRepository.discoverExcludedIds()
 
     private suspend fun fillPagesUntil(minItems: Int) {
         var emptyPageCount = 0
@@ -1051,30 +623,12 @@ class DiscoverViewModel(
             emptyList()
         }
     }
-    private fun faReleasesFromJson(json: String?): List<PlatformReleaseDate> {
-        if (json.isNullOrBlank()) return emptyList()
-        return try {
-            val arr = JSONArray(json)
-            (0 until arr.length()).map { i ->
-                val obj = arr.getJSONObject(i)
-                PlatformReleaseDate(
-                    platformName = obj.getString("platformName"),
-                    dateLabel = obj.optString("dateLabel", ""),
-                    releaseDate = obj.optString("releaseDate", "").ifEmpty { null }
-                )
-            }
-        } catch (e: Exception) { emptyList() }
-    }
-
     private fun emitWithFaData(state: DiscoverUiState.Success) {
         _uiState.value = state
         viewModelScope.launch {
             val enriched = state.results.map { preview ->
-                val faData = faMovieDataDao.getByContentId(preview.id)
-                if (faData != null) {
-                    val releases = faReleasesFromJson(faData.platformReleasesJson)
-                    if (releases.isNotEmpty()) preview.copy(platformReleaseDates = releases) else preview
-                } else preview
+                val releases = libraryRepository.faReleases(preview.id)
+                if (releases.isNotEmpty()) preview.copy(platformReleaseDates = releases) else preview
             }
             if (enriched.any { it.platformReleaseDates.isNotEmpty() }) {
                 cachedResults = enriched
