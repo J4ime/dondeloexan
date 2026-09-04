@@ -18,6 +18,7 @@ import com.dondeloexan.data.remote.dto.TmdbMultiSearchResult
 import com.dondeloexan.data.remote.dto.TmdbWatchProvidersResponse
 import com.dondeloexan.data.remote.filmaffinity.FilmaffinityScraper
 import com.dondeloexan.domain.model.SessionState
+import com.dondeloexan.data.sync.SessionRefresher
 import com.dondeloexan.data.sync.SessionStore
 import com.dondeloexan.data.sync.SyncManager
 import com.dondeloexan.domain.model.Content
@@ -46,6 +47,7 @@ class DiscoverRepositoryMovieWatchStateTest {
     private val faMovieDataDao: FaMovieDataDao = mockk()
     private val syncManager: SyncManager = mockk(relaxed = true)
     private val sessionStore: SessionStore = mockk(relaxed = true)
+    private val sessionRefresher: SessionRefresher = mockk(relaxed = true)
     private val trackingRepository: TrackingRepositoryImpl = TrackingRepositoryImpl(
         movieDao = movieDao,
         tvShowDao = tvShowDao,
@@ -53,7 +55,7 @@ class DiscoverRepositoryMovieWatchStateTest {
         tmdbApi = tmdbApi,
         cloudCatalog = null,
         syncManager = syncManager,
-        sessionStore = sessionStore
+        sessionRefresher = sessionRefresher
     )
 
     private lateinit var repo: DiscoverRepositoryImpl
@@ -365,7 +367,7 @@ class DiscoverRepositoryMovieWatchStateTest {
         coEvery { tvShowDao.getByImdbId(any()) } returns null
         coEvery { tvShowProgressDao?.getEpisodeCount(7) } returns 62
         stubRecordPrimitives()
-        coEvery { sessionStore.current() } returns SessionState(
+        coEvery { sessionRefresher.freshOrNull() } returns SessionState(
             accessToken = "at", refreshToken = "rt",
             expiresAt = System.currentTimeMillis() + 3_600_000,
             userId = "u1", email = "e@e.es"
@@ -389,7 +391,7 @@ class DiscoverRepositoryMovieWatchStateTest {
         coEvery { tvShowDao.getByImdbId(any()) } returns null
         coEvery { tvShowProgressDao?.getEpisodeCount(7) } returns 62
         stubRecordPrimitives()
-        coEvery { sessionStore.current() } returns null
+        coEvery { sessionRefresher.freshOrNull() } returns null
         coEvery { tvShowDao.update(any()) } returns Unit
 
         repo.recordEpisode(breakingBadContent, 5, 16)

@@ -14,20 +14,18 @@ class AccountRepositoryImpl(
     private val authApi: SupabaseAuthApi,
     private val syncManager: SyncManager,
     private val sessionStore: SessionStore,
+    private val sessionRefresher: SessionRefresher,
     private val seriesMetadataEnricher: SeriesMetadataEnricher
 ) : AccountRepository {
 
     override val session: Flow<SessionState?> = sessionStore.session
 
     private suspend fun requireSession(): SessionState {
-        val current = sessionStore.current() ?: throw SupabaseApiException("No hay sesión iniciada")
-        if (current.isExpired && current.refreshToken.isNotEmpty()) {
-            val refreshed = authApi.refresh(current.refreshToken)
-            val state = refreshed.toSessionState() ?: throw SupabaseApiException("La sesión ha caducado")
-            sessionStore.save(state)
-            return state
-        }
-        return current
+        val current = sessionStore.current()
+        return sessionRefresher.freshOrNull() ?: throw SupabaseApiException(
+            if (current != null && current.isExpired) "La sesión ha caducado"
+            else "No hay sesión iniciada"
+        )
     }
 
     override suspend fun login(email: String, password: String): Result<SyncSummary> = runCatching {

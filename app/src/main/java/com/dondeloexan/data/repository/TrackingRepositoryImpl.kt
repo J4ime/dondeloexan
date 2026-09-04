@@ -17,7 +17,7 @@ import com.dondeloexan.data.remote.dto.TmdbTvDetailDto
 import com.dondeloexan.data.remote.mapper.toEpisode
 import com.dondeloexan.data.remote.mapper.toSeason
 import com.dondeloexan.data.remote.mapper.toSeasonDetail
-import com.dondeloexan.data.sync.SessionStore
+import com.dondeloexan.data.sync.SessionRefresher
 import com.dondeloexan.data.sync.SyncManager
 import com.dondeloexan.data.sync.toCatalogTvShowRow as toEntityCatalogTvShowRow
 import com.dondeloexan.domain.model.Content
@@ -41,7 +41,7 @@ class TrackingRepositoryImpl(
     private val tmdbApi: TmdbApi,
     private val cloudCatalog: CloudCatalogRepository? = null,
     private val syncManager: SyncManager? = null,
-    private val sessionStore: SessionStore? = null
+    private val sessionRefresher: SessionRefresher? = null
 ) : TrackingRepository {
 
     private suspend inline fun <T> cloudRead(
@@ -483,7 +483,7 @@ class TrackingRepositoryImpl(
     }
 
     private suspend fun pushTvShowStateToCloud(reconciled: TvShowEntity) {
-        val session = sessionStore?.current() ?: return
+        val session = sessionRefresher?.freshOrNull() ?: return
         val sync = syncManager ?: return
         try {
             cloudRead("syncSingle-${reconciled.contentId}") {

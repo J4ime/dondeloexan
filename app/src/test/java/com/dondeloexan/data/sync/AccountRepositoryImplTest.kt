@@ -26,6 +26,7 @@ class AccountRepositoryImplTest {
     private val authApi: SupabaseAuthApi = mockk()
     private val syncManager: SyncManager = mockk()
     private val sessionStore: SessionStore = mockk()
+    private val sessionRefresher: SessionRefresher = mockk(relaxed = true)
     private val seriesMetadataEnricher: SeriesMetadataEnricher = mockk(relaxed = true)
 
     private val email = "usuario@test.es"
@@ -36,7 +37,7 @@ class AccountRepositoryImplTest {
         every { sessionStore.session } returns flowOf(null)
     }
 
-    private fun repository() = AccountRepositoryImpl(authApi, syncManager, sessionStore, seriesMetadataEnricher)
+    private fun repository() = AccountRepositoryImpl(authApi, syncManager, sessionStore, sessionRefresher, seriesMetadataEnricher)
 
     private fun auth(): AuthResult = AuthResult(
         accessToken = "atoken",
@@ -241,6 +242,7 @@ class AccountRepositoryImplTest {
             userId = "uuid-1", email = email
         )
         coEvery { sessionStore.current() } returns session
+        coEvery { sessionRefresher.freshOrNull() } returns session
         coEvery { seriesMetadataEnricher.enrichAll() } returns 2
         coEvery { syncManager.syncAll(any()) } returns summary()
 
@@ -252,13 +254,14 @@ class AccountRepositoryImplTest {
     }
 
     @Test
-    fun `sync continua aunque la enrichment de fichas falle`() = runTest {
+    fun `sync enriquece ficha de series antes de subir la nube`() = runTest {
         val session = SessionState(
             accessToken = "atoken", refreshToken = "rtoken",
             expiresAt = System.currentTimeMillis() + 3_600_000,
             userId = "uuid-1", email = email
         )
         coEvery { sessionStore.current() } returns session
+        coEvery { sessionRefresher.freshOrNull() } returns session
         coEvery { seriesMetadataEnricher.enrichAll() } throws RuntimeException("TMDB caído")
         coEvery { syncManager.syncAll(any()) } returns summary()
 
@@ -267,5 +270,36 @@ class AccountRepositoryImplTest {
         assertTrue(result.isSuccess)
         coVerify(exactly = 1) { seriesMetadataEnricher.enrichAll() }
         coVerify(exactly = 1) { syncManager.syncAll(session) }
+    }
+
+    @Test
+    fun `sync con JWT caducado usa la sesion refrescada`() = runTest {
+        val caducada = SessionState(
+            accessToken = "atoken", refreshToken = "rtoken",
+            expiresAt = System.currentTimeMillis() - 1_000,
+            userId = "uuid-1", email = email
+        )
+        val refrescada = caducada.copy(accessToken = "atokenNUEVO", expiresAt = System.currentTimeMillis() + 3_600_000)
+        coEvery { sessionStore.current() } returns caducada
+        coEvery { sessionRefresher.freshOrNull() } returns refrescada
+        coEvery { seriesMetadataEnricher.enrichAll() } returns 2
+        coEvery { syncManager.syncAll(any()) } returns summary()
+
+        val result = repository().sync()
+
+        assertTrue(result.isSuccess)
+        coVerify(exactly = 1) { syncManager.syncAll(refrescada) }
+    }
+
+    @Test
+    fun `sync sin sesion activa falla`() = runTest {
+        coEvery { sessionStore.current() } returns null
+        coEvery { sessionRefresher.freshOrNull() } returns null
+        coEvery { seriesMetadataEnricher.enrichAll() } returns 2
+
+        val result = repository().sync()
+
+        assertTrue(result.isFailure)
+        coVerify(exactly = 0) { syncManager.syncAll(any()) }
     }
 }

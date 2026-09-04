@@ -26,6 +26,7 @@ import com.dondeloexan.data.repository.SettingsRepositoryImpl
 import com.dondeloexan.data.repository.TrackingRepositoryImpl
 import com.dondeloexan.data.sync.AccountRepositoryImpl
 import com.dondeloexan.data.sync.SeriesMetadataEnricher
+import com.dondeloexan.data.sync.SessionRefresher
 import com.dondeloexan.data.sync.SessionStore
 import com.dondeloexan.data.sync.SyncManager
 import com.dondeloexan.data.update.SilentUpdateManager
@@ -109,7 +110,7 @@ val dataModule = module {
             tmdbApi = get(),
             cloudCatalog = get(),
             syncManager = get(),
-            sessionStore = get()
+            sessionRefresher = get()
         )
     }
 
@@ -124,6 +125,7 @@ val dataModule = module {
 
     // Cuenta (login + sync)
     single { SessionStore(androidContext()) }
+    single { SessionRefresher(sessionStore = get(), authApi = get()) }
     single { CloudCatalogRepository(syncApi = get(), json = get()) }
     single {
         SyncManager(
@@ -145,6 +147,7 @@ val dataModule = module {
             authApi = get(),
             syncManager = get(),
             sessionStore = get(),
+            sessionRefresher = get(),
             seriesMetadataEnricher = get()
         )
     }
