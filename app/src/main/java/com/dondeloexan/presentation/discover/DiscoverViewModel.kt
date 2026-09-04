@@ -261,8 +261,6 @@ class DiscoverViewModel(
             val searchDeferred = async {
                 try {
                     discoverRepository.fetchSearchPage(query, 1)
-                        .filter { it.id !in excludedIds() }
-                        .filter { it.ratingImdb != null && it.ratingImdb >= 6.0f }
                 } catch (e: kotlinx.coroutines.CancellationException) {
                     throw e
                 } catch (e: Exception) {
@@ -575,8 +573,6 @@ class DiscoverViewModel(
     private suspend fun fetchSearchPageFiltered(query: String, page: Int): List<ContentPreview> {
         return try {
             discoverRepository.fetchSearchPage(query, page)
-                .filter { it.id !in excludedIds() }
-                .filter { it.ratingImdb != null && it.ratingImdb >= 6.0f }
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (e: Exception) {

@@ -157,4 +157,26 @@ class DiscoverViewModelTest {
         assert(results.none { it.id == "tmdb-777" })
         assert(results.any { it.id == "tmdb-888" })
     }
+
+    @Test
+    fun `busqueda limpia muestra todas las coincidencias sin filtrar por nota ni biblioteca`() = runTest {
+        coEvery { discoverRepository.fetchTrendingPage(any(), any()) } returns emptyList()
+        coEvery { discoverRepository.searchPeople(any()) } returns emptyList()
+        coEvery { discoverRepository.searchCompanies(any()) } returns emptyList()
+        coEvery { libraryRepository.discoverExcludedIds() } returns setOf("tmdb-2")
+        coEvery { discoverRepository.fetchSearchPage(any(), 1) } returns listOf(
+            preview(1).copy(ratingImdb = 8.0f),
+            preview(2).copy(ratingImdb = 5.0f),
+            preview(3).copy(ratingImdb = 0.0f)
+        )
+
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onSearchQueryChanged("matrix")
+        advanceUntilIdle()
+
+        val results = (viewModel.uiState.value as DiscoverUiState.Success).results
+        assert(results.map { it.id } == listOf("tmdb-1", "tmdb-2", "tmdb-3"))
+    }
 }
