@@ -122,7 +122,7 @@ fun DondeLoExanNavGraph(navController: NavHostController) {
     val favoriteMovies by moviesViewModel.favoriteMovies.collectAsState()
 
     val pagerState = rememberPagerState(
-        initialPage = 0,
+        initialPage = 1,
         pageCount = { 9 }
     )
     val scope = rememberCoroutineScope()

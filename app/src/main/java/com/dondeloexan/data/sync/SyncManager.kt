@@ -191,6 +191,34 @@ class SyncManager(
         return summary
     }
 
+    /**
+     * Sube SOLO el catálogo global (movies, tv_shows, critic_reviews,
+     * fa_movie_data) a la nube con la sesión anónima. No toca tablas de usuario
+     * ni requiere login, por lo que vale para actualizar el catálogo tras un
+     * refresco de biblioteca programado. Best-effort: los fallos se registran.
+     */
+    suspend fun syncCatalog() {
+        val anon = syncApi.anonymousSession()
+        val movies = movieDao.getAll().filter { !it.contentId.isNullOrBlank() }
+        val tvShows = tvShowDao.getAll().filter { !it.contentId.isNullOrBlank() }
+        val criticReviews = criticReviewDao.getAll()
+        val faMovieData = faMovieDataDao.getAll()
+
+        if (movies.isNotEmpty()) {
+            cloudCatalog.saveMovies(movies.map { it.toCatalogMovieRow() }, anon)
+        }
+        if (tvShows.isNotEmpty()) {
+            cloudCatalog.saveTvShows(tvShows.map { it.toCatalogTvShowRow() }, anon)
+        }
+        if (criticReviews.isNotEmpty()) {
+            cloudCatalog.saveCriticReviews(criticReviews.map { it.toCatalogCriticReviewRow() }, anon)
+        }
+        if (faMovieData.isNotEmpty()) {
+            cloudCatalog.saveFaMovieData(faMovieData.map { it.toCatalogFaRow() }, anon)
+        }
+        AppLogger.i("Sync", "syncCatalog completado: movies=${movies.size}, tvShows=${tvShows.size}, criticReviews=${criticReviews.size}, faMovieData=${faMovieData.size}")
+    }
+
     suspend fun syncSingleTvShow(session: SessionState, tvShow: TvShowEntity) {
         val contentId = tvShow.contentId
         if (contentId.isNullOrBlank()) {

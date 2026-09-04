@@ -79,7 +79,9 @@ class LibraryRefresher(
                 async {
                     val tmdbId = show.tmdbId ?: return@async
                     try {
-                        val hadNoNextDate = show.nextEpisodeAirDate == null
+                        val prevAirDate = show.nextEpisodeAirDate
+                        val prevEpisodeNumber = show.nextEpisodeNumber
+                        val prevSeasonNumber = show.nextEpisodeSeasonNumber
 
                         val tvDetail = refreshCoordinator.execute(coroutineContext, tmdbId) {
                             tmdbApi.getTvDetailLight(tmdbId)
@@ -127,16 +129,20 @@ class LibraryRefresher(
                             )
                         )
 
-                        if (show.liked && hadNoNextDate && tvDetail.nextEpisodeToAir?.airDate != null) {
-                            synchronized(newEpisodeDates) {
-                                newEpisodeDates.add(
-                                    NewEpisodeDateInfo(
-                                        seriesTitle = show.title,
-                                        season = tvDetail.nextEpisodeToAir.seasonNumber,
-                                        episode = tvDetail.nextEpisodeToAir.episodeNumber,
-                                        airDate = tvDetail.nextEpisodeToAir.airDate
-                                    )
+                        val newNext = tvDetail.nextEpisodeToAir
+                        if (show.liked && newNext != null && newNext.airDate != null) {
+                            val airDate = newNext.airDate
+                            val changed = prevAirDate != airDate ||
+                                prevEpisodeNumber != newNext.episodeNumber ||
+                                prevSeasonNumber != newNext.seasonNumber
+                            if (changed) {
+                                val info = NewEpisodeDateInfo(
+                                    seriesTitle = show.title,
+                                    season = newNext.seasonNumber,
+                                    episode = newNext.episodeNumber,
+                                    airDate = airDate
                                 )
+                                synchronized(newEpisodeDates) { newEpisodeDates.add(info) }
                             }
                         }
 

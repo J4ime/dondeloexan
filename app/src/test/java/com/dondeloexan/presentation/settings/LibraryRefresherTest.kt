@@ -160,4 +160,84 @@ class LibraryRefresherTest {
 
         verify(exactly = 0) { notificationManager.notifyChanges(any(), any()) }
     }
+
+    @Test
+    fun `serie liked con fecha de estreno pendiente que cambia emite notificacion`() = runTest {
+        val show = TvShowEntity(
+            id = 4,
+            title = "Serie con fecha movida",
+            liked = true,
+            status = WatchStatus.POR_VER,
+            tmdbId = 400,
+            totalEpisodes = 10,
+            releasedEpisodes = null,
+            streamingPlatforms = "Netflix",
+            seriesStatus = "Returning Series",
+            inProduction = true,
+            nextEpisodeAirDate = "2026-09-10",
+            nextEpisodeNumber = 5,
+            nextEpisodeSeasonNumber = 1
+        )
+
+        coEvery { tvShowDao.getAll() } returns listOf(show)
+        coEvery { tvShowDao.getById(4) } returns show
+        coEvery { tvShowDao.update(any()) } returns Unit
+        coEvery { movieDao.getAll() } returns emptyList()
+        coEvery { userPreferencesDataStore.setLastLibraryUpdateTimestamp(any()) } returns Unit
+        every { notificationManager.notifyChanges(any(), any()) } returns Unit
+        coEvery { tmdbApi.getTvDetailLight(400) } returns TmdbTvDetailDto(
+            id = 400,
+            name = "Serie con fecha movida",
+            numberOfEpisodes = 10,
+            status = "Returning Series",
+            inProduction = true,
+            nextEpisodeToAir = TmdbEpisodeDto(
+                airDate = "2026-10-01", episodeNumber = 6, id = 2, name = "E6", seasonNumber = 1
+            )
+        )
+
+        refresher().refresh()
+
+        verify { notificationManager.notifyChanges(any(), any()) }
+    }
+
+    @Test
+    fun `serie liked con fecha de estreno sin cambios no emite notificacion`() = runTest {
+        val show = TvShowEntity(
+            id = 5,
+            title = "Serie fecha estable",
+            liked = true,
+            status = WatchStatus.POR_VER,
+            tmdbId = 500,
+            totalEpisodes = 10,
+            releasedEpisodes = null,
+            streamingPlatforms = "Netflix",
+            seriesStatus = "Returning Series",
+            inProduction = true,
+            nextEpisodeAirDate = "2026-09-10",
+            nextEpisodeNumber = 5,
+            nextEpisodeSeasonNumber = 1
+        )
+
+        coEvery { tvShowDao.getAll() } returns listOf(show)
+        coEvery { tvShowDao.getById(5) } returns show
+        coEvery { tvShowDao.update(any()) } returns Unit
+        coEvery { movieDao.getAll() } returns emptyList()
+        coEvery { userPreferencesDataStore.setLastLibraryUpdateTimestamp(any()) } returns Unit
+        every { notificationManager.notifyChanges(any(), any()) } returns Unit
+        coEvery { tmdbApi.getTvDetailLight(500) } returns TmdbTvDetailDto(
+            id = 500,
+            name = "Serie fecha estable",
+            numberOfEpisodes = 10,
+            status = "Returning Series",
+            inProduction = true,
+            nextEpisodeToAir = TmdbEpisodeDto(
+                airDate = "2026-09-10", episodeNumber = 5, id = 2, name = "E5", seasonNumber = 1
+            )
+        )
+
+        refresher().refresh()
+
+        verify(exactly = 0) { notificationManager.notifyChanges(any(), any()) }
+    }
 }

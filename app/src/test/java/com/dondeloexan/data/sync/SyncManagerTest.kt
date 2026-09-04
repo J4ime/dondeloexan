@@ -301,4 +301,31 @@ class SyncManagerTest {
         coVerify(exactly = 0) { syncApi.deleteTableRowsByContent(any(), any(), any()) }
         coVerify(exactly = 0) { syncApi.insertAll(any(), any(), any(), any()) }
     }
+
+    @Test
+    fun `syncCatalog sube solo el catalogo con sesion anonima y no toca tablas de usuario`() = runTest {
+        coEvery { syncApi.anonymousSession() } returns SessionState(
+            accessToken = "_anon_", refreshToken = "",
+            expiresAt = Long.MAX_VALUE, userId = "", email = "anon"
+        )
+        coEvery { cloudCatalog.saveMovies(any(), any()) } returns Unit
+        coEvery { cloudCatalog.saveTvShows(any(), any()) } returns Unit
+        coEvery { movieDao.getAll() } returns listOf(
+            MovieEntity(id = 1, contentId = "m1", title = "A", liked = true)
+        )
+        coEvery { tvShowDao.getAll() } returns listOf(
+            TvShowEntity(id = 7, contentId = "showA", title = "S1")
+        )
+        coEvery { criticReviewDao.getAll() } returns emptyList()
+        coEvery { faMovieDataDao.getAll() } returns emptyList()
+
+        manager().syncCatalog()
+
+        coVerify(exactly = 1) { cloudCatalog.saveMovies(any(), any()) }
+        coVerify(exactly = 1) { cloudCatalog.saveTvShows(any(), any()) }
+        coVerify(exactly = 0) { cloudCatalog.saveCriticReviews(any(), any()) }
+        coVerify(exactly = 0) { cloudCatalog.saveFaMovieData(any(), any()) }
+        coVerify(exactly = 0) { syncApi.deleteTableRows(any(), any(), any()) }
+        coVerify(exactly = 0) { syncApi.insertAll(any(), any(), any(), any()) }
+    }
 }

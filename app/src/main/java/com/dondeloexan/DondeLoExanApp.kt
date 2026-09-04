@@ -11,6 +11,7 @@ import com.dondeloexan.di.dataModule
 import com.dondeloexan.di.networkModule
 import com.dondeloexan.di.viewModelModule
 import com.dondeloexan.data.library.LibraryRefresher
+import com.dondeloexan.data.sync.SyncManager
 import com.dondeloexan.util.TMDB_POSTER_BASE
 import com.dondeloexan.worker.SeriesCheckWorker
 import com.dondeloexan.worker.WorkScheduler
@@ -54,9 +55,11 @@ class DondeLoExanApp : Application() {
                 }
                 val dataStore: UserPreferencesDataStore = koin.get()
                 val lastUpdate = dataStore.getLastLibraryUpdateTimestamp()
-                if (lastUpdate == null || (System.currentTimeMillis() - lastUpdate) >= 21_600_000L) {
+                if (lastUpdate == null || (System.currentTimeMillis() - lastUpdate) >= 86_400_000L) {
                     val refresher: LibraryRefresher = koin.get()
                     refresher.refresh()
+                    val syncManager: SyncManager = koin.get()
+                    syncManager.syncCatalog()
                 }
             } catch (e: CancellationException) {
                 android.util.Log.w("DondeLoExanApp", "Auto-refresh cancelado (scope)", e)
