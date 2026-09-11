@@ -49,11 +49,11 @@ class TmdbApi(private val client: HttpClient) {
         return body()
     }
 
-    suspend fun searchMulti(query: String, language: String = "es-ES", page: Int = 1): TmdbMultiSearchResponse {
+    suspend fun searchMulti(query: String, language: String? = "es-ES", page: Int = 1): TmdbMultiSearchResponse {
         return callWithTimeout(10_000, "search/multi '$query'") {
             val response = client.get("search/multi") {
                 parameter("query", query)
-                parameter("language", language)
+                language?.let { parameter("language", it) }
                 parameter("page", page)
             }
             response.body()

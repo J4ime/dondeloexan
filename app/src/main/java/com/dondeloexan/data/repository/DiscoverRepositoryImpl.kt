@@ -605,8 +605,9 @@ class DiscoverRepositoryImpl(
      *   1 -> mejor valoradas (vote_average.desc, sin límite de fecha, vote_count>=200)
      *   2 -> novedades (release_date desc / first_air_date desc, último año)
      *   3 -> tendencias de la semana (trending/all/week)
-     * El filtro por plataformas activas se aplica a las recetas de discover
-     * (0-2); las tendencias semanales se muestran sin filtrar por plataforma.
+     * El filtro por plataformas activas se aplica a TODAS las recetas (0-3): las
+     * de discover (0-2) vía el parámetro watch_providers de TMDB y la de
+     * tendencias (3) con un post-filtro, ya que /trending no acepta proveedor.
      */
     override suspend fun fetchTrendingPage(page: Int, filterByPlatforms: Boolean): List<ContentPreview> {
         val activePlatforms = userPlatformDao.getActiveNames().toSet()
@@ -645,7 +646,7 @@ class DiscoverRepositoryImpl(
                 tvDateGte = now.minusYears(1).toString(), tvDateLte = null,
                 voteCountGte = 100
             )
-            else -> buildTrendingWeek(page)
+            else -> buildTrendingWeek(page, activePlatforms, preferredTypes, filterByPlatforms)
         }
     }
 
@@ -725,7 +726,12 @@ class DiscoverRepositoryImpl(
         }
     }
 
-    private suspend fun buildTrendingWeek(page: Int): List<ContentPreview> {
+    private suspend fun buildTrendingWeek(
+        page: Int,
+        activePlatforms: Set<String>,
+        preferredTypes: Set<String>?,
+        filterByPlatforms: Boolean
+    ): List<ContentPreview> {
         AppLogger.d("DiscoverRepo", "discover receta: tendencias de la semana page=$page")
         val results = tmdbApi.getTrending()
         val takePerType = 20
@@ -742,28 +748,51 @@ class DiscoverRepositoryImpl(
             results.results
                 .filter { it.mediaType == "tv" }
                 .filter { !it.adult }
-                .map { it.toContentPreview() }
+                .map { it.copy(mediaType = "tv").toContentPreview() }
                 .take(takePerType)
         )
 
-        return (moviePreviews + tvPreviews).shuffled()
+        var combined = (moviePreviews + tvPreviews).shuffled()
+
+        if (filterByPlatforms) {
+            val before = combined.size
+            combined = combined.filter { preview ->
+                preview.streamingPlatforms.any { platform ->
+                    activePlatforms.any { active ->
+                        platformMatches(platform.platformName, active)
+                    } && (preferredTypes == null || preferredTypes.contains(platform.availabilityType.name))
+                }
+            }
+            AppLogger.d("DiscoverRepo", "trending week platform filter: $before -> ${combined.size}")
+        }
+
+        return combined
     }
 
     override suspend fun fetchSearchPage(query: String, page: Int): List<ContentPreview> {
         val tokens = normalizedTokens(query)
+        // Búsqueda localizada (es-ES). Si no devuelve nada, se reintenta SIN
+        // idioma (TMDB usa su default) para ampliar coincidencias, p. ej. por
+        // título original.
+        val primary = searchPageOnce(query, page, "es-ES", tokens)
+        val results = if (primary.isNotEmpty()) primary else searchPageOnce(query, page, null, tokens)
+        return if (results.isNotEmpty()) fetchPlatforms(results) else emptyList()
+    }
+
+    private suspend fun searchPageOnce(
+        query: String,
+        page: Int,
+        language: String?,
+        tokens: List<String>
+    ): List<ContentPreview> {
         val seen = mutableSetOf<String>()
-        val tmdbResult = tmdbApi.searchMulti(query, page = page)
-        val tmdbPreviews = tmdbResult.results
+        val tmdbResult = tmdbApi.searchMulti(query, language = language, page = page)
+        return tmdbResult.results
             .filter { it.mediaType in listOf("movie", "tv") && !it.adult }
             .map { it.toContentPreview() }
             .filter { isRelevant(it, tokens) }
             .filter { seen.add(it.id) }
             .take(20)
-        return if (tmdbPreviews.isNotEmpty()) {
-            fetchPlatforms(tmdbPreviews)
-        } else {
-            emptyList()
-        }
     }
 
     private fun normalizedTokens(query: String): List<String> {
@@ -774,11 +803,14 @@ class DiscoverRepositoryImpl(
 
     private fun isRelevant(preview: ContentPreview, tokens: List<String>): Boolean {
         if (tokens.isEmpty()) return preview.title.isNotBlank()
-        val title = normalizeForSearch(preview.title)
-        if (title.isBlank()) return false
         val fullPhrase = normalizeForSearch(tokens.joinToString(" "))
-        if (title.contains(fullPhrase)) return true
-        return tokens.all { title.contains(it) }
+        val candidates = listOfNotNull(preview.title, preview.originalTitle)
+            .map { normalizeForSearch(it) }
+            .filter { it.isNotBlank() }
+        if (candidates.isEmpty()) return false
+        return candidates.any { title ->
+            title.contains(fullPhrase) || tokens.all { title.contains(it) }
+        }
     }
 
     private fun normalizeForSearch(value: String): String {

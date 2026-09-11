@@ -13,6 +13,7 @@ import com.dondeloexan.domain.model.detail.MovieWatchState
 import com.dondeloexan.domain.model.detail.Season
 import com.dondeloexan.domain.model.detail.SeasonDetail
 import com.dondeloexan.domain.model.detail.SeriesTracking
+import com.dondeloexan.domain.repository.SeriesRatingsRepository
 import com.dondeloexan.domain.usecase.MediaDetailUseCases
 import com.dondeloexan.domain.usecase.SeriesState
 import io.mockk.coEvery
@@ -32,13 +33,14 @@ import org.junit.jupiter.api.Test
 class MediaDetailViewModelTest {
 
     private val useCases: MediaDetailUseCases = mockk()
+    private val seriesRatingsRepository: SeriesRatingsRepository = mockk(relaxed = true)
 
     private lateinit var viewModel: MediaDetailViewModel
 
     @BeforeEach
     fun setUp() {
         Dispatchers.setMain(StandardTestDispatcher())
-        viewModel = MediaDetailViewModel(useCases = useCases)
+        viewModel = MediaDetailViewModel(useCases = useCases, seriesRatingsRepository = seriesRatingsRepository)
     }
 
     private fun movieContent(id: String = "tmdb-1", tmdbId: Int = 1, collectionId: Int? = null) = Content(

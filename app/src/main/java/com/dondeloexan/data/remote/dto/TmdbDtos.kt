@@ -109,6 +109,8 @@ data class TmdbMultiSearchResult(
     @SerialName("media_type") val mediaType: String? = null,
     val title: String? = null,
     val name: String? = null,
+    @SerialName("original_title") val originalTitle: String? = null,
+    @SerialName("original_name") val originalName: String? = null,
     @SerialName("poster_path") val posterPath: String? = null,
     @SerialName("backdrop_path") val backdropPath: String? = null,
     @SerialName("release_date") val releaseDate: String? = null,

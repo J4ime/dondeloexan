@@ -7,6 +7,7 @@ import com.dondeloexan.domain.model.ContentPreview
 import com.dondeloexan.domain.model.ContentType
 import com.dondeloexan.domain.model.CriticReview
 import com.dondeloexan.domain.model.DataResult
+import com.dondeloexan.domain.model.EpisodeRating
 import com.dondeloexan.domain.model.ExternalLinks
 import com.dondeloexan.domain.model.detail.CastSocialInfo
 import com.dondeloexan.domain.model.detail.CascadeProposal
@@ -14,6 +15,7 @@ import com.dondeloexan.domain.model.detail.EpisodeToggleResult
 import com.dondeloexan.domain.model.detail.Season
 import com.dondeloexan.domain.model.detail.SeasonDetail
 import com.dondeloexan.domain.model.detail.SeriesTracking
+import com.dondeloexan.domain.repository.SeriesRatingsRepository
 import com.dondeloexan.domain.usecase.MediaDetailUseCases
 import com.dondeloexan.domain.usecase.SeriesState
 import com.dondeloexan.util.AppLogger
@@ -50,11 +52,13 @@ data class DetailUiState(
     val isDirectorLoading: Boolean = false,
     val seriesRelationships: List<ContentPreview>? = null,
     val isSeriesRelationshipsLoading: Boolean = false,
-    val seriesRelationshipTargetIds: Set<String> = emptySet()
+    val seriesRelationshipTargetIds: Set<String> = emptySet(),
+    val episodeRatings: List<EpisodeRating> = emptyList()
 )
 
 class MediaDetailViewModel(
-    private val useCases: MediaDetailUseCases
+    private val useCases: MediaDetailUseCases,
+    private val seriesRatingsRepository: SeriesRatingsRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(DetailUiState())
@@ -263,6 +267,7 @@ class MediaDetailViewModel(
 
                             if (content.type == ContentType.SERIES) {
                                 loadSeasons(content)
+                                loadEpisodeRatings(content)
                             } else {
                                 viewModelScope.launch {
                                     val movieState = useCases.loadMovieState(content)
@@ -381,6 +386,21 @@ class MediaDetailViewModel(
             )
         } catch (e: Exception) {
             AppLogger.e("DetailVM", "Error loading seasons", e)
+        }
+    }
+
+    private fun loadEpisodeRatings(content: Content) {
+        val tmdbId = content.tmdbId ?: return
+        viewModelScope.launch {
+            try {
+                val ratings = seriesRatingsRepository.getEpisodeRatings(tmdbId)
+                if (_uiState.value.content?.id == content.id) {
+                    _uiState.value = _uiState.value.copy(episodeRatings = ratings)
+                }
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                AppLogger.e("DetailVM", "Error loading episode ratings for $tmdbId", e)
+            }
         }
     }
 

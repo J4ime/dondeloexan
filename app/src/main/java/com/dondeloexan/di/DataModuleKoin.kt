@@ -22,6 +22,7 @@ import com.dondeloexan.data.repository.LibraryRepositoryImpl
 import com.dondeloexan.data.repository.MovieRepositoryImpl
 import com.dondeloexan.data.repository.PlatformRepositoryImpl
 import com.dondeloexan.data.repository.SeriesRepositoryImpl
+import com.dondeloexan.data.repository.SeriesRatingsRepositoryImpl
 import com.dondeloexan.data.repository.SettingsRepositoryImpl
 import com.dondeloexan.data.repository.TrackingRepositoryImpl
 import com.dondeloexan.data.sync.AccountRepositoryImpl
@@ -40,6 +41,7 @@ import com.dondeloexan.domain.repository.LibraryRepository
 import com.dondeloexan.domain.repository.MovieRepository
 import com.dondeloexan.domain.repository.PlatformRepository
 import com.dondeloexan.domain.repository.SeriesRepository
+import com.dondeloexan.domain.repository.SeriesRatingsRepository
 import com.dondeloexan.domain.repository.SettingsRepository
 import com.dondeloexan.domain.repository.TrackingRepository
 import com.dondeloexan.presentation.feedback.FeedbackManager
@@ -86,6 +88,9 @@ val dataModule = module {
 
     // Series
     single<SeriesRepository> { SeriesRepositoryImpl(get(), get(), get(), get(), get()) }
+
+    // Ratings de episodios (SeriesGraph, métrica IMDb)
+    single<SeriesRatingsRepository> { SeriesRatingsRepositoryImpl(get()) }
 
     // Estado de la biblioteca (favoritos/pendientes/vistos/blacklist) desde Descubrir
     single<LibraryRepository> {

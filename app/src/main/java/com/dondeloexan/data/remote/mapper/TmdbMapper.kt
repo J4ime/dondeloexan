@@ -126,6 +126,7 @@ fun TmdbMultiSearchResult.toContentPreview(): ContentPreview = ContentPreview(
     tmdbId = id,
     imdbId = null,
     title = title ?: name.orEmpty(),
+    originalTitle = originalTitle ?: originalName,
     type = if (mediaType == "tv") ContentType.SERIES else ContentType.MOVIE,
     year = releaseDate?.substringBefore("-")?.toIntOrNull()
         ?: firstAirDate?.substringBefore("-")?.toIntOrNull(),

@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -45,6 +46,12 @@ import androidx.compose.material.icons.outlined.People
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.PlayCircle
 import androidx.compose.material.icons.outlined.Star
+import androidx.compose.material.icons.outlined.ShowChart
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.lerp
+import com.dondeloexan.domain.model.EpisodeRating
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -273,6 +280,7 @@ fun MediaDetailScreen(
                                 seasonDetail = uiState.seasonDetail,
                                 watchedEpisodes = uiState.watchedEpisodes,
                                 lastWatchedEpisode = if (uiState.selectedSeason == uiState.lastWatchedSeason) uiState.lastWatchedEpisode else null,
+                                ratings = uiState.episodeRatings,
                                 onSeasonSelected = viewModel::selectSeason,
                                 onToggleEpisode = viewModel::toggleEpisodeWatched,
                                 onMarkSeasonToggle = viewModel::markSeasonWatched
@@ -741,8 +749,11 @@ private fun FichaTab(content: Content, viewModel: MediaDetailViewModel, onNaviga
             item { StreamingSection(displayPlatforms, futureReleaseLabel, futurePlatformInfo, vodReleaseDates) }
         }
         item { TechnicalInfoSection(content, viewModel) }
-        if (content.externalLinks != null) {
-            item { ExternalLinksSection(content.externalLinks) }
+        val seriesGraphUrl = if (content.type == ContentType.SERIES) {
+            content.tmdbId?.let { "https://seriesgraph.com/show/$it" }
+        } else null
+        if (content.externalLinks != null || seriesGraphUrl != null) {
+            item { ExternalLinksSection(content.externalLinks, seriesGraphUrl) }
         }
         item { CriticReviewsSection(viewModel) }
         item { SeriesRelationshipsSection(viewModel, onNavigateToDetail) }
@@ -759,6 +770,7 @@ private fun EpisodiosTab(
     seasonDetail: SeasonDetail?,
     watchedEpisodes: Set<String>,
     lastWatchedEpisode: Int?,
+    ratings: List<EpisodeRating> = emptyList(),
     onSeasonSelected: (Int) -> Unit,
     onToggleEpisode: (Int) -> Unit,
     onMarkSeasonToggle: () -> Unit
@@ -808,6 +820,10 @@ private fun EpisodiosTab(
                     )
                 }
             }
+
+            if (ratings.isNotEmpty()) {
+                item { EpisodeRatingsGraph(ratings) }
+            }
         }
     }
 
@@ -846,6 +862,65 @@ private fun EpisodiosTab(
             tonalElevation = 0.dp
         )
     }
+}
+
+@Composable
+private fun EpisodeRatingsGraph(ratings: List<EpisodeRating>) {
+    val sorted = remember(ratings) {
+        ratings.filter { it.imdbRating != null }
+            .sortedWith(compareBy({ it.seasonNumber }, { it.episodeNumber }))
+    }
+    if (sorted.isEmpty()) return
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+    ) {
+        HorizontalDivider(color = DarkSurfaceVariant.copy(alpha = 0.5f))
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "Ratings IMDb por episodio",
+            style = UbuntuTypography.titleSmall,
+            color = TextPrimary,
+            fontWeight = FontWeight.Bold
+        )
+        Spacer(Modifier.height(8.dp))
+        Canvas(modifier = Modifier.fillMaxWidth().height(150.dp)) {
+            val n = sorted.size
+            val gap = 1.5.dp.toPx()
+            val slot = size.width / n
+            val barWidth = (slot - gap).coerceAtLeast(1f)
+            val minR = 1f
+            val maxR = 10f
+            sorted.forEachIndexed { i, ep ->
+                val r = (ep.imdbRating ?: 0.0).toFloat()
+                val frac = ((r - minR) / (maxR - minR)).coerceIn(0f, 1f)
+                val barHeight = size.height * (0.12f + 0.88f * frac)
+                drawRoundRect(
+                    color = ratingColor(r),
+                    topLeft = Offset(i * slot, size.height - barHeight),
+                    size = Size(barWidth, barHeight),
+                    cornerRadius = CornerRadius(1.5.dp.toPx())
+                )
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        val seasonCount = sorted.map { it.seasonNumber }.distinct().size
+        Text(
+            "$seasonCount temporada(s) · ${sorted.size} episodios · fuente: SeriesGraph (IMDb)",
+            style = UbuntuTypography.labelSmall,
+            color = TextSecondary,
+            fontSize = 9.sp
+        )
+    }
+}
+
+private fun ratingColor(rating: Float): Color = when {
+    rating <= 0f -> Color(0xFF555555)
+    rating < 6f -> lerp(Color(0xFFE53935), Color(0xFFFFB300), ((rating - 1f) / 5f).coerceIn(0f, 1f))
+    rating < 8f -> lerp(Color(0xFFFFB300), Color(0xFF7CB342), ((rating - 6f) / 2f).coerceIn(0f, 1f))
+    else -> lerp(Color(0xFF7CB342), Color(0xFF2E7D32), ((rating - 8f) / 2f).coerceIn(0f, 1f))
 }
 
 private data class AirDateInfo(
@@ -1210,17 +1285,18 @@ private fun FieldRow(label: String, value: String) {
 }
 
 @Composable
-private fun ExternalLinksSection(links: ExternalLinks) {
+private fun ExternalLinksSection(links: ExternalLinks?, seriesGraphUrl: String? = null) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val items = listOfNotNull(
-        links.imdbId?.let { Triple(it, Icons.Outlined.Star, "IMDb") },
-        links.wikipediaUrl?.let { Triple(it, Icons.AutoMirrored.Outlined.MenuBook, "Wikipedia") },
-        links.facebookId?.let { Triple(it, Icons.Outlined.People, "Facebook") },
-        links.instagramId?.let { Triple(it, Icons.Outlined.CameraAlt, "Instagram") },
-        links.twitterId?.let { Triple(it, Icons.Outlined.AlternateEmail, "Twitter") },
-        links.youtubeId?.let { Triple(it, Icons.Outlined.PlayCircle, "YouTube") },
-        links.homepage?.let { Triple(it, Icons.Outlined.Language, "Web") },
-        links.filmaffinityUrl?.let { Triple(it, Icons.Outlined.Star, "FilmAffinity") }
+        links?.imdbId?.let { Triple(it, Icons.Outlined.Star, "IMDb") },
+        links?.wikipediaUrl?.let { Triple(it, Icons.AutoMirrored.Outlined.MenuBook, "Wikipedia") },
+        links?.facebookId?.let { Triple(it, Icons.Outlined.People, "Facebook") },
+        links?.instagramId?.let { Triple(it, Icons.Outlined.CameraAlt, "Instagram") },
+        links?.twitterId?.let { Triple(it, Icons.Outlined.AlternateEmail, "Twitter") },
+        links?.youtubeId?.let { Triple(it, Icons.Outlined.PlayCircle, "YouTube") },
+        links?.homepage?.let { Triple(it, Icons.Outlined.Language, "Web") },
+        links?.filmaffinityUrl?.let { Triple(it, Icons.Outlined.Star, "FilmAffinity") },
+        seriesGraphUrl?.let { Triple(it, Icons.Outlined.ShowChart, "SeriesGraph") }
     )
 
     if (items.isEmpty()) return

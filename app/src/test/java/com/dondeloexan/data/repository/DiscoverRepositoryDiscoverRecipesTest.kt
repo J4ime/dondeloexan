@@ -11,11 +11,16 @@ import com.dondeloexan.data.remote.api.OmdbApi
 import com.dondeloexan.data.remote.api.TmdbApi
 import com.dondeloexan.data.remote.api.WikidataApi
 import com.dondeloexan.data.remote.dto.TmdbTrendingResponse
+import com.dondeloexan.data.remote.dto.TmdbMultiSearchResult
+import com.dondeloexan.data.remote.dto.TmdbWatchProvidersResponse
+import com.dondeloexan.data.remote.dto.TmdbCountryProviders
+import com.dondeloexan.data.remote.dto.TmdbProvider
 import com.dondeloexan.data.remote.filmaffinity.FilmaffinityScraper
 import com.dondeloexan.domain.repository.TrackingRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 
@@ -147,5 +152,30 @@ class DiscoverRepositoryDiscoverRecipesTest {
                 sortBy = "popularity.desc", voteCountGte = 100, any(), any()
             )
         }
+    }
+
+    @Test
+    fun `pagina 4 tendencias filtra por plataformas activas`() = runTest {
+        coEvery { userPlatformDao.getActiveNames() } returns listOf("Netflix")
+        coEvery { userPreferencesDataStore.preferredAvailabilityTypes } returns flowOf(setOf("SUBSCRIPTION"))
+        coEvery { tmdbApi.getTrending() } returns TmdbTrendingResponse(
+            page = 1, totalResults = 2, results = listOf(
+                TmdbMultiSearchResult(id = 1, mediaType = "movie", title = "Con Netflix"),
+                TmdbMultiSearchResult(id = 2, mediaType = "movie", title = "Con HBO")
+            )
+        )
+        coEvery { tmdbApi.getMovieWatchProviders(1) } returns TmdbWatchProvidersResponse(
+            id = 1,
+            results = mapOf("ES" to TmdbCountryProviders(flatrate = listOf(TmdbProvider(8, "Netflix"))))
+        )
+        coEvery { tmdbApi.getMovieWatchProviders(2) } returns TmdbWatchProvidersResponse(
+            id = 2,
+            results = mapOf("ES" to TmdbCountryProviders(flatrate = listOf(TmdbProvider(1899, "HBO Max"))))
+        )
+
+        val result = repo.fetchTrendingPage(4, filterByPlatforms = true)
+
+        assert(result.size == 1)
+        assert(result[0].id == "tmdb-1")
     }
 }

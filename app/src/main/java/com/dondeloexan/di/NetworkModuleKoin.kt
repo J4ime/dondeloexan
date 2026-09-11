@@ -3,6 +3,7 @@ package com.dondeloexan.di
 import com.dondeloexan.BuildConfig
 import com.dondeloexan.data.remote.api.GitHubApi
 import com.dondeloexan.data.remote.api.OmdbApi
+import com.dondeloexan.data.remote.api.SeriesGraphApi
 import com.dondeloexan.data.remote.api.SupabaseAuthApi
 import com.dondeloexan.data.remote.api.SupabaseSyncApi
 import com.dondeloexan.data.remote.api.TmdbApi
@@ -185,6 +186,33 @@ val networkModule = module {
             anonKey = BuildConfig.SUPABASE_ANON_KEY,
             json = get()
         )
+    }
+
+    // ── SeriesGraph (ratings IMDb por episodio) ──
+    single {
+        val client = HttpClient(OkHttp) {
+            engine {
+                config {
+                    retryOnConnectionFailure(true)
+                    connectTimeout(10, TimeUnit.SECONDS)
+                    readTimeout(15, TimeUnit.SECONDS)
+                    callTimeout(30, TimeUnit.SECONDS)
+                    addInterceptor(HttpTracingInterceptor("SERIESGRAPH-HTTP"))
+                }
+            }
+            install(ContentNegotiation) { json(get()) }
+            install(HttpTimeout) {
+                requestTimeoutMillis = 20_000
+                connectTimeoutMillis = 10_000
+                socketTimeoutMillis = 15_000
+            }
+            defaultRequest {
+                url("https://seriesgraph.com/")
+                header("User-Agent", "DondeLoExan/${BuildConfig.VERSION_NAME}")
+                contentType(ContentType.Application.Json)
+            }
+        }
+        SeriesGraphApi(client)
     }
 
     // ── Filmaffinity (plain HTML client, no JSON) ──
