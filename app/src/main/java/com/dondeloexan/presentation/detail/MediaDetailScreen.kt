@@ -22,6 +22,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -50,8 +53,17 @@ import androidx.compose.material.icons.outlined.ShowChart
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextMeasurer
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.TextUnit
 import com.dondeloexan.domain.model.EpisodeRating
+import java.util.Locale
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -864,13 +876,80 @@ private fun EpisodiosTab(
     }
 }
 
+private data class RatingBucket(val label: String, val min: Double, val color: Color)
+
+private val seriesGraphBuckets = listOf(
+    RatingBucket("Absolute Cinema", 9.7, Color(0xFF1DA1F2)),
+    RatingBucket("Awesome", 9.0, Color(0xFF186A3B)),
+    RatingBucket("Great", 8.0, Color(0xFF28B463)),
+    RatingBucket("Good", 7.0, Color(0xFFF4D03F)),
+    RatingBucket("Average", 6.0, Color(0xFFF39C12)),
+    RatingBucket("Bad", 4.1, Color(0xFFE74C3C)),
+    RatingBucket("Garbage", 0.0, Color(0xFF633974))
+)
+
+private fun ratingBucketColor(rating: Double?): Color {
+    if (rating == null) return Color(0xFFBDBDBD)
+    return seriesGraphBuckets.firstOrNull { rating >= it.min }?.color ?: Color(0xFF633974)
+}
+
+private fun ratingLabelColor(rating: Double?): Color {
+    if (rating == null) return Color(0xFF2A2A2A)
+    val bg = ratingBucketColor(rating)
+    val lum = 0.299f * bg.red + 0.587f * bg.green + 0.114f * bg.blue
+    return if (lum > 0.5f) Color(0xFF000000) else Color(0xFFFFFFFF)
+}
+
+private fun DrawScope.drawCenteredText(
+    measurer: TextMeasurer,
+    text: String,
+    centerX: Float,
+    centerY: Float,
+    fontSize: TextUnit,
+    color: Color
+) {
+    val layout = measurer.measure(
+        AnnotatedString(text),
+        style = TextStyle(fontSize = fontSize, color = color, fontWeight = FontWeight.SemiBold)
+    )
+    drawText(layout, topLeft = Offset(centerX - layout.size.width / 2f, centerY - layout.size.height / 2f))
+}
+
 @Composable
 private fun EpisodeRatingsGraph(ratings: List<EpisodeRating>) {
-    val sorted = remember(ratings) {
-        ratings.filter { it.imdbRating != null }
-            .sortedWith(compareBy({ it.seasonNumber }, { it.episodeNumber }))
+    val withData = remember(ratings) {
+        ratings.filter { it.seasonNumber > 0 && it.episodeNumber > 0 }
     }
-    if (sorted.isEmpty()) return
+    if (withData.isEmpty()) return
+
+    val seasons = remember(withData) { withData.map { it.seasonNumber }.distinct().sorted() }
+    val maxEpisodes = remember(withData) { withData.maxOf { it.episodeNumber } }
+    val bySeasonEpisode = remember(withData) { withData.associateBy { it.seasonNumber to it.episodeNumber } }
+    val hasAbsoluteCinema = remember(withData) { withData.any { (it.imdbRating ?: 0.0) >= 9.7 } }
+    val averages = remember(withData, seasons) {
+        seasons.associateWith { season ->
+            withData.filter { it.seasonNumber == season }
+                .mapNotNull { it.imdbRating }
+                .average()
+                .takeIf { !it.isNaN() }
+        }
+    }
+
+    var selected by remember(withData) { mutableStateOf<EpisodeRating?>(null) }
+
+    val density = LocalDensity.current
+    val cellDp = 34.dp
+    val cellPx = with(density) { cellDp.toPx() }
+    val gapPx = with(density) { 2.dp.toPx() }
+    val axisLeftPx = with(density) { 30.dp.toPx() }
+    val topAxisPx = with(density) { 18.dp.toPx() }
+    val avgRowPx = with(density) { 24.dp.toPx() }
+    val gridWidthPx = seasons.size * cellPx
+    val gridHeightPx = maxEpisodes * cellPx
+    val canvasWidthPx = axisLeftPx + gridWidthPx
+    val canvasHeightPx = topAxisPx + gridHeightPx + avgRowPx
+
+    val measurer = rememberTextMeasurer()
 
     Column(
         modifier = Modifier
@@ -885,30 +964,93 @@ private fun EpisodeRatingsGraph(ratings: List<EpisodeRating>) {
             color = TextPrimary,
             fontWeight = FontWeight.Bold
         )
+        Spacer(Modifier.height(4.dp))
+        val sel = selected
+        Text(
+            if (sel != null) {
+                val r = sel.imdbRating?.let { String.format(Locale.US, "%.1f", it) } ?: "?"
+                "T${sel.seasonNumber}E${sel.episodeNumber} · ${sel.name ?: ""} · $r"
+            } else {
+                "Toca un episodio para ver el detalle"
+            },
+            style = UbuntuTypography.labelSmall,
+            color = if (sel != null) TextPrimary else TextSecondary,
+            fontSize = 11.sp
+        )
         Spacer(Modifier.height(8.dp))
-        Canvas(modifier = Modifier.fillMaxWidth().height(150.dp)) {
-            val n = sorted.size
-            val gap = 1.5.dp.toPx()
-            val slot = size.width / n
-            val barWidth = (slot - gap).coerceAtLeast(1f)
-            val minR = 1f
-            val maxR = 10f
-            sorted.forEachIndexed { i, ep ->
-                val r = (ep.imdbRating ?: 0.0).toFloat()
-                val frac = ((r - minR) / (maxR - minR)).coerceIn(0f, 1f)
-                val barHeight = size.height * (0.12f + 0.88f * frac)
-                drawRoundRect(
-                    color = ratingColor(r),
-                    topLeft = Offset(i * slot, size.height - barHeight),
-                    size = Size(barWidth, barHeight),
-                    cornerRadius = CornerRadius(1.5.dp.toPx())
-                )
+        Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
+            Canvas(
+                modifier = Modifier
+                    .width(with(density) { canvasWidthPx.toDp() })
+                    .height(with(density) { canvasHeightPx.toDp() })
+                    .pointerInput(withData) {
+                        detectTapGestures { offset ->
+                            val col = ((offset.x - axisLeftPx) / cellPx).toInt()
+                            val row = ((offset.y - topAxisPx) / cellPx).toInt()
+                            if (col in seasons.indices && row in 0 until maxEpisodes) {
+                                selected = bySeasonEpisode[seasons[col] to (row + 1)]
+                            }
+                        }
+                    }
+            ) {
+                // Eje X: temporadas
+                seasons.forEachIndexed { ci, season ->
+                    drawCenteredText(
+                        measurer, "S$season",
+                        axisLeftPx + ci * cellPx + cellPx / 2f, topAxisPx / 2f,
+                        9.sp, TextSecondary
+                    )
+                }
+                // Eje Y: episodios
+                for (row in 0 until maxEpisodes) {
+                    drawCenteredText(
+                        measurer, "E${row + 1}",
+                        axisLeftPx / 2f, topAxisPx + row * cellPx + cellPx / 2f,
+                        9.sp, TextSecondary
+                    )
+                }
+                // Celdas (cuadrados con la nota)
+                seasons.forEachIndexed { ci, season ->
+                    for (row in 0 until maxEpisodes) {
+                        val ep = bySeasonEpisode[season to (row + 1)] ?: continue
+                        val left = axisLeftPx + ci * cellPx + gapPx / 2f
+                        val top = topAxisPx + row * cellPx + gapPx / 2f
+                        val size = cellPx - gapPx
+                        val rating = ep.imdbRating
+                        val bg = ratingBucketColor(rating)
+                        drawRoundRect(
+                            color = bg,
+                            topLeft = Offset(left, top),
+                            size = Size(size, size),
+                            cornerRadius = CornerRadius(size * 0.18f)
+                        )
+                        val label = rating?.let { String.format(Locale.US, "%.1f", it) } ?: "?"
+                        drawCenteredText(
+                            measurer, label,
+                            left + size / 2f, top + size / 2f,
+                            (cellDp.value * 0.36f).sp, ratingLabelColor(rating)
+                        )
+                    }
+                }
+                // Media por temporada (AVG.)
+                seasons.forEachIndexed { ci, season ->
+                    val avg = averages[season]
+                    val label = avg?.let { String.format(Locale.US, "%.1f", it) } ?: "-"
+                    drawCenteredText(
+                        measurer, label,
+                        axisLeftPx + ci * cellPx + cellPx / 2f,
+                        topAxisPx + gridHeightPx + avgRowPx / 2f,
+                        10.sp,
+                        avg?.let { ratingBucketColor(it) } ?: TextSecondary
+                    )
+                }
             }
         }
+        Spacer(Modifier.height(8.dp))
+        RatingsLegend(showTopBucket = hasAbsoluteCinema)
         Spacer(Modifier.height(6.dp))
-        val seasonCount = sorted.map { it.seasonNumber }.distinct().size
         Text(
-            "$seasonCount temporada(s) · ${sorted.size} episodios · fuente: SeriesGraph (IMDb)",
+            "${seasons.size} temporada(s) · ${withData.size} episodios · fuente: SeriesGraph (IMDb)",
             style = UbuntuTypography.labelSmall,
             color = TextSecondary,
             fontSize = 9.sp
@@ -916,11 +1058,37 @@ private fun EpisodeRatingsGraph(ratings: List<EpisodeRating>) {
     }
 }
 
-private fun ratingColor(rating: Float): Color = when {
-    rating <= 0f -> Color(0xFF555555)
-    rating < 6f -> lerp(Color(0xFFE53935), Color(0xFFFFB300), ((rating - 1f) / 5f).coerceIn(0f, 1f))
-    rating < 8f -> lerp(Color(0xFFFFB300), Color(0xFF7CB342), ((rating - 6f) / 2f).coerceIn(0f, 1f))
-    else -> lerp(Color(0xFF7CB342), Color(0xFF2E7D32), ((rating - 8f) / 2f).coerceIn(0f, 1f))
+@Composable
+private fun RatingsLegend(showTopBucket: Boolean) {
+    val buckets = remember(showTopBucket) {
+        seriesGraphBuckets.filter { showTopBucket || it.min < 9.7 }
+    }
+    Column(modifier = Modifier.fillMaxWidth()) {
+        buckets.chunked(4).forEach { row ->
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                row.forEach { bucket ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(12.dp)
+                                .clip(CircleShape)
+                                .background(bucket.color)
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            bucket.label,
+                            style = UbuntuTypography.labelSmall,
+                            color = TextSecondary,
+                            fontSize = 10.sp
+                        )
+                    }
+                }
+            }
+        }
+    }
 }
 
 private data class AirDateInfo(
