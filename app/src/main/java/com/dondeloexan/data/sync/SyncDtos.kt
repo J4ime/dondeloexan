@@ -98,6 +98,7 @@ fun MovieEntity.toCatalogMovieRow(now: Long = System.currentTimeMillis()): Catal
     imdbId = imdbId,
     year = year,
     releaseDate = releaseDate,
+    spanishReleaseDate = spanishReleaseDate,
     coverUrl = posterUrl,
     ratingTmdb = ratingTmdb,
     ratingImdb = ratingImdb,

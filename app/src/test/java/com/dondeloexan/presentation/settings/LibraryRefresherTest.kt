@@ -3,12 +3,18 @@ package com.dondeloexan.presentation.settings
 import com.dondeloexan.data.local.dao.MovieDao
 import com.dondeloexan.data.local.dao.TvShowDao
 import com.dondeloexan.data.local.datastore.UserPreferencesDataStore
+import com.dondeloexan.data.local.entity.MovieEntity
 import com.dondeloexan.data.local.entity.TvShowEntity
 import com.dondeloexan.data.local.entity.WatchStatus
 import com.dondeloexan.data.remote.api.OmdbApi
 import com.dondeloexan.data.remote.api.TmdbApi
 import com.dondeloexan.data.remote.dto.TmdbEpisodeDto
+import com.dondeloexan.data.remote.dto.TmdbMovieDto
+import com.dondeloexan.data.remote.dto.TmdbMovieReleaseDatesResponse
+import com.dondeloexan.data.remote.dto.TmdbReleaseDateCountry
+import com.dondeloexan.data.remote.dto.TmdbReleaseDateItem
 import com.dondeloexan.data.remote.dto.TmdbSeasonDto
+import com.dondeloexan.data.remote.dto.TmdbWatchProvidersResponse
 import com.dondeloexan.data.library.LibraryNotificationManager
 import com.dondeloexan.data.library.LibraryRefresher
 import com.dondeloexan.data.remote.dto.TmdbTvDetailDto
@@ -17,6 +23,7 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.slot
 import io.mockk.verify
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
@@ -239,5 +246,40 @@ class LibraryRefresherTest {
         refresher().refresh()
 
         verify(exactly = 0) { notificationManager.notifyChanges(any(), any()) }
+    }
+
+    @Test
+    fun `refreshMovies guarda la fecha de estreno en cines ES de la pelicula`() = runTest {
+        val movie = MovieEntity(
+            id = 1,
+            contentId = "tmdb-1122573",
+            tmdbId = 1122573,
+            title = "In the Grey",
+            status = WatchStatus.POR_VER
+        )
+
+        coEvery { tvShowDao.getAll() } returns emptyList()
+        coEvery { movieDao.getAll() } returns listOf(movie)
+        coEvery { movieDao.getByTmdbId(1122573) } returns movie
+        val slot = slot<MovieEntity>()
+        coEvery { movieDao.update(capture(slot)) } returns Unit
+        coEvery { userPreferencesDataStore.setLastLibraryUpdateTimestamp(any()) } returns Unit
+        every { notificationManager.notifyChanges(any(), any()) } returns Unit
+        coEvery { tmdbApi.getMovieDetail(1122573) } returns TmdbMovieDto(id = 1122573, title = "In the Grey")
+        coEvery { tmdbApi.getMovieWatchProviders(1122573) } returns TmdbWatchProvidersResponse(id = 0, results = null)
+        coEvery { tmdbApi.getMovieReleaseDates(1122573) } returns TmdbMovieReleaseDatesResponse(
+            id = 1122573,
+            results = listOf(
+                TmdbReleaseDateCountry(
+                    isoCode = "ES",
+                    releaseDates = listOf(TmdbReleaseDateItem(releaseDate = "2026-09-18T00:00:00.000Z", type = 3))
+                )
+            )
+        )
+
+        refresher().refresh()
+
+        coVerify { movieDao.update(any()) }
+        assert(slot.captured.spanishReleaseDate == "2026-09-18")
     }
 }

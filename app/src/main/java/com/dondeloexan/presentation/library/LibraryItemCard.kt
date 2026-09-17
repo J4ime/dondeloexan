@@ -81,6 +81,7 @@ fun LibraryItemCard(
     inProduction: Boolean? = null,
     @Suppress("UNUSED_PARAMETER") numberOfSeasons: Int? = null,
     releaseDate: String? = null,
+    spanishReleaseDate: String? = null,
     isLiked: Boolean = false,
     isWatched: Boolean,
     isSeries: Boolean = false,
@@ -240,27 +241,24 @@ fun LibraryItemCard(
             if (streamingPlatforms.isNotEmpty()) {
                 Spacer(Modifier.height(4.dp))
                 PlatformBadgeRow(platforms = streamingPlatforms)
-            } else if (!releaseDate.isNullOrBlank()) {
-                val cinemaLabel = try {
-                    val date = LocalDate.parse(releaseDate)
-                    val now = LocalDate.now()
-                    val daysUntilRelease = ChronoUnit.DAYS.between(now, date)
-                    val daysSinceRelease = ChronoUnit.DAYS.between(date, now)
-                    when {
-                        daysUntilRelease > 0 -> "Estreno ${date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}"
-                        daysSinceRelease in 0..90 -> "En cines desde ${date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}"
-                        else -> null
+            } else {
+                val cinemaDate = spanishReleaseDate ?: releaseDate
+                if (!cinemaDate.isNullOrBlank()) {
+                    val cinemaLabel = try {
+                        "Estreno en cines: ${LocalDate.parse(cinemaDate).format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}"
+                    } catch (e: Exception) {
+                        null
                     }
-                } catch (e: Exception) { null }
-                if (cinemaLabel != null) {
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        cinemaLabel,
-                        style = UbuntuTypography.labelSmall,
-                        color = EleganteRose,
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
+                    if (cinemaLabel != null) {
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            cinemaLabel,
+                            style = UbuntuTypography.labelSmall,
+                            color = EleganteRose,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                 }
             }
         }

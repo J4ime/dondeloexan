@@ -4,7 +4,7 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dondeloexan.BuildConfig
-import com.dondeloexan.data.library.LibraryRefresher
+import com.dondeloexan.data.library.LibraryRefreshCoordinator
 import com.dondeloexan.data.update.SilentUpdateManager
 import com.dondeloexan.domain.model.BackupState
 import com.dondeloexan.domain.model.GitHubRelease
@@ -30,7 +30,7 @@ class SettingsViewModel(
     private val settingsRepository: SettingsRepository,
     private val backupRepository: BackupRepository,
     private val silentUpdateManager: SilentUpdateManager,
-    private val libraryRefresher: LibraryRefresher,
+    private val libraryRefreshCoordinator: LibraryRefreshCoordinator,
     private val appSystemRepository: AppSystemRepository,
     private val accountRepository: AccountRepository
 ) : ViewModel() {
@@ -184,7 +184,7 @@ class SettingsViewModel(
         _libraryRefreshState.value = LibraryRefreshState.Refreshing
         viewModelScope.launch {
             try {
-                val result = withContext(Dispatchers.IO) { libraryRefresher.refresh() }
+                val result = withContext(Dispatchers.IO) { libraryRefreshCoordinator.refreshAll() }
                 val total = result.seriesUpdated + result.moviesUpdated
                 _libraryRefreshState.value = LibraryRefreshState.Done(total)
             } catch (e: CancellationException) {

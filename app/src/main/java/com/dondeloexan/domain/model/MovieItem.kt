@@ -7,6 +7,7 @@ data class MovieItem(
     val title: String,
     val year: Int? = null,
     val releaseDate: String? = null,
+    val spanishReleaseDate: String? = null,
     val posterUrl: String? = null,
     val ratingImdb: Float? = null,
     val isLiked: Boolean = false,

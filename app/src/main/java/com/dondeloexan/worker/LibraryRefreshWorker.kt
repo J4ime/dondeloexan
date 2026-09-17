@@ -3,7 +3,7 @@ package com.dondeloexan.worker
 import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.dondeloexan.data.library.LibraryRefresher
+import com.dondeloexan.data.library.LibraryRefreshCoordinator
 import com.dondeloexan.util.AppLogger
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
@@ -13,11 +13,11 @@ class LibraryRefreshWorker(
     params: WorkerParameters
 ) : CoroutineWorker(appContext, params), KoinComponent {
 
-    private val refresher: LibraryRefresher by inject()
+    private val coordinator: LibraryRefreshCoordinator by inject()
 
     override suspend fun doWork(): Result {
         return try {
-            val result = refresher.refresh()
+            val result = coordinator.refreshAll()
             AppLogger.i(
                 "LibraryRefreshWorker",
                 "Library refreshed: series=${result.seriesUpdated}, movies=${result.moviesUpdated}"

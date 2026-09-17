@@ -13,6 +13,7 @@ data class MovieEntity(
     val title: String,
     val year: Int? = null,
     @ColumnInfo(name = "release_date") val releaseDate: String? = null,
+    @ColumnInfo(name = "spanish_release_date") val spanishReleaseDate: String? = null,
     @ColumnInfo(name = "poster_url") val posterUrl: String? = null,
     @ColumnInfo(name = "rating_tmdb") val ratingTmdb: Float? = null,
     @ColumnInfo(name = "rating_imdb") val ratingImdb: Float? = null,

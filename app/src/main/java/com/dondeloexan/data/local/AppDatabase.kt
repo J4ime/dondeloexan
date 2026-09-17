@@ -36,7 +36,7 @@ import com.dondeloexan.data.local.entity.UserPlatformEntity
         CriticReviewEntity::class,
         FaMovieDataEntity::class
     ],
-    version = 21,
+    version = 22,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -237,9 +237,13 @@ abstract class AppDatabase : RoomDatabase() {
             db.execSQL("ALTER TABLE tv_shows ADD COLUMN external_links TEXT")
         }
 
+        private val MIGRATION_21_22 = Migration(21, 22) { db ->
+            db.execSQL("ALTER TABLE movies ADD COLUMN spanish_release_date TEXT")
+        }
+
         fun create(context: Context): AppDatabase {
             return Room.databaseBuilder(context, AppDatabase::class.java, DB_NAME)
-                .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21)
+                .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22)
                 .fallbackToDestructiveMigration()
                 .addCallback(seedCallback)
                 .build()

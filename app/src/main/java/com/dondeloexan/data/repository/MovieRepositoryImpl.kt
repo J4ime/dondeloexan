@@ -103,6 +103,7 @@ class MovieRepositoryImpl(
         title = title,
         year = year,
         releaseDate = releaseDate,
+        spanishReleaseDate = spanishReleaseDate,
         posterUrl = posterUrl,
         ratingImdb = ratingImdb,
         isLiked = liked,

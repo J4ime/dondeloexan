@@ -487,6 +487,17 @@ class DiscoverRepositoryImpl(
                 tvReleaseDate = releaseDatesEs.third
             )
 
+            // Mantener la fecha de estreno en cines (ES) en la biblioteca local,
+            // para que las tarjetas la muestren.
+            movieDao.getByContentId("tmdb-$tmdbId")?.let { existing ->
+                movieDao.update(
+                    existing.copy(
+                        releaseDate = content.releaseDate ?: existing.releaseDate,
+                        spanishReleaseDate = content.spanishReleaseDate ?: existing.spanishReleaseDate
+                    )
+                )
+            }
+
             if (movie.imdbId != null) {
                 try {
                     val omdb = omdbApi.getByImdbId(movie.imdbId)

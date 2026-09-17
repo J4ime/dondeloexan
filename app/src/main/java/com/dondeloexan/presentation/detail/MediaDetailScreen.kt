@@ -700,31 +700,6 @@ private fun SimilarItemCard(item: ContentPreview, onNavigateToDetail: (contentId
 
 @Composable
 private fun FichaTab(content: Content, viewModel: MediaDetailViewModel, onNavigateToDetail: (contentId: String, contentType: String) -> Unit) {
-    val displayPlatforms = remember(content) {
-        if (content.type == ContentType.MOVIE && content.releaseDate != null) {
-            appendCinemaPlatform(content.releaseDate, content.streamingPlatforms)
-        } else {
-            content.streamingPlatforms
-        }
-    }
-
-    val futureReleaseLabel = remember(content) {
-        if (content.type == ContentType.MOVIE && content.releaseDate != null) {
-            try {
-                val date = LocalDate.parse(content.releaseDate)
-                val now = LocalDate.now()
-                val daysUntilRelease = ChronoUnit.DAYS.between(now, date)
-                val hasSubscription = content.streamingPlatforms.any { it.availabilityType == AvailabilityType.SUBSCRIPTION }
-                if (daysUntilRelease > 0 && !hasSubscription) {
-                    date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
-                } else null
-            } catch (e: Exception) {
-                android.util.Log.w("MediaDetailScreen", "parse digitalReleaseDate falló: $e")
-                null
-            }
-        } else null
-    }
-
     val futurePlatformInfo = remember(content) {
         if (content.type != ContentType.MOVIE) null
         else {
@@ -750,15 +725,32 @@ private fun FichaTab(content: Content, viewModel: MediaDetailViewModel, onNaviga
         }
     }
 
+    val vodReleaseDates = content.platformReleaseDates
+    val hasStreaming = content.streamingPlatforms.isNotEmpty() ||
+        futurePlatformInfo != null || vodReleaseDates.isNotEmpty()
+    // Mientras no haya estreno (ni próximo) en streaming, mostramos la fecha de
+    // estreno en cines en España.
+    val cinemaLabel = remember(content, hasStreaming) {
+        if (content.type == ContentType.MOVIE && !hasStreaming) {
+            (content.spanishReleaseDate ?: content.releaseDate)?.let { d ->
+                try {
+                    "Estreno en cines: ${LocalDate.parse(d).format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}"
+                } catch (e: Exception) {
+                    AppLogger.w("MediaDetailScreen", "parse fecha de cines falló: $d")
+                    null
+                }
+            }
+        } else null
+    }
+
     LazyColumn(
         modifier = Modifier.fillMaxSize()
     ) {
         item { HeroSection(content) }
         item { RatingRow(content) }
-        val vodReleaseDates = content.platformReleaseDates
 
-        if (displayPlatforms.isNotEmpty() || futureReleaseLabel != null || futurePlatformInfo != null || vodReleaseDates.isNotEmpty()) {
-            item { StreamingSection(displayPlatforms, futureReleaseLabel, futurePlatformInfo, vodReleaseDates) }
+        if (content.streamingPlatforms.isNotEmpty() || futurePlatformInfo != null || vodReleaseDates.isNotEmpty() || cinemaLabel != null) {
+            item { StreamingSection(content.streamingPlatforms, cinemaLabel, futurePlatformInfo, vodReleaseDates) }
         }
         item { TechnicalInfoSection(content, viewModel) }
         val seriesGraphUrl = if (content.type == ContentType.SERIES) {
@@ -1521,47 +1513,11 @@ private fun ExternalLinksSection(links: ExternalLinks?, seriesGraphUrl: String? 
     }
 }
 
-private fun appendCinemaPlatform(
-    releaseDate: String,
-    platforms: List<StreamingAvailability>
-): List<StreamingAvailability> {
-    val cinemaLabel = try {
-        val date = LocalDate.parse(releaseDate)
-        val now = LocalDate.now()
-        val daysSinceRelease = ChronoUnit.DAYS.between(date, now)
-        val daysUntilRelease = ChronoUnit.DAYS.between(now, date)
-        val cinemaEnd = date.plusDays(90)
-
-        when {
-            daysSinceRelease in 0..90 -> "Fin: ${cinemaEnd.format(DateTimeFormatter.ofPattern("dd/MM"))}"
-            daysUntilRelease > 0 -> null
-            else -> null
-        }
-    } catch (e: Exception) {
-        AppLogger.e("MediaDetailScreen", "cinemaPlatform: $releaseDate", e)
-        null
-    }
-
-    val hasSubscription = platforms.any { it.availabilityType == AvailabilityType.SUBSCRIPTION }
-    AppLogger.d("MediaDetailScreen", "appendCinemaPlatform: releaseDate=$releaseDate, cinemaLabel=$cinemaLabel, hasSubscription=$hasSubscription, platformCount=${platforms.size}")
-    return if (cinemaLabel != null && !hasSubscription) {
-        val cinemaPlatform = StreamingAvailability(
-            platformName = cinemaLabel,
-            platformId = null,
-            logoUrl = null,
-            availabilityType = AvailabilityType.ADS
-        )
-        listOf(cinemaPlatform) + platforms
-    } else {
-        platforms
-    }
-}
-
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun StreamingSection(
     platforms: List<StreamingAvailability>,
-    futureReleaseLabel: String? = null,
+    cinemaLabel: String? = null,
     futurePlatformInfo: List<String>? = null,
     vodReleaseDates: List<PlatformReleaseDate> = emptyList()
 ) {
@@ -1573,7 +1529,7 @@ private fun StreamingSection(
     val free = platforms.filter { it.availabilityType == AvailabilityType.FREE }
     val hasRealPlatforms = subscription.isNotEmpty() || ads.isNotEmpty() || rent.isNotEmpty() || buy.isNotEmpty() || free.isNotEmpty()
 
-    if (platforms.isEmpty() && futureReleaseLabel == null && futurePlatformInfo == null && vodReleaseDates.isEmpty()) return
+    if (platforms.isEmpty() && cinemaLabel == null && futurePlatformInfo == null && vodReleaseDates.isEmpty()) return
 
     @Composable
     fun platformRow(label: String, items: List<StreamingAvailability>) {
@@ -1610,9 +1566,9 @@ private fun StreamingSection(
         )
         Spacer(Modifier.height(8.dp))
 
-        if (futureReleaseLabel != null && platforms.isEmpty() && futurePlatformInfo == null) {
+        if (cinemaLabel != null && platforms.isEmpty() && futurePlatformInfo == null) {
             Text(
-                "Estreno: $futureReleaseLabel",
+                cinemaLabel,
                 style = UbuntuTypography.bodyMedium,
                 color = EleganteRose,
                 fontWeight = FontWeight.SemiBold

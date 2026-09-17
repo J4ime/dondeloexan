@@ -178,6 +178,19 @@ class LibraryRefresher(
                             tmdbApi.getMovieDetail(tmdbId)
                         }
 
+                        val spanishReleaseDate = try {
+                            val rd = refreshCoordinator.execute(coroutineContext, tmdbId) {
+                                tmdbApi.getMovieReleaseDates(tmdbId)
+                            }
+                            rd.results.firstOrNull { it.isoCode == "ES" }
+                                ?.releaseDates?.firstOrNull { it.type == 3 }?.releaseDate
+                                ?.substringBefore("T")?.substringBefore(" ")
+                        } catch (e: kotlinx.coroutines.CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            null
+                        }
+
                         val providers = refreshCoordinator.execute(coroutineContext, tmdbId) {
                             tmdbApi.getMovieWatchProviders(tmdbId)
                         }
@@ -198,6 +211,7 @@ class LibraryRefresher(
                             existing.copy(
                                 ratingTmdb = detail.voteAverage ?: existing.ratingTmdb,
                                 releaseDate = detail.releaseDate ?: existing.releaseDate,
+                                spanishReleaseDate = spanishReleaseDate ?: existing.spanishReleaseDate,
                                 posterUrl = detail.posterPath?.let { "https://image.tmdb.org/t/p/w500$it" }
                                         ?: existing.posterUrl,
                                 imdbId = detail.imdbId ?: existing.imdbId,
