@@ -293,6 +293,9 @@ fun MediaDetailScreen(
                                 watchedEpisodes = uiState.watchedEpisodes,
                                 lastWatchedEpisode = if (uiState.selectedSeason == uiState.lastWatchedSeason) uiState.lastWatchedEpisode else null,
                                 ratings = uiState.episodeRatings,
+                                pendingSpanishSeason = uiState.pendingSpanishSeason,
+                                spanishReleaseLabel = uiState.spanishRelease?.label(),
+                                spanishReleasePlatform = uiState.spanishRelease?.platform,
                                 onSeasonSelected = viewModel::selectSeason,
                                 onToggleEpisode = viewModel::toggleEpisodeWatched,
                                 onMarkSeasonToggle = viewModel::markSeasonWatched
@@ -780,6 +783,9 @@ private fun EpisodiosTab(
     watchedEpisodes: Set<String>,
     lastWatchedEpisode: Int?,
     ratings: List<EpisodeRating> = emptyList(),
+    pendingSpanishSeason: Int? = null,
+    spanishReleaseLabel: String? = null,
+    spanishReleasePlatform: String? = null,
     onSeasonSelected: (Int) -> Unit,
     onToggleEpisode: (Int) -> Unit,
     onMarkSeasonToggle: () -> Unit
@@ -788,6 +794,7 @@ private fun EpisodiosTab(
     var dialogEpisodeNumber by remember { mutableStateOf(0) }
     var dialogIsWatched by remember { mutableStateOf(false) }
     var showDialog by remember { mutableStateOf(false) }
+    val selectedSeasonPendingInSpain = pendingSpanishSeason != null && pendingSpanishSeason == selectedSeason
 
     LaunchedEffect(seasonDetail, lastWatchedEpisode) {
         if (seasonDetail != null && lastWatchedEpisode != null) {
@@ -814,12 +821,25 @@ private fun EpisodiosTab(
                 )
             }
 
+            if (spanishReleaseLabel != null) {
+                item {
+                    SpanishReleaseBanner(
+                        label = spanishReleaseLabel,
+                        platform = spanishReleasePlatform,
+                        season = pendingSpanishSeason
+                    )
+                }
+            }
+
             if (seasonDetail != null) {
                 items(seasonDetail.episodes, key = { "ep-${selectedSeason}-${it.episodeNumber}" }) { episode ->
                     EpisodeRow(
                         episode = episode,
                         selectedSeason = selectedSeason,
                         watchedEpisodes = watchedEpisodes,
+                        pendingInSpain = selectedSeasonPendingInSpain,
+                        spanishReleaseLabel = spanishReleaseLabel,
+                        spanishReleasePlatform = spanishReleasePlatform,
                         onLongClick = { epNum, isWatched ->
                             dialogEpisodeNumber = epNum
                             dialogIsWatched = isWatched
@@ -1110,7 +1130,24 @@ private fun parseAirDate(airDate: String?): AirDateInfo? {
 }
 
 @Composable
-private fun EpisodeAirDateBadge(info: AirDateInfo?) {
+private fun EpisodeAirDateBadge(
+    info: AirDateInfo?,
+    spanishReleaseLabel: String? = null,
+    spanishReleasePlatform: String? = null
+) {
+    // Temporada pendiente de estreno en España: nada de "Estrenado el ...".
+    if (spanishReleaseLabel != null) {
+        Text(
+            text = buildString {
+                append("Estreno en España: $spanishReleaseLabel")
+                if (!spanishReleasePlatform.isNullOrBlank()) append(" · $spanishReleasePlatform")
+            },
+            style = UbuntuTypography.labelSmall,
+            color = EleganteRoseLight,
+            fontSize = 10.sp
+        )
+        return
+    }
     if (info == null) return
 
     val days = info.daysUntil
@@ -1775,19 +1812,47 @@ private fun SeasonsSectionHeader(
     }
 }
 
+@Composable
+private fun SpanishReleaseBanner(label: String, platform: String?, season: Int?) {
+    Surface(
+        color = DarkSurface,
+        shape = RoundedCornerShape(8.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+    ) {
+        Text(
+            text = buildString {
+                append("Estreno en España: ")
+                if (season != null) append("T$season · ")
+                append(label)
+                if (!platform.isNullOrBlank()) append(" · $platform")
+            },
+            style = UbuntuTypography.labelSmall,
+            color = EleganteRose,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+        )
+    }
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun EpisodeRow(
     episode: Episode,
     selectedSeason: Int,
     watchedEpisodes: Set<String>,
+    pendingInSpain: Boolean = false,
+    spanishReleaseLabel: String? = null,
+    spanishReleasePlatform: String? = null,
     onLongClick: (Int, Boolean) -> Unit,
     onToggle: (Int) -> Unit
 ) {
     val episodeKey = "S${selectedSeason}E${episode.episodeNumber}"
     val isWatched = watchedEpisodes.contains(episodeKey)
     val airDateInfo = remember(episode.airDate) { parseAirDate(episode.airDate) }
-    val isAired = airDateInfo == null || airDateInfo.daysUntil <= 0
+    // Si la temporada aún no se ha estrenado en España, TMDB da la fecha
+    // original: no se puede marcar como vista ni se anuncia como estrenada.
+    val isAired = !pendingInSpain && (airDateInfo == null || airDateInfo.daysUntil <= 0)
 
     Row(
         modifier = Modifier
@@ -1824,7 +1889,11 @@ private fun EpisodeRow(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false)
                 )
-                EpisodeAirDateBadge(airDateInfo)
+                EpisodeAirDateBadge(
+                    info = airDateInfo,
+                    spanishReleaseLabel = if (pendingInSpain) spanishReleaseLabel else null,
+                    spanishReleasePlatform = if (pendingInSpain) spanishReleasePlatform else null
+                )
             }
             if (!episode.overview.isNullOrBlank()) {
                 Text(

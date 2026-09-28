@@ -8,6 +8,8 @@ import com.dondeloexan.data.local.entity.toPlatformsString
 import com.dondeloexan.data.local.entity.toStreamingPlatforms
 import com.dondeloexan.data.remote.api.OmdbApi
 import com.dondeloexan.data.remote.api.TmdbApi
+import com.dondeloexan.data.local.entity.pendingSpanishSeason
+import com.dondeloexan.data.remote.mapper.calculateReleasedEpisodes
 import com.dondeloexan.data.remote.mapper.toStreamingAvailability
 import com.dondeloexan.util.AppLogger
 import com.dondeloexan.util.BatchCancelledException
@@ -88,18 +90,9 @@ class LibraryRefresher(
                         }
                         val existing = tvShowDao.getById(show.id) ?: return@async
 
-                        val lastEp = tvDetail.lastEpisodeToAir
-                        val seasons = tvDetail.seasons
-                        val releasedEpisodes = if (lastEp != null && seasons != null) {
-                            seasons.filter { it.seasonNumber > 0 }
-                                .sumOf { season ->
-                                    when {
-                                        season.seasonNumber < lastEp.seasonNumber -> season.episodeCount
-                                        season.seasonNumber == lastEp.seasonNumber -> lastEp.episodeNumber
-                                        else -> 0
-                                    }
-                                }
-                        } else tvDetail.numberOfEpisodes
+                        val releasedEpisodes = tvDetail.calculateReleasedEpisodes(
+                            excludeSeason = existing.pendingSpanishSeason()
+                        )
 
                         val platformsStr = if (existing.streamingPlatforms.isNullOrEmpty()) {
                             try {

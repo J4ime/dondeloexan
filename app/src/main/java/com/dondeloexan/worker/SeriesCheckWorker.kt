@@ -18,8 +18,10 @@ import com.dondeloexan.R
 import com.dondeloexan.data.local.dao.MovieDao
 import com.dondeloexan.data.local.dao.TvShowDao
 import com.dondeloexan.data.local.entity.WatchStatus
+import com.dondeloexan.data.local.entity.pendingSpanishSeason
 import com.dondeloexan.data.remote.api.OmdbApi
 import com.dondeloexan.data.remote.api.TmdbApi
+import com.dondeloexan.data.remote.mapper.calculateReleasedEpisodes
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import com.dondeloexan.util.AppLogger
@@ -47,7 +49,7 @@ class SeriesCheckWorker(
             for (show in allShows) {
                 val tmdbId = show.tmdbId
                 if (tmdbId != null) {
-                    updateFromTmdb(show.id, tmdbId, show.totalEpisodes)
+                    updateFromTmdb(show.id, tmdbId, show.totalEpisodes, show.pendingSpanishSeason())
                 }
                 if (show.liked && show.nextEpisodeAirDate == today) {
                     todayNotifications.add(
@@ -105,21 +107,15 @@ class SeriesCheckWorker(
         }
     }
 
-    private suspend fun updateFromTmdb(showId: Long, tmdbId: Int, existingTotalEpisodes: Int?) {
+    private suspend fun updateFromTmdb(
+        showId: Long,
+        tmdbId: Int,
+        existingTotalEpisodes: Int?,
+        existingPendingSpanishSeason: Int?
+    ) {
         try {
             val tv = tmdbApi.getTvDetailLight(tmdbId)
-            val releasedEpisodes = if (tv.lastEpisodeToAir != null && tv.seasons != null) {
-                val last = tv.lastEpisodeToAir
-                tv.seasons
-                    .filter { it.seasonNumber > 0 }
-                    .sumOf { season ->
-                        when {
-                            season.seasonNumber < last.seasonNumber -> season.episodeCount
-                            season.seasonNumber == last.seasonNumber -> last.episodeNumber
-                            else -> 0
-                        }
-                    }
-            } else tv.numberOfEpisodes
+            val releasedEpisodes = tv.calculateReleasedEpisodes(excludeSeason = existingPendingSpanishSeason)
             tvShowDao.updateById(
                 id = showId,
                 // Si TMDB no devuelve el total, conservamos el que ya teníamos:

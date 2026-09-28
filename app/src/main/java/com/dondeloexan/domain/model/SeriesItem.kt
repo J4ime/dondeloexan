@@ -26,9 +26,25 @@ data class SeriesItem(
     val inProduction: Boolean? = null,
     val numberOfSeasons: Int? = null,
     val streamingPlatforms: List<StreamingAvailability> = emptyList(),
-    val lastWatchedAt: Long? = null
+    val lastWatchedAt: Long? = null,
+    /** Temporada pendiente de estreno en España (Filmaffinity o búsqueda web). */
+    val pendingEsSeason: Int? = null,
+    val spanishReleaseDate: String? = null
 ) {
-    fun hasFutureSeasons(): Boolean = hasFutureSeasonsFor(seriesStatus, inProduction)
+    /** true si la temporada pendiente aún no se ha estrenado en España. */
+    fun isPendingInSpain(): Boolean {
+        pendingEsSeason ?: return false
+        val iso = spanishReleaseDate ?: return false
+        return try {
+            java.time.LocalDate.parse(iso.substringBefore("T").substringBefore(" "))
+                .isAfter(java.time.LocalDate.now())
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    fun hasFutureSeasons(): Boolean =
+        hasFutureSeasonsFor(seriesStatus, inProduction) || isPendingInSpain()
 
     /** Estado según la regla única de dominio (ver [seriesStateFor]). */
     fun state(): SeriesState = seriesStateFor(
@@ -36,7 +52,8 @@ data class SeriesItem(
         totalEpisodes = totalEpisodes,
         seriesStatus = seriesStatus,
         inProduction = inProduction,
-        watchedCount = watchedCount
+        watchedCount = watchedCount,
+        pendingFuture = isPendingInSpain()
     )
 
     fun isCaughtUp(): Boolean = state() != SeriesState.EN_CURSO

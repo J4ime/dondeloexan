@@ -42,6 +42,9 @@ data class DetailUiState(
     val isSeriesInLibrary: Boolean? = null,
     val isSeriesFavorite: Boolean? = null,
     val isSeriesWatched: Boolean? = null,
+    /** Estreno en España detectado (Filmaffinity/búsqueda) para series. */
+    val spanishRelease: com.dondeloexan.domain.model.SpanishReleaseInfo? = null,
+    val pendingSpanishSeason: Int? = null,
     val criticReviews: List<CriticReview>? = null,
     val isCriticReviewsLoading: Boolean = false,
     val collectionMovies: List<ContentPreview>? = null,
@@ -143,7 +146,7 @@ class MediaDetailViewModel(
     }
 
     private fun loadFaMovieData(content: Content) {
-        if (content.type != ContentType.MOVIE) return
+        if (content.type != ContentType.MOVIE && content.type != ContentType.SERIES) return
         viewModelScope.launch {
             try {
                 val (rating, releases) = useCases.getFaMovieData(content)
@@ -155,11 +158,46 @@ class MediaDetailViewModel(
                         )
                     )
                 }
+                if (content.type == ContentType.SERIES) {
+                    registerUpcomingSpanishRelease(content, releases)
+                }
             } catch (e: Exception) {
                 if (e is kotlinx.coroutines.CancellationException) throw e
                 AppLogger.e("DetailVM", "Error loading FA movie data", e)
             }
         }
+    }
+
+    /**
+     * Filmaffinity marca con "(próx.)" los estrenos que aún no han llegado a
+     * España. Mientras esa fecha siga en el futuro, la temporada no cuenta como
+     * emitida (TMDB solo publica la fecha original de emisión).
+     */
+    private suspend fun registerUpcomingSpanishRelease(
+        content: Content,
+        releases: List<com.dondeloexan.domain.model.PlatformReleaseDate>
+    ) {
+        val today = java.time.LocalDate.now()
+        val upcoming = releases.firstOrNull { release ->
+            val iso = release.releaseDate ?: return@firstOrNull false
+            try {
+                java.time.LocalDate.parse(iso.substringBefore("T").substringBefore(" ")).isAfter(today)
+            } catch (e: Exception) {
+                false
+            }
+        } ?: return
+
+        val isoDate = upcoming.releaseDate ?: return
+        val season = _uiState.value.seasons.maxOfOrNull { it.seasonNumber }
+        val info = useCases.registerSpanishRelease(content, upcoming.platformName, isoDate, season) ?: return
+        AppLogger.i(
+            "DetailVM",
+            "estreno en España de '${content.title}': ${info.label()} (${info.platform ?: "-"}), temporada pendiente=${info.season}"
+        )
+        _uiState.value = _uiState.value.copy(
+            spanishRelease = info,
+            pendingSpanishSeason = info.season.takeIf { info.date.isAfter(today) }
+        )
     }
 
     private fun loadCollection(content: Content) {

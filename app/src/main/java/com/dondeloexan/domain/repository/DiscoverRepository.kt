@@ -8,6 +8,7 @@ import com.dondeloexan.domain.model.CriticReview
 import com.dondeloexan.domain.model.DataResult
 import com.dondeloexan.domain.model.PersonSearchResult
 import com.dondeloexan.domain.model.PlatformReleaseDate
+import com.dondeloexan.domain.model.SpanishReleaseInfo
 import com.dondeloexan.domain.model.detail.CastSocialInfo
 import com.dondeloexan.domain.model.detail.EpisodeRef
 import com.dondeloexan.domain.model.detail.MovieWatchState
@@ -68,4 +69,16 @@ interface DiscoverRepository {
 
     suspend fun getPersonSocialInfo(personId: Int): CastSocialInfo?
     suspend fun getFaId(content: Content): Int?
+
+    /**
+     * Registra el estreno en España de una temporada (Filmaffinity o búsqueda
+     * web): mientras la fecha siga en el futuro, esa temporada no cuenta como
+     * emitida y la serie queda "al día/agenda" en vez de "terminada".
+     */
+    suspend fun registerSpanishRelease(
+        content: Content,
+        platformName: String?,
+        isoDate: String,
+        season: Int? = null
+    ): SpanishReleaseInfo?
 }

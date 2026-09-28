@@ -6,6 +6,7 @@ import com.dondeloexan.domain.model.ContentType
 import com.dondeloexan.domain.model.CriticReview
 import com.dondeloexan.domain.model.DataResult
 import com.dondeloexan.domain.model.PlatformReleaseDate
+import com.dondeloexan.domain.model.SpanishReleaseInfo
 import com.dondeloexan.domain.model.detail.CascadeProposal
 import com.dondeloexan.domain.model.detail.CastSocialInfo
 import com.dondeloexan.domain.model.detail.EpisodeRef
@@ -38,6 +39,14 @@ class MediaDetailUseCases(
         repository.getFaMovieData(content.id, content.originalTitle ?: content.title, content.year)
 
     suspend fun getFaId(content: Content): Int? = repository.getFaId(content)
+
+    /** Guarda el estreno en España detectado (Filmaffinity o búsqueda web). */
+    suspend fun registerSpanishRelease(
+        content: Content,
+        platformName: String?,
+        isoDate: String,
+        season: Int?
+    ): SpanishReleaseInfo? = repository.registerSpanishRelease(content, platformName, isoDate, season)
 
     suspend fun getCollectionMovies(content: Content): List<ContentPreview> {
         val collectionId = content.collectionTmdbId ?: return emptyList()

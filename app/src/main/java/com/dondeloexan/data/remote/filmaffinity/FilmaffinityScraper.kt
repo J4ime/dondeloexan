@@ -180,16 +180,60 @@ class FilmaffinityScraper(private val httpClient: HttpClient) {
                 AppLogger.w("Filmaffinity", "getMoviePageData: popover #movie-tabs-cats-popover-template not found")
             }
 
-            if (releases.isEmpty()) {
+            // Bloque EN LÍNEA de disponibilidad (series incluidas):
+            //   <div class="movie-tabs-cats">
+            //     <a class="first-category" title="Movistar Plus+ (próx.)" href=".../rdcat.php?id=upc_movistar_f">Movistar Plus+ (próx.)</a>
+            //     <a href=".../rdcat.php?id=upc_movistar_f"><strong>6 de noviembre</strong></a>
+            //   </div>
+            // Sin esto no se veía ningún estreno español en las fichas de serie.
+            val inlineReleases = parseInlineMovieTabsCats(doc)
+            if (inlineReleases.isNotEmpty()) {
+                AppLogger.i("Filmaffinity", "getMoviePageData: ${inlineReleases.size} estrenos del bloque movie-tabs-cats")
+                releases.addAll(inlineReleases)
+            }
+
+            val deduped = releases.distinctBy { it.platformName.lowercase() to it.dateLabel.lowercase() }
+
+            if (deduped.isEmpty()) {
                 AppLogger.w("Filmaffinity", "getMoviePageData: no VOD releases found for faId=$faMovieId")
             }
 
-            AppLogger.i("Filmaffinity", "getMoviePageData: ${releases.size} VOD releases for faId=$faMovieId")
-            FaPageData(rating = rating, vodReleases = releases)
+            AppLogger.i("Filmaffinity", "getMoviePageData: ${deduped.size} VOD releases for faId=$faMovieId")
+            FaPageData(rating = rating, vodReleases = deduped)
         } catch (e: Exception) {
             AppLogger.e("Filmaffinity", "getMoviePageData error for $faMovieId", e)
             FaPageData(rating = null, vodReleases = emptyList())
         }
+    }
+
+    /**
+     * Extrae los estrenos del bloque en línea `div.movie-tabs-cats`. Devuelve la
+     * fecha ya normalizada a ISO (aaaa-mm-dd) cuando se puede deducir el año.
+     */
+    internal fun parseInlineMovieTabsCats(doc: Document): List<PlatformReleaseDate> {
+        val releases = mutableListOf<PlatformReleaseDate>()
+        doc.select("div.movie-tabs-cats").forEach { block ->
+            val platformAnchor = block.selectFirst("a.first-category")
+                ?: block.selectFirst("a[title]")
+                ?: return@forEach
+            val rawPlatform = platformAnchor.attr("title").ifBlank { platformAnchor.text() }.trim()
+            if (rawPlatform.isBlank()) return@forEach
+            if (isNonSpanishEntry(platformAnchor.attr("href"), rawPlatform)) return@forEach
+
+            val dateLabel = block.selectFirst("strong")?.text()?.trim()
+            if (dateLabel.isNullOrBlank()) return@forEach
+            if (rawPlatform.startsWith("Cartelera", ignoreCase = true)) return@forEach
+
+            val isUpcoming = rawPlatform.contains("próx", ignoreCase = true)
+            releases.add(
+                PlatformReleaseDate(
+                    platformName = rawPlatform.removeSuffix(" (próx.)").removeSuffix(" (prox.)").trim(),
+                    dateLabel = dateLabel,
+                    releaseDate = FilmaffinityDateParser.toIsoDate(dateLabel, isUpcoming = isUpcoming)
+                )
+            )
+        }
+        return releases
     }
 
     private fun isNonSpanishEntry(href: String, fullText: String): Boolean {

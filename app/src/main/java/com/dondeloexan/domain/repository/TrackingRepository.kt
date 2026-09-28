@@ -50,5 +50,9 @@ interface TrackingRepository {
 
     suspend fun markSeriesFinished(content: Content): Boolean
     suspend fun clearSeriesFinished(content: Content)
+
+    /** Recalcula estado/pestaña de una serie concreta (tras cambiar sus emitidos). */
+    suspend fun reconcileSeries(content: Content)
+
     suspend fun reconcileAllLibrarySeries()
 }

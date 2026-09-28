@@ -31,9 +31,11 @@ fun seriesStateFor(
     totalEpisodes: Int?,
     seriesStatus: String?,
     inProduction: Boolean?,
-    watchedCount: Int
+    watchedCount: Int,
+    /** true si hay una temporada pendiente de estreno en España. */
+    pendingFuture: Boolean = false
 ): SeriesState {
-    val hasFuture = hasFutureSeasonsFor(seriesStatus, inProduction)
+    val hasFuture = hasFutureSeasonsFor(seriesStatus, inProduction) || pendingFuture
     val caughtUp = if (releasedEpisodes != null) {
         releasedEpisodes > 0 && watchedCount >= releasedEpisodes
     } else {

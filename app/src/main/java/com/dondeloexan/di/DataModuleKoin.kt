@@ -14,6 +14,7 @@ import com.dondeloexan.data.local.dao.TvShowProgressDao
 import com.dondeloexan.data.local.dao.UserPlatformDao
 import com.dondeloexan.data.local.datastore.UserPreferencesDataStore
 import com.dondeloexan.data.remote.filmaffinity.FilmaffinityScraper
+import com.dondeloexan.data.remote.spanish.SpanishReleaseLookup
 import com.dondeloexan.data.repository.AvailabilityRepositoryImpl
 import com.dondeloexan.data.repository.AppSystemRepositoryImpl
 import com.dondeloexan.data.repository.BlacklistRepositoryImpl
@@ -185,6 +186,9 @@ val dataModule = module {
     // Filmaffinity Scraper
     single { FilmaffinityScraper(httpClient = get(named("filmaffinity"))) }
 
+    // Búsqueda web del estreno en España (TMDB no tiene fechas por país en series)
+    single { SpanishReleaseLookup(httpClient = get(named("filmaffinity"))) }
+
     // Repositories
     single<DiscoverRepository> {
         DiscoverRepositoryImpl(
@@ -202,7 +206,8 @@ val dataModule = module {
             cloudCatalog = get(),
             syncManager = get(),
             sessionStore = get(),
-            trackingRepository = get()
+            trackingRepository = get(),
+            spanishReleaseLookup = get()
         )
     }
 

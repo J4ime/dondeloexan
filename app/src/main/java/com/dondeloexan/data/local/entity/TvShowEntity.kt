@@ -51,5 +51,13 @@ data class TvShowEntity(
     @ColumnInfo(name = "production_companies") val productionCompanies: String? = null,
     @ColumnInfo(name = "genres") val genres: String? = null,
     @ColumnInfo(name = "countries") val countries: String? = null,
-    @ColumnInfo(name = "external_links") val externalLinks: String? = null
+    @ColumnInfo(name = "external_links") val externalLinks: String? = null,
+    /**
+     * Temporada cuyo estreno en España aún no se ha producido: mientras
+     * [spanishReleaseDate] siga en el futuro, sus capítulos NO cuentan como
+     * emitidos para el usuario español (TMDB solo publica la fecha original).
+     */
+    @ColumnInfo(name = "pending_es_season") val pendingEsSeason: Int? = null,
+    @ColumnInfo(name = "pending_es_platform") val pendingEsPlatform: String? = null,
+    @ColumnInfo(name = "spanish_release_checked_at") val spanishReleaseCheckedAt: Long? = null
 )

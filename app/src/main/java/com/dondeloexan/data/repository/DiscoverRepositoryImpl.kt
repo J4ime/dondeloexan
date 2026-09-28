@@ -48,6 +48,9 @@ import com.dondeloexan.data.sync.toCatalogTvShowRow as toEntityCatalogTvShowRow
 import com.dondeloexan.data.sync.toTvShowEntity
 import com.dondeloexan.data.remote.mapper.toDomain
 import com.dondeloexan.data.remote.mapper.toStreamingAvailability
+import com.dondeloexan.data.remote.mapper.calculateReleasedEpisodes
+import com.dondeloexan.data.remote.spanish.SpanishReleaseLookup
+import com.dondeloexan.domain.model.SpanishReleaseInfo
 import com.dondeloexan.domain.model.AvailabilityType
 import com.dondeloexan.domain.model.CompanySearchResult
 import com.dondeloexan.domain.model.Content
@@ -98,7 +101,8 @@ class DiscoverRepositoryImpl(
     private val cloudCatalog: CloudCatalogRepository? = null,
     private val syncManager: SyncManager? = null,
     private val sessionStore: SessionStore? = null,
-    private val trackingRepository: TrackingRepository
+    private val trackingRepository: TrackingRepository,
+    private val spanishReleaseLookup: SpanishReleaseLookup? = null
 ) : DiscoverRepository {
 
     private data class CachedPlatforms(
@@ -1091,6 +1095,81 @@ class DiscoverRepositoryImpl(
             }
         }
         return Pair(pageData.rating, pageData.vodReleases)
+    }
+
+    /**
+     * Estreno en España de la temporada más reciente. Mientras la fecha siga en
+     * el futuro, la temporada deja de contar como emitida (TMDB solo publica la
+     * fecha original) y la serie pasa a "al día/agenda" en vez de "terminada".
+     */
+    override suspend fun registerSpanishRelease(
+        content: Content,
+        platformName: String?,
+        isoDate: String,
+        season: Int?
+    ): SpanishReleaseInfo? {
+        val entity = tvShowDao.getByContentId(content.id)
+            ?: content.tmdbId?.let { tvShowDao.getByTmdbId(it) }
+            ?: content.imdbId?.let { tvShowDao.getByImdbId(it) }
+            ?: return null
+
+        val date = try {
+            LocalDate.parse(isoDate.substringBefore("T").substringBefore(" "))
+        } catch (e: Exception) {
+            AppLogger.w("DiscoverRepo", "registerSpanishRelease: fecha inválida '$isoDate'")
+            return null
+        }
+        val today = LocalDate.now()
+        val latestSeason = season ?: entity.numberOfSeasons ?: entity.pendingEsSeason
+        val pendingSeason = if (date.isAfter(today)) latestSeason else null
+
+        var updated = entity.copy(
+            spanishReleaseDate = date.toString(),
+            pendingEsSeason = pendingSeason,
+            pendingEsPlatform = platformName ?: entity.pendingEsPlatform,
+            spanishReleaseCheckedAt = System.currentTimeMillis()
+        )
+
+        if (pendingSeason != null) {
+            val tmdbId = entity.tmdbId
+            if (tmdbId != null) {
+                try {
+                    val detail = tmdbApi.getTvDetailLight(tmdbId)
+                    detail.calculateReleasedEpisodes(excludeSeason = pendingSeason)?.let { released ->
+                        updated = updated.copy(releasedEpisodes = released)
+                    }
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    AppLogger.e("DiscoverRepo", "registerSpanishRelease: detalle TMDB para ${entity.title}", e)
+                }
+            }
+        }
+
+        tvShowDao.update(updated)
+        AppLogger.i(
+            "DiscoverRepo",
+            "estreno en España de '${entity.title}': $date (${platformName ?: "plataforma desconocida"}), temporada pendiente=$pendingSeason"
+        )
+
+        if (pendingSeason != null) {
+            try {
+                trackingRepository.reconcileSeries(content)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                AppLogger.e("DiscoverRepo", "registerSpanishRelease: reconciliación falló", e)
+            }
+        }
+
+        return SpanishReleaseInfo(
+            season = pendingSeason ?: latestSeason,
+            day = date.dayOfMonth,
+            month = date.monthValue,
+            year = date.year,
+            platform = platformName,
+            sourceUrl = entity.faId?.let { "https://www.filmaffinity.com/es/film$it.html" }
+        )
     }
 
     private fun platformReleasesToJson(releases: List<PlatformReleaseDate>): String {

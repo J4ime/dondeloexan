@@ -12,8 +12,10 @@ import com.dondeloexan.data.local.entity.MovieEntity
 import com.dondeloexan.data.local.entity.TvShowEntity
 import com.dondeloexan.data.local.entity.TvShowProgressEntity
 import com.dondeloexan.data.local.entity.WatchStatus
+import com.dondeloexan.data.local.entity.pendingSpanishSeason
 import com.dondeloexan.data.remote.api.TmdbApi
 import com.dondeloexan.data.remote.dto.TmdbTvDetailDto
+import com.dondeloexan.data.remote.mapper.calculateReleasedEpisodes
 import com.dondeloexan.data.remote.mapper.toEpisode
 import com.dondeloexan.data.remote.mapper.toSeason
 import com.dondeloexan.data.remote.mapper.toSeasonDetail
@@ -523,7 +525,7 @@ class TrackingRepositoryImpl(
             if (tmdbId != null) {
                 try {
                     val tv = tmdbApi.getTvDetailLight(tmdbId)
-                    val released = computeReleasedEpisodes(tv)
+                    val released = tv.calculateReleasedEpisodes(excludeSeason = current.pendingSpanishSeason())
                     current = current.copy(
                         totalEpisodes = tv.numberOfEpisodes ?: current.totalEpisodes,
                         releasedEpisodes = released,
@@ -595,17 +597,10 @@ class TrackingRepositoryImpl(
         }
     }
 
-    private fun computeReleasedEpisodes(tv: TmdbTvDetailDto): Int? =
-        if (tv.lastEpisodeToAir != null && tv.seasons != null) {
-            tv.seasons.filter { it.seasonNumber > 0 }
-                .sumOf { season ->
-                    when {
-                        season.seasonNumber < tv.lastEpisodeToAir.seasonNumber -> season.episodeCount
-                        season.seasonNumber == tv.lastEpisodeToAir.seasonNumber -> tv.lastEpisodeToAir.episodeNumber
-                        else -> 0
-                    }
-                }
-        } else tv.numberOfEpisodes
+    override suspend fun reconcileSeries(content: Content) {
+        val tvShow = findTvShow(content) ?: return
+        reconcileSeriesState(tvShow)
+    }
 
     override suspend fun markSeriesFinished(content: Content): Boolean {
         val tvShow = findTvShow(content) ?: return false
@@ -659,6 +654,8 @@ class TrackingRepositoryImpl(
         seriesStatus = seriesStatus,
         inProduction = inProduction,
         numberOfSeasons = numberOfSeasons,
-        lastWatchedAt = lastWatchedAt
+        lastWatchedAt = lastWatchedAt,
+        pendingEsSeason = pendingEsSeason,
+        spanishReleaseDate = spanishReleaseDate
     )
 }
