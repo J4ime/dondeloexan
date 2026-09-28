@@ -88,7 +88,7 @@ val dataModule = module {
     single<MovieRepository> { MovieRepositoryImpl(get(), get(), get()) }
 
     // Series
-    single<SeriesRepository> { SeriesRepositoryImpl(get(), get(), get(), get(), get()) }
+    single<SeriesRepository> { SeriesRepositoryImpl(get(), get(), get(), get(), get(), get()) }
 
     // Ratings de episodios (SeriesGraph, métrica IMDb)
     single<SeriesRatingsRepository> { SeriesRatingsRepositoryImpl(get()) }

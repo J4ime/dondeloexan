@@ -8,6 +8,7 @@ import com.dondeloexan.domain.model.DataResult
 import com.dondeloexan.domain.model.PlatformReleaseDate
 import com.dondeloexan.domain.model.detail.CascadeProposal
 import com.dondeloexan.domain.model.detail.CastSocialInfo
+import com.dondeloexan.domain.model.detail.EpisodeRef
 import com.dondeloexan.domain.model.detail.EpisodeToggleResult
 import com.dondeloexan.domain.model.detail.MovieWatchState
 import com.dondeloexan.domain.model.detail.Season
@@ -118,7 +119,8 @@ class MediaDetailUseCases(
         selectedSeason: Int,
         episodeNumber: Int,
         currentWatched: Set<String>,
-        seasonDetail: SeasonDetail?
+        seasonDetail: SeasonDetail?,
+        seasons: List<Season> = emptyList()
     ): EpisodeToggleResult {
         val key = SeriesTracking.keyFor(selectedSeason, episodeNumber)
         return if (currentWatched.contains(key)) {
@@ -133,10 +135,16 @@ class MediaDetailUseCases(
                 ?.map { it.episodeNumber }
                 ?.filter { it < episodeNumber && !currentWatched.contains(SeriesTracking.keyFor(selectedSeason, it)) }
                 ?: emptyList()
-            if (unwatchedBefore.isNotEmpty()) {
-                EpisodeToggleResult.NeedsCascade(
-                    CascadeProposal(season = selectedSeason, targetEpisode = episodeNumber, count = unwatchedBefore.size)
-                )
+            val proposal = buildCascadeProposal(
+                content = content,
+                selectedSeason = selectedSeason,
+                episodeNumber = episodeNumber,
+                currentWatched = currentWatched,
+                unwatchedInCurrentSeason = unwatchedBefore,
+                seasons = seasons
+            )
+            if (proposal.count > 0) {
+                EpisodeToggleResult.NeedsCascade(proposal)
             } else {
                 val tracking = repository.recordEpisode(content, selectedSeason, episodeNumber)
                 EpisodeToggleResult.Applied(tracking)
@@ -144,18 +152,79 @@ class MediaDetailUseCases(
         }
     }
 
+    /**
+     * La propuesta incluye, además de los capítulos anteriores de la temporada
+     * seleccionada, TODOS los de las temporadas anteriores que aún no estén
+     * marcados.
+     */
+    private suspend fun buildCascadeProposal(
+        content: Content,
+        selectedSeason: Int,
+        episodeNumber: Int,
+        currentWatched: Set<String>,
+        unwatchedInCurrentSeason: List<Int>,
+        seasons: List<Season>
+    ): CascadeProposal {
+        val previousSeasonsWithPending = mutableListOf<Int>()
+        var previousPending = 0
+        seasons
+            .filter { it.seasonNumber in 1 until selectedSeason }
+            .sortedBy { it.seasonNumber }
+            .forEach { season ->
+                val pending = seasonEpisodeNumbers(content, season)
+                    .count { !currentWatched.contains(SeriesTracking.keyFor(season.seasonNumber, it)) }
+                if (pending > 0) {
+                    previousSeasonsWithPending += season.seasonNumber
+                    previousPending += pending
+                }
+            }
+        return CascadeProposal(
+            season = selectedSeason,
+            targetEpisode = episodeNumber,
+            count = unwatchedInCurrentSeason.size + previousPending,
+            currentSeasonCount = unwatchedInCurrentSeason.size,
+            previousSeasons = previousSeasonsWithPending,
+            previousSeasonsCount = previousPending
+        )
+    }
+
+    /**
+     * Números de capítulo de una temporada. Se usa `episodeCount` de TMDB (una
+     * temporada anterior se considera emitida completa) y sólo se pide el
+     * detalle cuando no hay dato.
+     */
+    private suspend fun seasonEpisodeNumbers(content: Content, season: Season): List<Int> {
+        if (season.episodeCount > 0) return (1..season.episodeCount).toList()
+        return repository.getSeasonDetail(content, season.seasonNumber).episodes.map { it.episodeNumber }
+    }
+
     suspend fun confirmCascade(
         content: Content,
         proposal: CascadeProposal,
         seasonDetail: SeasonDetail?,
-        currentWatched: Set<String>
+        currentWatched: Set<String>,
+        seasons: List<Season> = emptyList()
     ): SeriesTracking {
         if (seasonDetail == null) return reloadTracking(content)
-        val episodesToMark = seasonDetail.episodes
+
+        val entries = mutableListOf<EpisodeRef>()
+        val seasonsByNumber = seasons.associateBy { it.seasonNumber }
+        proposal.previousSeasons.forEach { seasonNumber ->
+            val season = seasonsByNumber[seasonNumber]
+            val numbers = if (season != null) {
+                seasonEpisodeNumbers(content, season)
+            } else {
+                emptyList()
+            }
+            numbers.forEach { entries += EpisodeRef(season = seasonNumber, episode = it) }
+        }
+
+        seasonDetail.episodes
             .map { it.episodeNumber }
-            .filter { it <= proposal.targetEpisode && !currentWatched.contains(SeriesTracking.keyFor(proposal.season, it)) }
-        val tracking = repository.recordEpisodes(content, proposal.season, episodesToMark)
-        return tracking
+            .filter { it <= proposal.targetEpisode }
+            .forEach { entries += EpisodeRef(season = proposal.season, episode = it) }
+
+        return repository.recordEpisodes(content, entries.distinct())
     }
 
     suspend fun dismissCascade(

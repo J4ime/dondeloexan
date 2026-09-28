@@ -61,6 +61,7 @@ import com.dondeloexan.domain.model.PlatformReleaseDate
 import com.dondeloexan.domain.model.Sentiment
 import com.dondeloexan.domain.model.StreamingAvailability
 import com.dondeloexan.domain.model.detail.CastSocialInfo
+import com.dondeloexan.domain.model.detail.EpisodeRef
 import com.dondeloexan.domain.model.detail.MovieWatchState
 import com.dondeloexan.domain.model.detail.Season
 import com.dondeloexan.domain.model.detail.SeasonDetail
@@ -881,7 +882,6 @@ class DiscoverRepositoryImpl(
         return try {
             val credits = tmdbApi.getPersonTvCredits(personId)
             (credits.cast.orEmpty() + credits.crew.orEmpty())
-                .filter { it.firstAirDate != null }
                 .distinctBy { it.id }
                 .sortedByDescending { it.firstAirDate }
                 .map { it.toContentPreview(forceType = ContentType.SERIES) }
@@ -895,7 +895,6 @@ class DiscoverRepositoryImpl(
         return try {
             val credits = tmdbApi.getPersonMovieCredits(personId)
             (credits.cast.orEmpty() + credits.crew.orEmpty())
-                .filter { it.releaseDate != null }
                 .distinctBy { it.id }
                 .sortedByDescending { it.releaseDate }
                 .map { it.toContentPreview(forceType = ContentType.MOVIE) }
@@ -1303,6 +1302,9 @@ class DiscoverRepositoryImpl(
 
     override suspend fun recordEpisodes(content: Content, season: Int, episodes: List<Int>): SeriesTracking =
         trackingRepository.recordEpisodes(content, season, episodes)
+
+    override suspend fun recordEpisodes(content: Content, entries: List<EpisodeRef>): SeriesTracking =
+        trackingRepository.recordEpisodes(content, entries)
 
     override suspend fun unrecordSeasonEpisodes(content: Content, season: Int, episodes: List<Int>): SeriesTracking =
         trackingRepository.unrecordSeasonEpisodes(content, season, episodes)

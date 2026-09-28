@@ -46,7 +46,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.dondeloexan.domain.model.SeriesState
 import com.dondeloexan.domain.model.StreamingAvailability
+import com.dondeloexan.domain.model.seriesStateFor
 import com.dondeloexan.presentation.theme.DarkSurfaceVariant
 import com.dondeloexan.presentation.theme.EleganteRose
 import com.dondeloexan.presentation.theme.RatingHigh
@@ -176,9 +178,15 @@ fun LibraryItemCard(
             }
 
             val airedEpisodes = releasedEpisodes ?: totalEpisodes
-            val hasFutureSeasons = seriesStatus !in listOf("Ended", "Canceled") && inProduction != false
-            val isCaughtUp = airedEpisodes != null && airedEpisodes > 0 && watchedCount >= airedEpisodes
-            val isFinished = airedEpisodes != null && airedEpisodes > 0 && watchedCount >= airedEpisodes && !hasFutureSeasons
+            val state = seriesStateFor(
+                releasedEpisodes = releasedEpisodes,
+                totalEpisodes = totalEpisodes,
+                seriesStatus = seriesStatus,
+                inProduction = inProduction,
+                watchedCount = watchedCount
+            )
+            val isCaughtUp = state != SeriesState.EN_CURSO
+            val isFinished = state == SeriesState.TERMINADA
             val isFinalEpisode = airedEpisodes != null && airedEpisodes > 0 &&
                     nextEpisodeAirDate != null && inProduction == false &&
                     !isFinished
@@ -228,7 +236,7 @@ fun LibraryItemCard(
                 }
             }
 
-            if (nextEpisodeAirDate != null || (hasFutureSeasons && isCaughtUp)) {
+            if (nextEpisodeAirDate != null || (state == SeriesState.AL_DIA)) {
                 Spacer(Modifier.height(4.dp))
                 NextEpisodeLabel(
                     airDate = nextEpisodeAirDate,

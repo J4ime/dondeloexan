@@ -24,10 +24,13 @@ import com.dondeloexan.domain.model.Content
 import com.dondeloexan.domain.model.ContentSource
 import com.dondeloexan.domain.model.ContentType
 import com.dondeloexan.domain.model.SeriesItem
+import com.dondeloexan.domain.model.SeriesState
+import com.dondeloexan.domain.model.detail.EpisodeRef
 import com.dondeloexan.domain.model.detail.MovieWatchState
 import com.dondeloexan.domain.model.detail.Season
 import com.dondeloexan.domain.model.detail.SeasonDetail
 import com.dondeloexan.domain.model.detail.SeriesTracking
+import com.dondeloexan.domain.model.seriesStateFor
 import com.dondeloexan.domain.repository.TrackingRepository
 import com.dondeloexan.util.AppLogger
 import kotlinx.coroutines.TimeoutCancellationException
@@ -201,59 +204,144 @@ class TrackingRepositoryImpl(
 
     override suspend fun setSeriesWatched(content: Content, watched: Boolean): Boolean {
         val tvShow = findTvShow(content) ?: return false
-        val today = LocalDate.now()
-        if (watched) {
-            val progressToInsert = mutableListOf<TvShowProgressEntity>()
-            val tmdbId = tvShow.tmdbId
-            if (tmdbId != null) {
+        return setSeriesWatchedById(tvShow.id, watched)
+    }
+
+    /**
+     * Ruta ÚNICA de "marcar serie vista": marca todos los capítulos emitidos de
+     * todas las temporadas (la 0/especiales se excluye, como en el resto de la
+     * app) y recalcula el estado desde el último capítulo marcado.
+     */
+    override suspend fun setSeriesWatchedById(tvShowId: Long, watched: Boolean): Boolean {
+        val tvShow = tvShowDao.getById(tvShowId) ?: return false
+        val dao = tvShowProgressDao ?: return false
+        val now = System.currentTimeMillis()
+
+        if (!watched) {
+            dao.deleteByTvShowId(tvShow.id)
+            val cleared = tvShow.copy(
+                status = WatchStatus.POR_VER,
+                lastWatchedAt = null,
+                finishedAt = null
+            )
+            tvShowDao.update(cleared)
+            if (tvShow.status != cleared.status || tvShow.finishedAt != null) {
+                pushTvShowStateToCloud(cleared)
+            }
+            return true
+        }
+
+        val aired = collectAiredEpisodes(tvShow)
+        // Reemplazo completo: el progreso queda EXACTAMENTE igual al conjunto de
+        // capítulos emitidos, así que repetir la acción no duplica filas.
+        dao.deleteByTvShowId(tvShow.id)
+        if (aired.refs.isNotEmpty()) {
+            dao.insertAll(
+                aired.refs.map {
+                    TvShowProgressEntity(tvShowId = tvShow.id, season = it.season, episode = it.episode)
+                }
+            )
+        }
+
+        val watchedCount = aired.refs.size
+        val released = if (aired.refs.isNotEmpty()) aired.refs.size else tvShow.releasedEpisodes
+        val state = seriesStateFor(
+            releasedEpisodes = released,
+            totalEpisodes = aired.totalEpisodes,
+            seriesStatus = aired.seriesStatus,
+            inProduction = aired.inProduction,
+            watchedCount = watchedCount
+        )
+        val reconciled = tvShow.copy(
+            totalEpisodes = aired.totalEpisodes,
+            releasedEpisodes = released,
+            numberOfSeasons = aired.numberOfSeasons,
+            seriesStatus = aired.seriesStatus,
+            inProduction = aired.inProduction,
+            nextEpisodeAirDate = aired.nextEpisodeAirDate,
+            nextEpisodeNumber = aired.nextEpisodeNumber,
+            nextEpisodeSeasonNumber = aired.nextEpisodeSeasonNumber,
+            lastWatchedAt = now,
+            status = if (state == SeriesState.EN_CURSO) WatchStatus.POR_VER else WatchStatus.YA_VISTA,
+            finishedAt = if (state == SeriesState.TERMINADA) now else null
+        )
+        tvShowDao.update(reconciled)
+        if (reconciled.status != tvShow.status || reconciled.finishedAt != tvShow.finishedAt) {
+            pushTvShowStateToCloud(reconciled)
+        }
+        AppLogger.i(
+            "DiscoveryTracking",
+            "marcar ${reconciled.title}: vistos=$watchedCount emitidos=$released -> $state"
+        )
+        return true
+    }
+
+    private data class AiredEpisodes(
+        val refs: List<EpisodeRef>,
+        val totalEpisodes: Int?,
+        val numberOfSeasons: Int?,
+        val seriesStatus: String?,
+        val inProduction: Boolean?,
+        val nextEpisodeAirDate: String?,
+        val nextEpisodeNumber: Int?,
+        val nextEpisodeSeasonNumber: Int?
+    )
+
+    private suspend fun collectAiredEpisodes(tvShow: TvShowEntity): AiredEpisodes {
+        val detail = tvShow.tmdbId?.let { tmdbId ->
+            try {
+                tmdbApi.getTvDetailLight(tmdbId)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                AppLogger.e("DiscoveryTracking", "marcar ${tvShow.title}: detalle TMDB falló", e)
+                null
+            }
+        }
+        val refs = mutableListOf<EpisodeRef>()
+        if (detail != null) {
+            val today = LocalDate.now()
+            for (season in detail.seasons.orEmpty().filter { it.seasonNumber > 0 }) {
                 try {
-                    val detail = tmdbApi.getTvDetailLight(tmdbId)
-                    for (season in detail.seasons.orEmpty().filter { it.seasonNumber > 0 }) {
-                        try {
-                            val seasonDetail = tmdbApi.getTvSeason(tmdbId, season.seasonNumber)
-                            for (ep in seasonDetail.episodes) {
-                                val isAired = ep.airDate == null ||
-                                        try {
-                                            !LocalDate.parse(ep.airDate).isAfter(today)
-                                        } catch (_: Exception) {
-                                            true
-                                        }
-                                if (isAired) {
-                                    progressToInsert.add(
-                                        TvShowProgressEntity(
-                                            tvShowId = tvShow.id,
-                                            season = season.seasonNumber,
-                                            episode = ep.episodeNumber
-                                        )
-                                    )
-                                }
-                            }
-                        } catch (e: Exception) {
-                            AppLogger.e("DiscoveryTracking", "setSeriesWatched season ${season.seasonNumber} para ${tvShow.id}", e)
-                            for (epNum in 1..season.episodeCount) {
-                                progressToInsert.add(
-                                    TvShowProgressEntity(
-                                        tvShowId = tvShow.id,
-                                        season = season.seasonNumber,
-                                        episode = epNum
-                                    )
-                                )
-                            }
+                    val seasonDetail = tmdbApi.getTvSeason(detail.id, season.seasonNumber)
+                    for (ep in seasonDetail.episodes) {
+                        if (isAired(ep.airDate, today)) {
+                            refs += EpisodeRef(season = season.seasonNumber, episode = ep.episodeNumber)
                         }
                     }
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
                 } catch (e: Exception) {
-                    AppLogger.e("DiscoveryTracking", "setSeriesWatched detail error para ${tvShow.title}", e)
+                    AppLogger.e(
+                        "DiscoveryTracking",
+                        "temporada ${season.seasonNumber} de ${tvShow.title}: uso episodeCount",
+                        e
+                    )
+                    for (epNum in 1..season.episodeCount) {
+                        refs += EpisodeRef(season = season.seasonNumber, episode = epNum)
+                    }
                 }
             }
-            if (progressToInsert.isNotEmpty()) {
-                tvShowProgressDao?.insertAll(progressToInsert)
-            }
-            tvShowDao.update(tvShow.copy(status = WatchStatus.YA_VISTA, lastWatchedAt = System.currentTimeMillis()))
-        } else {
-            tvShowProgressDao?.deleteByTvShowId(tvShow.id)
-            tvShowDao.update(tvShow.copy(status = WatchStatus.POR_VER, lastWatchedAt = null))
         }
-        return true
+        return AiredEpisodes(
+            refs = refs.filter { it.season > 0 && it.episode > 0 }.distinct(),
+            totalEpisodes = detail?.numberOfEpisodes?.takeIf { it > 0 } ?: tvShow.totalEpisodes,
+            numberOfSeasons = detail?.numberOfSeasons?.takeIf { it > 0 } ?: tvShow.numberOfSeasons,
+            seriesStatus = detail?.status ?: tvShow.seriesStatus,
+            inProduction = detail?.inProduction ?: tvShow.inProduction,
+            nextEpisodeAirDate = detail?.nextEpisodeToAir?.airDate ?: tvShow.nextEpisodeAirDate,
+            nextEpisodeNumber = detail?.nextEpisodeToAir?.episodeNumber ?: tvShow.nextEpisodeNumber,
+            nextEpisodeSeasonNumber = detail?.nextEpisodeToAir?.seasonNumber ?: tvShow.nextEpisodeSeasonNumber
+        )
+    }
+
+    private fun isAired(airDate: String?, today: LocalDate): Boolean {
+        if (airDate == null) return true
+        return try {
+            !LocalDate.parse(airDate).isAfter(today)
+        } catch (e: Exception) {
+            true
+        }
     }
 
     override suspend fun setSeriesFavorite(content: Content, favorite: Boolean): Boolean {
@@ -388,14 +476,24 @@ class TrackingRepositoryImpl(
         return getSeriesTracking(content)
     }
 
-    override suspend fun recordEpisodes(content: Content, season: Int, episodes: List<Int>): SeriesTracking {
+    override suspend fun recordEpisodes(content: Content, season: Int, episodes: List<Int>): SeriesTracking =
+        recordEpisodes(content, episodes.map { EpisodeRef(season = season, episode = it) })
+
+    /**
+     * Cascada que puede abarcar varias temporadas (temporadas anteriores
+     * completas + la actual hasta el capítulo elegido) en una sola escritura y
+     * una única reconciliación de estado.
+     */
+    override suspend fun recordEpisodes(content: Content, entries: List<EpisodeRef>): SeriesTracking {
         val tvShow = findTvShow(content) ?: return getSeriesTracking(content)
         val tracking = getSeriesTracking(content)
-        val items = episodes
-            .filter { !tracking.isEpisodeWatched(season, it) }
-            .map {
-                TvShowProgressEntity(tvShowId = tvShow.id, season = season, episode = it)
-            }
+        val items = entries
+            .asSequence()
+            .filter { it.season > 0 && it.episode > 0 }
+            .distinct()
+            .filter { !tracking.isEpisodeWatched(it.season, it.episode) }
+            .map { TvShowProgressEntity(tvShowId = tvShow.id, season = it.season, episode = it.episode) }
+            .toList()
         if (items.isNotEmpty()) {
             tvShowProgressDao?.insertAll(items)
         }

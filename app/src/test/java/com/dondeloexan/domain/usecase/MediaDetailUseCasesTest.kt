@@ -7,6 +7,7 @@ import com.dondeloexan.domain.model.ContentType
 import com.dondeloexan.domain.model.PersonInfo
 import com.dondeloexan.domain.model.detail.CascadeProposal
 import com.dondeloexan.domain.model.detail.Episode
+import com.dondeloexan.domain.model.detail.EpisodeRef
 import com.dondeloexan.domain.model.detail.EpisodeToggleResult
 import com.dondeloexan.domain.model.detail.Season
 import com.dondeloexan.domain.model.detail.SeasonDetail
@@ -101,7 +102,7 @@ class MediaDetailUseCasesTest {
         val afterTracking = SeriesTracking(
             exists = true, watchedEpisodes = setOf("S1E1", "S1E2", "S1E3")
         )
-        coEvery { repository.recordEpisodes(any(), any(), any()) } returns afterTracking
+        coEvery { repository.recordEpisodes(any(), any<List<EpisodeRef>>()) } returns afterTracking
         coEvery { repository.getSeriesTracking(content) } returns afterTracking
 
         val tracking = useCases.confirmCascade(
@@ -111,8 +112,107 @@ class MediaDetailUseCasesTest {
             currentWatched = emptySet()
         )
 
-        coVerify { repository.recordEpisodes(content, 1, listOf(1, 2, 3)) }
+        coVerify {
+            repository.recordEpisodes(
+                content,
+                listOf(EpisodeRef(1, 1), EpisodeRef(1, 2), EpisodeRef(1, 3))
+            )
+        }
         assert(tracking.watchedEpisodes.contains("S1E3"))
+    }
+
+    @Test
+    fun `cascade proposal counts previous seasons too`() = runTest {
+        val seasons = listOf(
+            Season(seasonNumber = 1, name = "T1", episodeCount = 4),
+            Season(seasonNumber = 2, name = "T2", episodeCount = 2),
+            Season(seasonNumber = 3, name = "T3", episodeCount = 6)
+        )
+
+        val result = useCases.toggleEpisode(
+            content = content,
+            selectedSeason = 3,
+            episodeNumber = 5,
+            currentWatched = emptySet(),
+            seasonDetail = SeasonDetail(
+                seasonNumber = 3,
+                episodes = (1..6).map { Episode(episodeNumber = it, name = "E$it", seasonNumber = 3) }
+            ),
+            seasons = seasons
+        )
+
+        assert(result is EpisodeToggleResult.NeedsCascade)
+        val proposal = (result as EpisodeToggleResult.NeedsCascade).proposal
+        // 4 de T1 + 2 de T2 + 4 anteriores dentro de T3
+        assert(proposal.count == 10)
+        assert(proposal.currentSeasonCount == 4)
+        assert(proposal.previousSeasonsCount == 6)
+        assert(proposal.previousSeasons == listOf(1, 2))
+    }
+
+    @Test
+    fun `confirmCascade marks previous seasons completely`() = runTest {
+        val seasons = listOf(
+            Season(seasonNumber = 1, name = "T1", episodeCount = 2),
+            Season(seasonNumber = 2, name = "T2", episodeCount = 3),
+            Season(seasonNumber = 3, name = "T3", episodeCount = 6)
+        )
+        val detail = SeasonDetail(
+            seasonNumber = 3,
+            episodes = listOf(
+                Episode(episodeNumber = 4, name = "E4", seasonNumber = 3),
+                Episode(episodeNumber = 5, name = "E5", seasonNumber = 3),
+                Episode(episodeNumber = 6, name = "E6", seasonNumber = 3)
+            )
+        )
+        coEvery { repository.recordEpisodes(any(), any<List<EpisodeRef>>()) } returns SeriesTracking(exists = true)
+
+        useCases.confirmCascade(
+            content = content,
+            proposal = CascadeProposal(
+                season = 3,
+                targetEpisode = 5,
+                count = 7,
+                currentSeasonCount = 2,
+                previousSeasons = listOf(1, 2),
+                previousSeasonsCount = 5
+            ),
+            seasonDetail = detail,
+            currentWatched = emptySet(),
+            seasons = seasons
+        )
+
+        coVerify {
+            repository.recordEpisodes(
+                content,
+                listOf(
+                    EpisodeRef(1, 1), EpisodeRef(1, 2),
+                    EpisodeRef(2, 1), EpisodeRef(2, 2), EpisodeRef(2, 3),
+                    EpisodeRef(3, 4), EpisodeRef(3, 5)
+                )
+            )
+        }
+    }
+
+    @Test
+    fun `dismissCascade marks only the tapped episode`() = runTest {
+        coEvery { repository.recordEpisode(any(), any(), any()) } returns SeriesTracking(exists = true)
+
+        useCases.dismissCascade(
+            content = content,
+            proposal = CascadeProposal(
+                season = 3,
+                targetEpisode = 5,
+                count = 10,
+                currentSeasonCount = 4,
+                previousSeasons = listOf(1, 2),
+                previousSeasonsCount = 6
+            ),
+            seasonDetail = seasonDetail()
+        )
+
+        coVerify { repository.recordEpisode(content, 3, 5) }
+        coVerify(exactly = 0) { repository.recordEpisodes(any(), any<List<EpisodeRef>>()) }
     }
 
     @Test

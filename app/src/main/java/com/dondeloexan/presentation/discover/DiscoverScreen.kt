@@ -27,6 +27,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -48,6 +49,7 @@ import androidx.compose.material.icons.outlined.Movie
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.SearchOff
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
@@ -555,6 +557,15 @@ fun FilmographyContent(
                     }
                 }
 
+                if (view.error != null) {
+                    Text(
+                        text = view.error,
+                        style = UbuntuTypography.labelSmall,
+                        color = EleganteRose,
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+                }
+
                 FilmographyMoviesGrid(
                     movies = view.movies,
                     likedIds = likedIds,
@@ -567,6 +578,7 @@ fun FilmographyContent(
                     onWatchedClick = onWatchedClick,
                     onBlacklistClick = onBlacklistClick,
                     hasMore = view.hasMore,
+                    isLoadingMore = view.isLoadingMore,
                     onLoadMore = onLoadMore
                 )
             }
@@ -666,6 +678,7 @@ private fun FilmographyMoviesGrid(
     onAddClick: (ContentPreview) -> Unit = {},
     onBlacklistClick: (ContentPreview) -> Unit,
     hasMore: Boolean,
+    isLoadingMore: Boolean = false,
     onLoadMore: () -> Unit
 ) {
     if (movies.isEmpty()) {
@@ -676,7 +689,21 @@ private fun FilmographyMoviesGrid(
     }
 
     if (isGridView) {
+        val gridState = rememberLazyGridState()
+        // La clave incluye movies.size: sin ella el derivedStateOf se queda con
+        // el tamaño de la primera composición y la carga automática nunca vuelve
+        // a dispararse (la lista se quedaba cortada).
+        val gridShouldLoadMore by remember(gridState, movies.size) {
+            derivedStateOf {
+                val lastVisible = gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+                lastVisible >= movies.size - 4
+            }
+        }
+        LaunchedEffect(gridShouldLoadMore, hasMore, movies.size) {
+            if (gridShouldLoadMore && hasMore) onLoadMore()
+        }
         LazyVerticalGrid(
+            state = gridState,
             columns = GridCells.Adaptive(140.dp),
             contentPadding = PaddingValues(vertical = 8.dp, horizontal = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -695,10 +722,18 @@ private fun FilmographyMoviesGrid(
                 )
             }
             if (hasMore) {
-                item {
+                item(key = "__filmography_load_more__") {
                     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        TextButton(onClick = onLoadMore) {
-                            Text("Cargar más", color = EleganteRose)
+                        if (isLoadingMore) {
+                            CircularProgressIndicator(
+                                color = EleganteRose,
+                                strokeWidth = 2.dp,
+                                modifier = Modifier.size(24.dp).padding(4.dp)
+                            )
+                        } else {
+                            TextButton(onClick = onLoadMore) {
+                                Text("Cargar más", color = EleganteRose)
+                            }
                         }
                     }
                 }
@@ -706,14 +741,14 @@ private fun FilmographyMoviesGrid(
         }
     } else {
         val listState = rememberLazyListState()
-        val shouldLoadMore = remember {
+        val listShouldLoadMore by remember(listState, movies.size) {
             derivedStateOf {
                 val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
                 lastVisible >= movies.size - 3
             }
         }
-        LaunchedEffect(shouldLoadMore.value) {
-            if (shouldLoadMore.value && hasMore) onLoadMore()
+        LaunchedEffect(listShouldLoadMore, hasMore, movies.size) {
+            if (listShouldLoadMore && hasMore) onLoadMore()
         }
         LazyColumn(
             state = listState,
@@ -733,6 +768,17 @@ private fun FilmographyMoviesGrid(
                     onBlacklistClick = { onBlacklistClick(content) },
                     onClick = { onItemClick(content.id, content.type.name.lowercase()) }
                 )
+            }
+            if (hasMore && isLoadingMore) {
+                item(key = "__filmography_load_more__") {
+                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(
+                            color = EleganteRose,
+                            strokeWidth = 2.dp,
+                            modifier = Modifier.size(24.dp).padding(4.dp)
+                        )
+                    }
+                }
             }
         }
     }

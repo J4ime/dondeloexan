@@ -179,4 +179,81 @@ class DiscoverViewModelTest {
         val results = (viewModel.uiState.value as DiscoverUiState.Success).results
         assert(results.map { it.id } == listOf("tmdb-1", "tmdb-2", "tmdb-3"))
     }
+
+    // ── Filmografía (paginación real y enriquecimiento progresivo) ──
+
+    private fun personEntity() = FilmographyEntity(
+        id = "person-1",
+        name = "Helen Mirren",
+        type = EntityType.PERSON,
+        profilePath = null,
+        knownForDepartment = null,
+        role = null
+    )
+
+    private fun credits(count: Int) = (1..count).map { preview(it) }
+
+    @Test
+    fun `filmografia carga todas las paginas al llegar al final`() = runTest {
+        coEvery { discoverRepository.getPersonMovieCredits(any()) } returns credits(45)
+        coEvery { discoverRepository.getPersonTvCredits(any()) } returns emptyList()
+        coEvery { discoverRepository.fetchPlatforms(any()) } answers { firstArg() }
+
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onSelectEntity(personEntity())
+        advanceUntilIdle()
+
+        val first = viewModel.filmographyView.value!!
+        assert(first.movies!!.size == 20)
+        assert(first.totalCount == 45)
+        assert(first.hasMore)
+
+        viewModel.onFilmographyLoadMore()
+        advanceUntilIdle()
+        viewModel.onFilmographyLoadMore()
+        advanceUntilIdle()
+
+        val last = viewModel.filmographyView.value!!
+        assert(last.movies!!.size == 45)
+        assert(!last.hasMore)
+        assert(last.movies!!.map { it.id }.distinct().size == 45)
+    }
+
+    @Test
+    fun `filmografia pinta la primera pagina sin esperar al enriquecimiento`() = runTest {
+        coEvery { discoverRepository.getPersonMovieCredits(any()) } returns credits(45)
+        coEvery { discoverRepository.getPersonTvCredits(any()) } returns emptyList()
+        // El enriquecimiento se queda colgado: la lista NO debe esperar por él.
+        coEvery { discoverRepository.fetchPlatforms(any()) } coAnswers { kotlinx.coroutines.awaitCancellation() }
+
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onSelectEntity(personEntity())
+        advanceUntilIdle()
+
+        val view = viewModel.filmographyView.value!!
+        assert(view.movies!!.size == 20)
+        assert(view.totalCount == 45)
+        assert(!view.isLoading)
+    }
+
+    @Test
+    fun `volver atras desde la filmografia limpia el estado`() = runTest {
+        coEvery { discoverRepository.getPersonMovieCredits(any()) } returns credits(5)
+        coEvery { discoverRepository.getPersonTvCredits(any()) } returns emptyList()
+        coEvery { discoverRepository.fetchPlatforms(any()) } answers { firstArg() }
+
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onSelectEntity(personEntity())
+        advanceUntilIdle()
+        viewModel.onFilmographyBack()
+        advanceUntilIdle()
+
+        assert(viewModel.filmographyView.value == null)
+    }
 }

@@ -1,6 +1,7 @@
 package com.dondeloexan.domain.repository
 
 import com.dondeloexan.domain.model.Content
+import com.dondeloexan.domain.model.detail.EpisodeRef
 import com.dondeloexan.domain.model.detail.MovieWatchState
 import com.dondeloexan.domain.model.detail.Season
 import com.dondeloexan.domain.model.detail.SeasonDetail
@@ -19,6 +20,15 @@ interface TrackingRepository {
 
     suspend fun addSeriesToLibrary(content: Content): Boolean
     suspend fun setSeriesWatched(content: Content, watched: Boolean): Boolean
+
+    /**
+     * Marca/desmarca una serie como vista partiendo de su id local (lo usa el
+     * listado, que no tiene un [Content] a mano). Es la MISMA ruta que
+     * [setSeriesWatched]: marca todos los capítulos emitidos de todas las
+     * temporadas y recalcula el estado desde el último capítulo marcado.
+     */
+    suspend fun setSeriesWatchedById(tvShowId: Long, watched: Boolean): Boolean
+
     suspend fun setSeriesFavorite(content: Content, favorite: Boolean): Boolean
     suspend fun getSeriesTracking(content: Content): SeriesTracking
 
@@ -28,6 +38,14 @@ interface TrackingRepository {
     suspend fun recordEpisode(content: Content, season: Int, episode: Int): SeriesTracking
     suspend fun unrecordEpisode(content: Content, season: Int, episode: Int): SeriesTracking
     suspend fun recordEpisodes(content: Content, season: Int, episodes: List<Int>): SeriesTracking
+
+    /**
+     * Registra de una sola vez capítulos de varias temporadas (cascada que
+     * abarca también las temporadas anteriores a la seleccionada) y recalcula
+     * el estado una única vez.
+     */
+    suspend fun recordEpisodes(content: Content, entries: List<EpisodeRef>): SeriesTracking
+
     suspend fun unrecordSeasonEpisodes(content: Content, season: Int, episodes: List<Int>): SeriesTracking
 
     suspend fun markSeriesFinished(content: Content): Boolean

@@ -9,6 +9,7 @@ import com.dondeloexan.domain.model.DataResult
 import com.dondeloexan.domain.model.PersonSearchResult
 import com.dondeloexan.domain.model.PlatformReleaseDate
 import com.dondeloexan.domain.model.detail.CastSocialInfo
+import com.dondeloexan.domain.model.detail.EpisodeRef
 import com.dondeloexan.domain.model.detail.MovieWatchState
 import com.dondeloexan.domain.model.detail.Season
 import com.dondeloexan.domain.model.detail.SeasonDetail
@@ -54,6 +55,10 @@ interface DiscoverRepository {
     suspend fun recordEpisode(content: Content, season: Int, episode: Int): SeriesTracking
     suspend fun unrecordEpisode(content: Content, season: Int, episode: Int): SeriesTracking
     suspend fun recordEpisodes(content: Content, season: Int, episodes: List<Int>): SeriesTracking
+
+    /** Cascada multi-temporada: capítulos de varias temporadas de una sola vez. */
+    suspend fun recordEpisodes(content: Content, entries: List<EpisodeRef>): SeriesTracking
+
     suspend fun unrecordSeasonEpisodes(content: Content, season: Int, episodes: List<Int>): SeriesTracking
 
     suspend fun markSeriesFinished(content: Content): Boolean

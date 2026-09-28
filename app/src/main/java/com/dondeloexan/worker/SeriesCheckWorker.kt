@@ -47,7 +47,7 @@ class SeriesCheckWorker(
             for (show in allShows) {
                 val tmdbId = show.tmdbId
                 if (tmdbId != null) {
-                    updateFromTmdb(show.id, tmdbId)
+                    updateFromTmdb(show.id, tmdbId, show.totalEpisodes)
                 }
                 if (show.liked && show.nextEpisodeAirDate == today) {
                     todayNotifications.add(
@@ -105,7 +105,7 @@ class SeriesCheckWorker(
         }
     }
 
-    private suspend fun updateFromTmdb(showId: Long, tmdbId: Int) {
+    private suspend fun updateFromTmdb(showId: Long, tmdbId: Int, existingTotalEpisodes: Int?) {
         try {
             val tv = tmdbApi.getTvDetailLight(tmdbId)
             val releasedEpisodes = if (tv.lastEpisodeToAir != null && tv.seasons != null) {
@@ -122,7 +122,9 @@ class SeriesCheckWorker(
             } else tv.numberOfEpisodes
             tvShowDao.updateById(
                 id = showId,
-                totalEpisodes = tv.numberOfEpisodes,
+                // Si TMDB no devuelve el total, conservamos el que ya teníamos:
+                // anularlo dejaba la serie atascada en "En curso".
+                totalEpisodes = tv.numberOfEpisodes ?: existingTotalEpisodes,
                 releasedEpisodes = releasedEpisodes,
                 nextEpisodeAirDate = tv.nextEpisodeToAir?.airDate,
                 nextEpisodeNumber = tv.nextEpisodeToAir?.episodeNumber,

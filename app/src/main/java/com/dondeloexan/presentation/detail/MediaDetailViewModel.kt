@@ -430,7 +430,8 @@ class MediaDetailViewModel(
                 selectedSeason = seasonNumber,
                 episodeNumber = episodeNumber,
                 currentWatched = currentState.watchedEpisodes,
-                seasonDetail = currentState.seasonDetail
+                seasonDetail = currentState.seasonDetail,
+                seasons = currentState.seasons
             )
             when (result) {
                 is EpisodeToggleResult.NeedsCascade -> {
@@ -455,7 +456,8 @@ class MediaDetailViewModel(
                 content = content,
                 proposal = proposal,
                 seasonDetail = currentState.seasonDetail,
-                currentWatched = currentState.watchedEpisodes
+                currentWatched = currentState.watchedEpisodes,
+                seasons = currentState.seasons
             )
             _uiState.value = _uiState.value.copy(
                 watchedEpisodes = tracking.watchedEpisodes,

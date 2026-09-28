@@ -435,7 +435,7 @@ class MediaDetailViewModelTest {
         coEvery { useCases.getFaId(content) } returns null
 
         coEvery {
-            useCases.toggleEpisode(any(), any(), any(), any(), any())
+            useCases.toggleEpisode(any(), any(), any(), any(), any(), any())
         } returns EpisodeToggleResult.NeedsCascade(
             CascadeProposal(season = 1, targetEpisode = 3, count = 2)
         )
@@ -466,7 +466,7 @@ class MediaDetailViewModelTest {
         coEvery { useCases.getFaId(content) } returns null
 
         coEvery {
-            useCases.toggleEpisode(any(), any(), any(), any(), any())
+            useCases.toggleEpisode(any(), any(), any(), any(), any(), any())
         } returns EpisodeToggleResult.Applied(
             SeriesTracking(exists = true, watchedEpisodes = setOf("S1E1"))
         )
@@ -497,12 +497,12 @@ class MediaDetailViewModelTest {
         coEvery { useCases.getFaId(content) } returns null
 
         coEvery {
-            useCases.toggleEpisode(any(), any(), any(), any(), any())
+            useCases.toggleEpisode(any(), any(), any(), any(), any(), any())
         } returns EpisodeToggleResult.NeedsCascade(
             CascadeProposal(season = 1, targetEpisode = 3, count = 2)
         )
         coEvery {
-            useCases.confirmCascade(any(), any(), any(), any())
+            useCases.confirmCascade(any(), any(), any(), any(), any())
         } returns SeriesTracking(exists = true, watchedEpisodes = setOf("S1E1", "S1E2", "S1E3"))
 
         viewModel.loadContent("tmdb-2")

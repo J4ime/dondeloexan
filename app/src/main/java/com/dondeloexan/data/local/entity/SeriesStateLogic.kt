@@ -1,5 +1,9 @@
 package com.dondeloexan.data.local.entity
 
+import com.dondeloexan.domain.model.SeriesState
+import com.dondeloexan.domain.model.hasFutureSeasonsFor
+import com.dondeloexan.domain.model.seriesStateFor
+
 /**
  * Criterio único para clasificar una serie en "En curso", "Al día (agenda)" o
  * "Terminada", compartido entre el ViewModel de listados y la reconciliación
@@ -14,31 +18,22 @@ package com.dondeloexan.data.local.entity
  *     Agenda/Terminada con datos incompletos: el refresco aportará los emitidos
  *     y la recolocará.
  */
-fun TvShowEntity.hasFutureSeasons(): Boolean = when (seriesStatus) {
-    "Ended", "Canceled" -> false
-    null -> inProduction != false
-    else -> true
-}
+fun TvShowEntity.hasFutureSeasons(): Boolean = hasFutureSeasonsFor(seriesStatus, inProduction)
 
-private fun TvShowEntity.alDayBy(watchedCount: Int, aired: Int): Boolean =
-    aired > 0 && watchedCount >= aired
+/** Estado de la serie según la regla única de dominio. */
+fun TvShowEntity.seriesStateBy(watchedCount: Int): SeriesState = seriesStateFor(
+    releasedEpisodes = releasedEpisodes,
+    totalEpisodes = totalEpisodes,
+    seriesStatus = seriesStatus,
+    inProduction = inProduction,
+    watchedCount = watchedCount
+)
 
-fun TvShowEntity.isCaughtUpBy(watchedCount: Int): Boolean {
-    val released = releasedEpisodes
-    if (released != null) return alDayBy(watchedCount, released)
-    val total = totalEpisodes ?: return false
-    if (!hasFutureSeasons()) return alDayBy(watchedCount, total)
-    return false
-}
+fun TvShowEntity.isCaughtUpBy(watchedCount: Int): Boolean =
+    seriesStateBy(watchedCount) != SeriesState.EN_CURSO
 
-fun TvShowEntity.isFinishedBy(watchedCount: Int): Boolean {
-    if (!isCaughtUpBy(watchedCount)) return false
-    return !hasFutureSeasons()
-}
+fun TvShowEntity.isFinishedBy(watchedCount: Int): Boolean =
+    seriesStateBy(watchedCount) == SeriesState.TERMINADA
 
 /** Render del estado para logs/tests. */
-fun TvShowEntity.stateLabel(watchedCount: Int): String = when {
-    !isCaughtUpBy(watchedCount) -> "EN_CURSO"
-    hasFutureSeasons() -> "AL_DIA"
-    else -> "TERMINADA"
-}
+fun TvShowEntity.stateLabel(watchedCount: Int): String = seriesStateBy(watchedCount).name

@@ -66,4 +66,20 @@ class SeriesStateLogicTest {
         assertFalse(serie.isFinishedBy(0))
         assertEquals("EN_CURSO", serie.stateLabel(0))
     }
+
+    @Test
+    fun `estado nulo sin produccion no tiene futuro`() {
+        val serie = show(released = 10, total = 10, status = null, inProduction = false)
+        assertFalse(serie.hasFutureSeasons())
+        assertTrue(serie.isFinishedBy(10))
+        assertEquals("TERMINADA", serie.stateLabel(10))
+    }
+
+    @Test
+    fun `estado nulo en produccion si tiene futuro`() {
+        val serie = show(released = 10, total = 26, status = null, inProduction = true)
+        assertTrue(serie.hasFutureSeasons())
+        assertTrue(serie.isCaughtUpBy(10))
+        assertEquals("AL_DIA", serie.stateLabel(10))
+    }
 }

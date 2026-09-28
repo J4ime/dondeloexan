@@ -55,10 +55,23 @@ data class SeriesTracking(
     }
 }
 
+/** Capítulo concreto de una temporada concreta (cascadas multi-temporada). */
+data class EpisodeRef(
+    val season: Int,
+    val episode: Int
+)
+
+/**
+ * Propuesta de "marcar capítulos anteriores". [count] es el total a marcar
+ * (temporada seleccionada + temporadas anteriores).
+ */
 data class CascadeProposal(
     val season: Int,
     val targetEpisode: Int,
-    val count: Int
+    val count: Int,
+    val currentSeasonCount: Int = 0,
+    val previousSeasons: List<Int> = emptyList(),
+    val previousSeasonsCount: Int = 0
 )
 
 sealed class EpisodeToggleResult {

@@ -310,8 +310,13 @@ fun MediaDetailScreen(
                 Text("Marcar episodios anteriores", color = TextPrimary)
             },
             text = {
+                val previousText = if (proposal.previousSeasonsCount > 0) {
+                    " (${proposal.previousSeasonsCount} en ${proposal.previousSeasons.size} temporada(s) anterior(es))"
+                } else {
+                    ""
+                }
                 Text(
-                    "Hay ${proposal.count} episodios anteriores no vistos en esta temporada. ¿Marcarlos tambien como vistos?",
+                    "Hay ${proposal.count} episodios anteriores no vistos: ${proposal.currentSeasonCount} en esta temporada$previousText. ¿Marcarlos todos como vistos?",
                     color = TextSecondary
                 )
             },

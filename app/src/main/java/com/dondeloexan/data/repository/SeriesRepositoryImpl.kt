@@ -3,7 +3,6 @@ package com.dondeloexan.data.repository
 import com.dondeloexan.data.local.dao.TvShowDao
 import com.dondeloexan.data.local.dao.TvShowProgressDao
 import com.dondeloexan.data.local.entity.TvShowEntity
-import com.dondeloexan.data.local.entity.TvShowProgressEntity
 import com.dondeloexan.data.local.entity.WatchStatus
 import com.dondeloexan.data.local.entity.toPlatformsString
 import com.dondeloexan.data.local.entity.toStreamingPlatforms
@@ -12,6 +11,7 @@ import com.dondeloexan.data.remote.mapper.toStreamingAvailability
 import com.dondeloexan.domain.model.SeriesItem
 import com.dondeloexan.domain.repository.DiscoverRepository
 import com.dondeloexan.domain.repository.SeriesRepository
+import com.dondeloexan.domain.repository.TrackingRepository
 import com.dondeloexan.util.AppLogger
 import com.dondeloexan.util.BatchCancelledException
 import com.dondeloexan.util.RefreshCoordinator
@@ -23,14 +23,14 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
-import java.time.LocalDate
 
 class SeriesRepositoryImpl(
     private val tvShowDao: TvShowDao,
     private val tvShowProgressDao: TvShowProgressDao,
     private val tmdbApi: TmdbApi,
     private val refreshCoordinator: RefreshCoordinator,
-    private val discoverRepository: DiscoverRepository
+    private val discoverRepository: DiscoverRepository,
+    private val trackingRepository: TrackingRepository
 ) : SeriesRepository {
 
     override val all: Flow<List<SeriesItem>> = combine(
@@ -53,21 +53,16 @@ class SeriesRepositoryImpl(
         tvShowDao.getById(id)?.let { tvShowDao.delete(it) }
     }
 
+    /**
+     * El listado delega en la MISMA ruta que el detalle
+     * ([TrackingRepository.setSeriesWatchedById]) para que marcar/desmarcar una
+     * serie haga exactamente lo mismo desde cualquier pantalla.
+     */
     override suspend fun toggleWatched(id: Long): Boolean {
         val show = tvShowDao.getById(id) ?: return false
         val wasWatched = show.status == WatchStatus.YA_VISTA
-        return if (wasWatched) {
-            tvShowProgressDao.deleteByTvShowId(show.id)
-            tvShowDao.update(show.copy(status = WatchStatus.POR_VER, lastWatchedAt = null))
-            false
-        } else {
-            val progressToInsert = collectAiredEpisodes(show)
-            if (progressToInsert.isNotEmpty()) {
-                tvShowProgressDao.insertAll(progressToInsert)
-            }
-            tvShowDao.update(show.copy(status = WatchStatus.YA_VISTA, lastWatchedAt = System.currentTimeMillis()))
-            true
-        }
+        trackingRepository.setSeriesWatchedById(show.id, !wasWatched)
+        return !wasWatched
     }
 
     override suspend fun refreshData() {
@@ -154,47 +149,6 @@ class SeriesRepositoryImpl(
                 AppLogger.e("SeriesRepo", "reconcileAllLibrarySeries falló", e)
             }
         }
-    }
-
-    private suspend fun collectAiredEpisodes(show: TvShowEntity): List<TvShowProgressEntity> {
-        val progressToInsert = mutableListOf<TvShowProgressEntity>()
-        val tmdbId = show.tmdbId ?: return progressToInsert
-        try {
-            val detail = tmdbApi.getTvDetailLight(tmdbId)
-            val seasons = detail.seasons.orEmpty().filter { it.seasonNumber > 0 }
-            if (detail.numberOfEpisodes != null && detail.numberOfEpisodes > 0) {
-                tvShowDao.update(show.copy(totalEpisodes = detail.numberOfEpisodes))
-            }
-            val today = LocalDate.now()
-            for (season in seasons) {
-                try {
-                    val seasonDetail = tmdbApi.getTvSeason(tmdbId, season.seasonNumber)
-                    for (ep in seasonDetail.episodes) {
-                        val isAired = ep.airDate == null ||
-                            try { !LocalDate.parse(ep.airDate).isAfter(today) }
-                            catch (e: Exception) {
-                                AppLogger.w("SeriesRepo", "parse airDate falló: ${ep.airDate} (${e.message})")
-                                true
-                            }
-                        if (isAired) {
-                            progressToInsert.add(
-                                TvShowProgressEntity(tvShowId = show.id, season = season.seasonNumber, episode = ep.episodeNumber)
-                            )
-                        }
-                    }
-                } catch (e: Exception) {
-                    AppLogger.e("SeriesRepo", "season ${season.seasonNumber} for show ${show.id}", e)
-                    for (epNum in 1..season.episodeCount) {
-                        progressToInsert.add(
-                            TvShowProgressEntity(tvShowId = show.id, season = season.seasonNumber, episode = epNum)
-                        )
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            AppLogger.e("SeriesRepo", "mark watched detail error for show ${show.id}", e)
-        }
-        return progressToInsert
     }
 
     private fun TvShowEntity.toItem(watchedCount: Int, lastWatchedAt: Long?): SeriesItem = SeriesItem(

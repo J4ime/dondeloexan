@@ -16,7 +16,10 @@ import androidx.room.PrimaryKey
             onDelete = ForeignKey.CASCADE
         )
     ],
-    indices = [Index("tv_show_id")]
+    indices = [
+        Index("tv_show_id"),
+        Index(value = ["tv_show_id", "season", "episode"], unique = true)
+    ]
 )
 data class TvShowProgressEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,

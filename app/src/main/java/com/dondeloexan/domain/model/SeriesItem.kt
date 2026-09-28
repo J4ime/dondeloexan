@@ -28,22 +28,18 @@ data class SeriesItem(
     val streamingPlatforms: List<StreamingAvailability> = emptyList(),
     val lastWatchedAt: Long? = null
 ) {
-    fun hasFutureSeasons(): Boolean = when (seriesStatus) {
-        "Ended", "Canceled" -> false
-        null -> inProduction != false
-        else -> true
-    }
+    fun hasFutureSeasons(): Boolean = hasFutureSeasonsFor(seriesStatus, inProduction)
 
-    fun isCaughtUp(): Boolean {
-        val aired = releasedEpisodes
-        if (aired != null) return aired > 0 && watchedCount >= aired
-        val total = totalEpisodes ?: return false
-        if (!hasFutureSeasons()) return total > 0 && watchedCount >= total
-        return false
-    }
+    /** Estado según la regla única de dominio (ver [seriesStateFor]). */
+    fun state(): SeriesState = seriesStateFor(
+        releasedEpisodes = releasedEpisodes,
+        totalEpisodes = totalEpisodes,
+        seriesStatus = seriesStatus,
+        inProduction = inProduction,
+        watchedCount = watchedCount
+    )
 
-    fun isFinished(): Boolean {
-        if (!isCaughtUp()) return false
-        return !hasFutureSeasons()
-    }
+    fun isCaughtUp(): Boolean = state() != SeriesState.EN_CURSO
+
+    fun isFinished(): Boolean = state() == SeriesState.TERMINADA
 }

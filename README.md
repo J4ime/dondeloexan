@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-2.7.58-EC407A?style=for-the-badge&labelColor=1a1a2e" alt="Version"/>
+  <img src="https://img.shields.io/badge/version-2.7.62-EC407A?style=for-the-badge&labelColor=1a1a2e" alt="Version"/>
   <img src="https://img.shields.io/badge/platform-Android-66BB6A?style=for-the-badge&labelColor=1a1a2e&logo=android" alt="Platform"/>
   <img src="https://img.shields.io/badge/Kotlin-7F52FF?style=for-the-badge&labelColor=1a1a2e&logo=kotlin&logoColor=white" alt="Kotlin"/>
   <img src="https://img.shields.io/badge/DDD_Clean_Arch-FF6F00?style=for-the-badge&labelColor=1a1a2e" alt="Architecture"/>

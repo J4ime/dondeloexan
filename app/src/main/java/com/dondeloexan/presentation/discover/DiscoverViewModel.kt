@@ -72,9 +72,15 @@ class DiscoverViewModel(
     private var cachedResults = listOf<ContentPreview>()
     private var lastCompanySearchResults: List<CompanySearchResult> = emptyList()
     private var filmographyCache = listOf<ContentPreview>()
+    private var filmographyRaw = listOf<ContentPreview>()
     private var filmographyPage = 0
+    private var filmographyEnrichJob: Job? = null
     private var searchJob: Job? = null
     private var trendingJob: Job? = null
+
+    private companion object {
+        const val FILMOGRAPHY_PAGE_SIZE = 20
+    }
 
     private val _isLoadingMore = MutableStateFlow(false)
     val isLoadingMore: StateFlow<Boolean> = _isLoadingMore.asStateFlow()
@@ -113,12 +119,16 @@ class DiscoverViewModel(
     val filmographyView: StateFlow<FilmographyView?> = _filmographyView.asStateFlow()
 
     fun onFilmographyBack() {
+        filmographyEnrichJob?.cancel()
+        filmographyEnrichJob = null
         _filmographyView.value = null
     }
 
     fun onSelectEntity(entity: FilmographyEntity) {
         _filmographyView.value = FilmographyView(entity = entity, isLoading = true)
         filmographyPage = 0
+        filmographyCache = emptyList()
+        filmographyRaw = emptyList()
         viewModelScope.launch {
             val blacklisted = blacklistedIds.value
             val raw = when (entity.type) {
@@ -149,7 +159,6 @@ class DiscoverViewModel(
                                     else -> movieCredits.cast.orEmpty() + movieCredits.crew.orEmpty()
                                 }
                                 filtered
-                                    .filter { it.releaseDate != null }
                                     .distinctBy { it.id }
                                     .map { it.toContentPreview(forceType = com.dondeloexan.domain.model.ContentType.MOVIE) }
                             } else emptyList()
@@ -160,7 +169,6 @@ class DiscoverViewModel(
                                     else -> tvCredits.cast.orEmpty() + tvCredits.crew.orEmpty()
                                 }
                                 filtered
-                                    .filter { it.firstAirDate != null }
                                     .distinctBy { it.id }
                                     .map { it.toContentPreview(forceType = com.dondeloexan.domain.model.ContentType.SERIES) }
                             } else emptyList()
@@ -194,35 +202,86 @@ class DiscoverViewModel(
             }
 
             val filtered = raw.filter { it.id !in blacklisted }
-            filmographyCache = discoverRepository.fetchPlatforms(filtered)
+            // Se pinta la primera página YA (sin esperar a las plataformas, que
+            // para filmografías largas son cientos de peticiones a TMDB) y se
+            // enriquece en segundo plano página a página.
+            filmographyRaw = filtered
             filmographyPage = 1
-            val pageSize = 10
-            val shown = filmographyCache.take(pageSize)
+            val shown = filmographyRaw.take(FILMOGRAPHY_PAGE_SIZE)
             _filmographyView.value = FilmographyView(
                 entity = entity,
                 movies = shown,
                 isLoading = false,
-                hasMore = filmographyCache.size > pageSize,
-                totalCount = filmographyCache.size
+                hasMore = filmographyRaw.size > shown.size,
+                totalCount = filmographyRaw.size
             )
+            enrichFilmography(entity)
         }
+    }
+
+    /**
+     * Enriquecimiento progresivo: sólo se piden las plataformas de las páginas ya
+     * visibles y se van añadiendo a medida que el usuario carga más.
+     */
+    private fun enrichFilmography(entity: FilmographyEntity) {
+        filmographyEnrichJob?.cancel()
+        filmographyEnrichJob = viewModelScope.launch {
+            try {
+                val target = filmographyRaw.take(filmographyPage * FILMOGRAPHY_PAGE_SIZE)
+                val enriched = discoverRepository.fetchPlatforms(target)
+                val current = _filmographyView.value ?: return@launch
+                if (current.entity.id != entity.id) return@launch
+                filmographyCache = enriched
+                val displayed = filmographyDisplay()
+                _filmographyView.value = current.copy(
+                    movies = displayed,
+                    isLoadingMore = false,
+                    hasMore = filmographyRaw.size > displayed.size,
+                    totalCount = filmographyRaw.size
+                )
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                AppLogger.e("DiscoverVM", "enriquecimiento de filmografía falló", e)
+                val current = _filmographyView.value ?: return@launch
+                _filmographyView.value = current.copy(
+                    isLoadingMore = false,
+                    error = "No se pudieron cargar las plataformas"
+                )
+            }
+        }
+    }
+
+    /**
+     * Página actual construida SIEMPRE sobre la filmografía completa
+     * ([filmographyRaw]), sustituyendo cada crédito por su versión enriquecida
+     * cuando ya está disponible. Así el orden y el total nunca se recortan.
+     */
+    private fun filmographyDisplay(): List<ContentPreview> {
+        val target = filmographyRaw.take(filmographyPage * FILMOGRAPHY_PAGE_SIZE)
+        if (filmographyCache.isEmpty()) return target
+        val byId = filmographyCache.associateBy { it.id }
+        return target.map { byId[it.id] ?: it }
     }
 
     fun onFilmographyLoadMore() {
         val view = _filmographyView.value ?: return
-        if (!view.hasMore || view.isLoading) return
+        if (!view.hasMore || view.isLoading || view.isLoadingMore) return
         filmographyPage++
-        val pageSize = 10
-        val shown = filmographyCache.take(filmographyPage * pageSize)
+        val merged = filmographyDisplay()
         _filmographyView.value = view.copy(
-            movies = shown,
-            isLoading = false,
-            hasMore = shown.size < filmographyCache.size
+            movies = merged,
+            isLoadingMore = true,
+            hasMore = filmographyRaw.size > merged.size,
+            totalCount = filmographyRaw.size
         )
+        enrichFilmography(view.entity)
     }
 
     fun onSearchQueryChanged(query: String) {
         _searchQuery.value = query
+        filmographyEnrichJob?.cancel()
+        filmographyEnrichJob = null
         _filmographyView.value = null
 
         if (query.isBlank() || query.length < 3) {
@@ -663,6 +722,8 @@ data class FilmographyView(
     val entity: FilmographyEntity,
     val movies: List<ContentPreview>? = null,
     val isLoading: Boolean = false,
+    val isLoadingMore: Boolean = false,
     val hasMore: Boolean = false,
-    val totalCount: Int = 0
+    val totalCount: Int = 0,
+    val error: String? = null
 )
