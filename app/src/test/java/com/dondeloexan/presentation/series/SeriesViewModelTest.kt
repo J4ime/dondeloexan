@@ -230,9 +230,9 @@ class SeriesViewModelTest {
             title = "Babylon Berlin",
             isLiked = false,
             isWatched = true,
-            releasedEpisodes = 24,
+            releasedEpisodes = 32,
             totalEpisodes = 32,
-            watchedCount = 24,
+            watchedCount = 32,
             seriesStatus = "Ended",
             inProduction = false,
             pendingEsSeason = 5,
@@ -243,5 +243,33 @@ class SeriesViewModelTest {
         val finished = stateValue(viewModel.finished)
         assert(finished.size == 1)
         assert(finished[0].id == 7L)
+    }
+
+    /**
+     * Sin el dato de estreno en España, Babylon Berlin tiene 24 capítulos
+     * emitidos de 32: hay 8 por estrenar, así que no está terminada aunque el
+     * usuario la haya visto entera.
+     */
+    @Test
+    fun `serie con capitulos por estrenar no aparece en terminadas`() = runTest {
+        val item = SeriesItem(
+            id = 8,
+            title = "Babylon Berlin",
+            isLiked = false,
+            isWatched = true,
+            releasedEpisodes = 24,
+            totalEpisodes = 32,
+            watchedCount = 24,
+            seriesStatus = "Ended",
+            inProduction = false
+        )
+        stubSeries(listOf(item))
+
+        val finished = stateValue(viewModel.finished)
+        val agenda = stateValue(viewModel.upcomingAgenda)
+
+        assert(finished.isEmpty())
+        assert(agenda.size == 1)
+        assert(agenda[0].id == 8L)
     }
 }

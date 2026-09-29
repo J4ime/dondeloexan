@@ -48,8 +48,6 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.dondeloexan.domain.model.SeriesState
 import com.dondeloexan.domain.model.StreamingAvailability
-import com.dondeloexan.domain.model.hasFutureSeasonsFor
-import com.dondeloexan.domain.model.isFinalEpisodeWatched
 import com.dondeloexan.domain.model.seriesStateFor
 import com.dondeloexan.presentation.theme.DarkSurfaceVariant
 import com.dondeloexan.presentation.theme.EleganteRose
@@ -201,20 +199,13 @@ fun LibraryItemCard(
                 ?: spanishReleaseDate.takeIf { pendingInSpain }
             val nextSeasonNumber = nextEpisodeSeasonNumber ?: pendingEsSeason.takeIf { pendingInSpain }
             val nextEpisode = nextEpisodeNumber ?: if (nextAirDate != null) 1 else null
-            // "Capítulo final" = serie terminada y vista entera. Depender de que
-            // exista un próximo capítulo en TMDB lo pintaba en Babylon Berlin.
-            val isFinalEpisode = isFinalEpisodeWatched(
-                releasedEpisodes = releasedEpisodes,
-                totalEpisodes = totalEpisodes,
-                watchedCount = watchedCount,
-                hasFuture = hasFutureSeasonsFor(seriesStatus, inProduction) || pendingInSpain
-            )
 
-            if (isFinalEpisode || isFinished) {
+            // "Terminada" ya significa "vista entera y sin más temporadas", que es
+            // justo lo que decía el badge "Capítulo Final": se elimina por duplicado.
+            if (isFinished) {
                 Spacer(Modifier.height(4.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    if (isFinalEpisode) FinalEpisodeBadge()
-                    if (isFinished) FinishedBadge()
+                    FinishedBadge()
                 }
             }
 
@@ -374,23 +365,6 @@ fun LibraryItemCard(
                 )
             }
         }
-    }
-}
-
-@Composable
-private fun FinalEpisodeBadge() {
-    Surface(
-        shape = RoundedCornerShape(4.dp),
-        color = Color(0xFFFF8F00).copy(alpha = 0.85f)
-    ) {
-        Text(
-            text = "Capítulo Final",
-            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-            style = UbuntuTypography.labelSmall,
-            color = Color.White,
-            fontSize = 9.sp,
-            fontWeight = FontWeight.Bold
-        )
     }
 }
 

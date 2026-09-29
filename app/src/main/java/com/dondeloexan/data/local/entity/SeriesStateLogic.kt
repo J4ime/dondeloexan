@@ -2,6 +2,7 @@ package com.dondeloexan.data.local.entity
 
 import com.dondeloexan.domain.model.SeriesState
 import com.dondeloexan.domain.model.hasFutureSeasonsFor
+import com.dondeloexan.domain.model.hasUnreleasedEpisodes
 import com.dondeloexan.domain.model.seriesStateFor
 import java.time.LocalDate
 
@@ -20,7 +21,8 @@ import java.time.LocalDate
  *     y la recolocará.
  */
 fun TvShowEntity.hasFutureSeasons(): Boolean =
-    hasFutureSeasonsFor(seriesStatus, inProduction) || pendingSpanishSeason() != null
+    hasFutureSeasonsFor(seriesStatus, inProduction) || pendingSpanishSeason() != null ||
+            hasUnreleasedEpisodes(releasedEpisodes, totalEpisodes)
 
 /**
  * Temporada que NO debe contar como emitida porque su estreno en España sigue

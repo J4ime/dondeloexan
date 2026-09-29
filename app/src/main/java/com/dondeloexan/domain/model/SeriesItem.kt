@@ -45,7 +45,8 @@ data class SeriesItem(
     fun isPendingInSpain(): Boolean = pendingSpanishSeasonNumber() != null
 
     fun hasFutureSeasons(): Boolean =
-        hasFutureSeasonsFor(seriesStatus, inProduction) || isPendingInSpain()
+        hasFutureSeasonsFor(seriesStatus, inProduction) || isPendingInSpain() ||
+                hasUnreleasedEpisodes(releasedEpisodes, totalEpisodes)
 
     /** Estado según la regla única de dominio (ver [seriesStateFor]). */
     fun state(): SeriesState = seriesStateFor(

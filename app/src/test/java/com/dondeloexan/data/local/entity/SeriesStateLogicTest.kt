@@ -113,7 +113,7 @@ class SeriesStateLogicTest {
     @Test
     fun `al estrenarse en Espana la temporada vuelve a contar como emitida`() {
         val serie = show(
-            released = 24,
+            released = 32,
             total = 32,
             status = "Ended",
             inProduction = false,
@@ -122,13 +122,12 @@ class SeriesStateLogicTest {
         )
         assertNull(serie.pendingSpanishSeason())
         assertFalse(serie.hasFutureSeasons())
-        assertEquals("TERMINADA", serie.stateLabel(24))
     }
 
     @Test
     fun `sin fecha espanola la temporada pendiente no inventa futuro`() {
         val serie = show(
-            released = 24,
+            released = 32,
             total = 32,
             status = "Ended",
             inProduction = false,
@@ -136,5 +135,26 @@ class SeriesStateLogicTest {
         )
         assertNull(serie.pendingSpanishSeason())
         assertFalse(serie.hasFutureSeasons())
+    }
+
+    /**
+     * "Terminada" SOLO si el usuario ha visto el capítulo final. Babylon Berlin sin
+     * el dato de España (p. ej. si falla Filmaffinity) tiene 24 capítulos
+     * emitidos de 32: hay 8 por estrenar, así que NO está terminada aunque el
+     * usuario los haya visto todos.
+     */
+    @Test
+    fun `quedan capitulos por estrenar no es TERMINADA aunque los veas todos`() {
+        val serie = show(released = 24, total = 32, status = "Ended", inProduction = false)
+        assertTrue(serie.isCaughtUpBy(24))
+        assertFalse(serie.isFinishedBy(24))
+        assertEquals("AL_DIA", serie.stateLabel(24))
+    }
+
+    @Test
+    fun `sin total conocido se considera terminada si no hay futuro y esta vista`() {
+        val serie = show(released = 8, total = null, status = "Ended", inProduction = false)
+        assertTrue(serie.isFinishedBy(8))
+        assertEquals("TERMINADA", serie.stateLabel(8))
     }
 }

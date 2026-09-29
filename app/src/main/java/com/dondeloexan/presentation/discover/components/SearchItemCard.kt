@@ -46,7 +46,6 @@ import coil.request.ImageRequest
 import com.dondeloexan.domain.model.ContentPreview
 import com.dondeloexan.domain.model.ContentType
 import com.dondeloexan.domain.model.StreamingAvailability
-import com.dondeloexan.domain.model.isFinalEpisodeWatched
 import com.dondeloexan.presentation.theme.DarkSurfaceVariant
 import com.dondeloexan.presentation.theme.EleganteRose
 import com.dondeloexan.presentation.theme.EleganteRoseLight
@@ -74,8 +73,6 @@ fun SearchItemCard(
     isBlacklisted: Boolean = false,
     watchedCount: Int = 0,
     totalEpisodes: Int? = null,
-    nextEpisodeAirDate: String? = null,
-    inProduction: Boolean? = null,
     onFavoriteClick: () -> Unit = {},
     onWatchedClick: () -> Unit = {},
     onAddClick: () -> Unit = {},
@@ -150,17 +147,7 @@ fun SearchItemCard(
                 val isFinished = content.type.name == "SERIES" &&
                         totalEpisodes != null && totalEpisodes > 0 &&
                         watchedCount >= totalEpisodes
-                // Misma regla que en la biblioteca: "Capítulo final" solo si la
-                // serie terminó y el usuario la ha visto entera.
-                val isFinalEpisode = content.type.name == "SERIES" &&
-                        isFinalEpisodeWatched(
-                            releasedEpisodes = totalEpisodes,
-                            totalEpisodes = totalEpisodes,
-                            watchedCount = watchedCount,
-                            hasFuture = inProduction != false
-                        )
 
-                if (isFinalEpisode) FinalEpisodeChip()
                 if (isFinished) FinishedChip()
 
                 Spacer(Modifier.weight(1f))
@@ -525,23 +512,6 @@ fun PlatformLogoRow(
                 fontSize = 11.sp
             )
         }
-    }
-}
-
-@Composable
-private fun FinalEpisodeChip() {
-    Surface(
-        shape = RoundedCornerShape(4.dp),
-        color = Color(0xFFFF8F00).copy(alpha = 0.85f)
-    ) {
-        Text(
-            text = "Capítulo Final",
-            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
-            style = UbuntuTypography.labelSmall,
-            color = Color.White,
-            fontSize = 9.sp,
-            fontWeight = FontWeight.Bold
-        )
     }
 }
 

@@ -26,6 +26,15 @@ fun hasFutureSeasonsFor(seriesStatus: String?, inProduction: Boolean?): Boolean 
     else -> true
 }
 
+/**
+ * Quedan capítulos POR ESTRENAR: la serie tiene contenido futuro aunque TMDB la
+ * marque como "Ended" (caso típico: una temporada que aún no ha llegado a España,
+ * como la T5 de Babylon Berlin, 24 emitidos de 32). Sin contar esto, una serie
+ * vista del todo caería en "Terminada" y además en ninguna pestaña.
+ */
+fun hasUnreleasedEpisodes(releasedEpisodes: Int?, totalEpisodes: Int?): Boolean =
+    releasedEpisodes != null && totalEpisodes != null && releasedEpisodes < totalEpisodes
+
 fun seriesStateFor(
     releasedEpisodes: Int?,
     totalEpisodes: Int?,
@@ -35,7 +44,8 @@ fun seriesStateFor(
     /** true si hay una temporada pendiente de estreno en España. */
     pendingFuture: Boolean = false
 ): SeriesState {
-    val hasFuture = hasFutureSeasonsFor(seriesStatus, inProduction) || pendingFuture
+    val hasFuture = hasFutureSeasonsFor(seriesStatus, inProduction) || pendingFuture ||
+            hasUnreleasedEpisodes(releasedEpisodes, totalEpisodes)
     val caughtUp = if (releasedEpisodes != null) {
         releasedEpisodes > 0 && watchedCount >= releasedEpisodes
     } else {
@@ -44,30 +54,10 @@ fun seriesStateFor(
     }
     return when {
         !caughtUp -> SeriesState.EN_CURSO
+        // TERMINADA = el usuario ha visto el capítulo final: todos los capítulos
+        // emitidos, todos vistos y sin nada más por delante. Si queda algo por
+        // estrenar (24 de 32) o por ver, no está terminada.
         hasFuture -> SeriesState.AL_DIA
         else -> SeriesState.TERMINADA
     }
-}
-
-/**
- * Regla ÚNICA del badge "Capítulo final": solo aparece cuando la serie **ha
- * terminado** y el usuario **ha visto todos sus capítulos**.
- *
- * No basta con que quede un próximo capítulo en TMDB ni con que la serie esté
- * "al día": mientras quede algún capítulo sin estrenar ([releasedEpisodes] por
- * debajo del total) o sin ver, el badge no se pinta. Así una serie con una
- * temporada pendiente de estreno en España (Babylon Berlin T5) no lo muestra.
- */
-fun isFinalEpisodeWatched(
-    releasedEpisodes: Int?,
-    totalEpisodes: Int?,
-    watchedCount: Int,
-    /** Hay temporadas futuras, incluida una pendiente de estreno en España. */
-    hasFuture: Boolean
-): Boolean {
-    if (hasFuture) return false
-    val released = releasedEpisodes ?: totalEpisodes ?: return false
-    val total = totalEpisodes ?: released
-    if (total <= 0) return false
-    return released >= total && watchedCount >= released
 }
