@@ -48,3 +48,26 @@ fun seriesStateFor(
         else -> SeriesState.TERMINADA
     }
 }
+
+/**
+ * Regla ÚNICA del badge "Capítulo final": solo aparece cuando la serie **ha
+ * terminado** y el usuario **ha visto todos sus capítulos**.
+ *
+ * No basta con que quede un próximo capítulo en TMDB ni con que la serie esté
+ * "al día": mientras quede algún capítulo sin estrenar ([releasedEpisodes] por
+ * debajo del total) o sin ver, el badge no se pinta. Así una serie con una
+ * temporada pendiente de estreno en España (Babylon Berlin T5) no lo muestra.
+ */
+fun isFinalEpisodeWatched(
+    releasedEpisodes: Int?,
+    totalEpisodes: Int?,
+    watchedCount: Int,
+    /** Hay temporadas futuras, incluida una pendiente de estreno en España. */
+    hasFuture: Boolean
+): Boolean {
+    if (hasFuture) return false
+    val released = releasedEpisodes ?: totalEpisodes ?: return false
+    val total = totalEpisodes ?: released
+    if (total <= 0) return false
+    return released >= total && watchedCount >= released
+}

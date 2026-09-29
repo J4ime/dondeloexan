@@ -48,6 +48,8 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.dondeloexan.domain.model.SeriesState
 import com.dondeloexan.domain.model.StreamingAvailability
+import com.dondeloexan.domain.model.hasFutureSeasonsFor
+import com.dondeloexan.domain.model.isFinalEpisodeWatched
 import com.dondeloexan.domain.model.seriesStateFor
 import com.dondeloexan.presentation.theme.DarkSurfaceVariant
 import com.dondeloexan.presentation.theme.EleganteRose
@@ -179,7 +181,6 @@ fun LibraryItemCard(
                 )
             }
 
-            val airedEpisodes = releasedEpisodes ?: totalEpisodes
             // Una temporada pendiente de estreno en España no cuenta como emitida:
             // si no se pasa aquí, la serie cae en TERMINADA (p. ej. Babylon Berlin T5).
             val pendingInSpain = com.dondeloexan.domain.model.SpanishReleaseInfo
@@ -200,9 +201,14 @@ fun LibraryItemCard(
                 ?: spanishReleaseDate.takeIf { pendingInSpain }
             val nextSeasonNumber = nextEpisodeSeasonNumber ?: pendingEsSeason.takeIf { pendingInSpain }
             val nextEpisode = nextEpisodeNumber ?: if (nextAirDate != null) 1 else null
-            val isFinalEpisode = airedEpisodes != null && airedEpisodes > 0 &&
-                    nextAirDate != null && inProduction == false &&
-                    !isFinished
+            // "Capítulo final" = serie terminada y vista entera. Depender de que
+            // exista un próximo capítulo en TMDB lo pintaba en Babylon Berlin.
+            val isFinalEpisode = isFinalEpisodeWatched(
+                releasedEpisodes = releasedEpisodes,
+                totalEpisodes = totalEpisodes,
+                watchedCount = watchedCount,
+                hasFuture = hasFutureSeasonsFor(seriesStatus, inProduction) || pendingInSpain
+            )
 
             if (isFinalEpisode || isFinished) {
                 Spacer(Modifier.height(4.dp))

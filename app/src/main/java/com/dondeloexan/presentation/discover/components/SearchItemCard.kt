@@ -46,6 +46,7 @@ import coil.request.ImageRequest
 import com.dondeloexan.domain.model.ContentPreview
 import com.dondeloexan.domain.model.ContentType
 import com.dondeloexan.domain.model.StreamingAvailability
+import com.dondeloexan.domain.model.isFinalEpisodeWatched
 import com.dondeloexan.presentation.theme.DarkSurfaceVariant
 import com.dondeloexan.presentation.theme.EleganteRose
 import com.dondeloexan.presentation.theme.EleganteRoseLight
@@ -149,10 +150,15 @@ fun SearchItemCard(
                 val isFinished = content.type.name == "SERIES" &&
                         totalEpisodes != null && totalEpisodes > 0 &&
                         watchedCount >= totalEpisodes
+                // Misma regla que en la biblioteca: "Capítulo final" solo si la
+                // serie terminó y el usuario la ha visto entera.
                 val isFinalEpisode = content.type.name == "SERIES" &&
-                        totalEpisodes != null && totalEpisodes > 0 &&
-                        nextEpisodeAirDate != null && inProduction == false &&
-                        !isFinished
+                        isFinalEpisodeWatched(
+                            releasedEpisodes = totalEpisodes,
+                            totalEpisodes = totalEpisodes,
+                            watchedCount = watchedCount,
+                            hasFuture = inProduction != false
+                        )
 
                 if (isFinalEpisode) FinalEpisodeChip()
                 if (isFinished) FinishedChip()
