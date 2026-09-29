@@ -33,6 +33,29 @@ data class SpanishReleaseInfo(
     fun isoDate(): String = date.toString()
 
     companion object {
+
+        /**
+         * REGLA ÚNICA: temporada cuyo estreno en España sigue en el futuro.
+         *
+         * Devuelve [season] solo si la fecha española no ha llegado todavía; es
+         * lo que impide contar esa temporada como emitida (TMDB solo publica la
+         * fecha original, p. ej. el estreno alemán). Acepta ISO con "T" o
+         * espacio y devuelve null ante cualquier dato no parseable.
+         */
+        fun pendingSpanishReleaseSeason(
+            season: Int?,
+            isoDate: String?,
+            today: LocalDate = LocalDate.now()
+        ): Int? {
+            season ?: return null
+            val parsed = isoDate ?: return null
+            val date = try {
+                LocalDate.parse(parsed.substringBefore("T").substringBefore(" ").trim())
+            } catch (e: Exception) {
+                return null
+            }
+            return season.takeIf { date.isAfter(today) }
+        }
         val MONTHS_ES = listOf(
             "enero", "febrero", "marzo", "abril", "mayo", "junio",
             "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"

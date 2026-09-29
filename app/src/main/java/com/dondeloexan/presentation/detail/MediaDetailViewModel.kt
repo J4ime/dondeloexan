@@ -42,8 +42,8 @@ data class DetailUiState(
     val isSeriesInLibrary: Boolean? = null,
     val isSeriesFavorite: Boolean? = null,
     val isSeriesWatched: Boolean? = null,
-    /** Estreno en España detectado (Filmaffinity/búsqueda) para series. */
-    val spanishRelease: com.dondeloexan.domain.model.SpanishReleaseInfo? = null,
+    /** Estreno en España (ISO) de la temporada pendiente, para series. */
+    val spanishReleaseDate: String? = null,
     val pendingSpanishSeason: Int? = null,
     val criticReviews: List<CriticReview>? = null,
     val isCriticReviewsLoading: Boolean = false,
@@ -195,7 +195,7 @@ class MediaDetailViewModel(
             "estreno en España de '${content.title}': ${info.label()} (${info.platform ?: "-"}), temporada pendiente=${info.season}"
         )
         _uiState.value = _uiState.value.copy(
-            spanishRelease = info,
+            spanishReleaseDate = info.isoDate(),
             pendingSpanishSeason = info.season.takeIf { info.date.isAfter(today) }
         )
     }
@@ -411,6 +411,9 @@ class MediaDetailViewModel(
     private suspend fun loadSeasons(content: Content) {
         try {
             val seriesState = useCases.loadSeriesState(content)
+            // Estreno en España persistido: el detalle no depende de que Filmaffinity
+            // responda ahora (si no, la temporada por estrenar parecería emitida).
+            val pendingSeason = seriesState.tracking.pendingSpanishSeason()
             _uiState.value = _uiState.value.copy(
                 seasons = seriesState.seasons,
                 watchedEpisodes = seriesState.tracking.watchedEpisodes,
@@ -420,7 +423,13 @@ class MediaDetailViewModel(
                 seasonDetail = seriesState.seasonDetail,
                 isSeriesInLibrary = seriesState.tracking.exists,
                 isSeriesFavorite = seriesState.tracking.isFavorite,
-                isSeriesWatched = seriesState.tracking.watchedToDate
+                isSeriesWatched = seriesState.tracking.watchedToDate,
+                pendingSpanishSeason = pendingSeason,
+                spanishReleaseDate = if (pendingSeason != null) {
+                    seriesState.tracking.spanishReleaseDate
+                } else {
+                    null
+                }
             )
         } catch (e: Exception) {
             AppLogger.e("DetailVM", "Error loading seasons", e)

@@ -31,17 +31,18 @@ data class SeriesItem(
     val pendingEsSeason: Int? = null,
     val spanishReleaseDate: String? = null
 ) {
+    /**
+     * Temporada pendiente de estreno en España (Filmaffinity o búsqueda web).
+     * Se apoya en la regla única [SpanishReleaseInfo.pendingSpanishReleaseSeason].
+     */
+    val pendingSpanishDate: String? get() = spanishReleaseDate
+
+    /** Temporada pendiente de estreno en España, o null si ya se estrenó. */
+    fun pendingSpanishSeasonNumber(today: java.time.LocalDate = java.time.LocalDate.now()): Int? =
+        SpanishReleaseInfo.pendingSpanishReleaseSeason(pendingEsSeason, spanishReleaseDate, today)
+
     /** true si la temporada pendiente aún no se ha estrenado en España. */
-    fun isPendingInSpain(): Boolean {
-        pendingEsSeason ?: return false
-        val iso = spanishReleaseDate ?: return false
-        return try {
-            java.time.LocalDate.parse(iso.substringBefore("T").substringBefore(" "))
-                .isAfter(java.time.LocalDate.now())
-        } catch (e: Exception) {
-            false
-        }
-    }
+    fun isPendingInSpain(): Boolean = pendingSpanishSeasonNumber() != null
 
     fun hasFutureSeasons(): Boolean =
         hasFutureSeasonsFor(seriesStatus, inProduction) || isPendingInSpain()

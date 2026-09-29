@@ -200,7 +200,9 @@ class TrackingRepositoryImpl(
             finishedAt = tvShow.finishedAt,
             inProduction = tvShow.inProduction,
             seriesStatus = tvShow.seriesStatus,
-            nextEpisodeAirDate = tvShow.nextEpisodeAirDate
+            nextEpisodeAirDate = tvShow.nextEpisodeAirDate,
+            pendingEsSeason = tvShow.pendingEsSeason,
+            spanishReleaseDate = tvShow.spanishReleaseDate
         )
     }
 

@@ -27,16 +27,12 @@ fun TvShowEntity.hasFutureSeasons(): Boolean =
  * en el futuro ([spanishReleaseDate], obtenida de Filmaffinity o de la búsqueda
  * web). Devuelve null cuando ya se estrenó (o cuando no hay dato).
  */
-fun TvShowEntity.pendingSpanishSeason(today: LocalDate = LocalDate.now()): Int? {
-    val season = pendingEsSeason ?: return null
-    val iso = spanishReleaseDate ?: return null
-    val date = try {
-        LocalDate.parse(iso.substringBefore("T").substringBefore(" "))
-    } catch (e: Exception) {
-        return null
-    }
-    return season.takeIf { date.isAfter(today) }
-}
+fun TvShowEntity.pendingSpanishSeason(today: LocalDate = LocalDate.now()): Int? =
+    com.dondeloexan.domain.model.SpanishReleaseInfo.pendingSpanishReleaseSeason(
+        season = pendingEsSeason,
+        isoDate = spanishReleaseDate,
+        today = today
+    )
 
 /** Estado de la serie según la regla única de dominio. */
 fun TvShowEntity.seriesStateBy(watchedCount: Int): SeriesState = seriesStateFor(

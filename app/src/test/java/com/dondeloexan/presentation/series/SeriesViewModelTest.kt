@@ -192,4 +192,56 @@ class SeriesViewModelTest {
         assert(inProgress[0].id == 22L)
         assert(inProgress[1].id == 21L)
     }
+
+    /**
+     * Babylon Berlin: T5 estrenada en Alemania, en España el 06/11/2026. Con la
+     * fecha española en el futuro no debe caer en la pestaña "Terminadas" aunque
+     * TMDB marque la serie como "Ended" y el usuario la haya visto entera.
+     */
+    @Test
+    fun `serie con temporada pendiente de estreno en Espana no aparece en terminadas`() = runTest {
+        val item = SeriesItem(
+            id = 6,
+            title = "Babylon Berlin",
+            isLiked = false,
+            isWatched = true,
+            releasedEpisodes = 24,
+            totalEpisodes = 32,
+            watchedCount = 24,
+            seriesStatus = "Ended",
+            inProduction = false,
+            pendingEsSeason = 5,
+            spanishReleaseDate = "2099-11-06"
+        )
+        stubSeries(listOf(item))
+
+        val finished = stateValue(viewModel.finished)
+        val agenda = stateValue(viewModel.upcomingAgenda)
+
+        assert(finished.isEmpty())
+        assert(agenda.size == 1)
+        assert(agenda[0].id == 6L)
+    }
+
+    @Test
+    fun `al estrenarse en Espana la serie vuelve a la pestaña de terminadas`() = runTest {
+        val item = SeriesItem(
+            id = 7,
+            title = "Babylon Berlin",
+            isLiked = false,
+            isWatched = true,
+            releasedEpisodes = 24,
+            totalEpisodes = 32,
+            watchedCount = 24,
+            seriesStatus = "Ended",
+            inProduction = false,
+            pendingEsSeason = 5,
+            spanishReleaseDate = "2020-11-06"
+        )
+        stubSeries(listOf(item))
+
+        val finished = stateValue(viewModel.finished)
+        assert(finished.size == 1)
+        assert(finished[0].id == 7L)
+    }
 }

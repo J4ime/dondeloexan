@@ -84,6 +84,8 @@ fun LibraryItemCard(
     @Suppress("UNUSED_PARAMETER") numberOfSeasons: Int? = null,
     releaseDate: String? = null,
     spanishReleaseDate: String? = null,
+    /** Temporada pendiente de estreno en España (no cuenta como emitida). */
+    pendingEsSeason: Int? = null,
     isLiked: Boolean = false,
     isWatched: Boolean,
     isSeries: Boolean = false,
@@ -178,17 +180,28 @@ fun LibraryItemCard(
             }
 
             val airedEpisodes = releasedEpisodes ?: totalEpisodes
+            // Una temporada pendiente de estreno en España no cuenta como emitida:
+            // si no se pasa aquí, la serie cae en TERMINADA (p. ej. Babylon Berlin T5).
+            val pendingInSpain = com.dondeloexan.domain.model.SpanishReleaseInfo
+                .pendingSpanishReleaseSeason(pendingEsSeason, spanishReleaseDate) != null
             val state = seriesStateFor(
                 releasedEpisodes = releasedEpisodes,
                 totalEpisodes = totalEpisodes,
                 seriesStatus = seriesStatus,
                 inProduction = inProduction,
-                watchedCount = watchedCount
+                watchedCount = watchedCount,
+                pendingFuture = pendingInSpain
             )
             val isCaughtUp = state != SeriesState.EN_CURSO
             val isFinished = state == SeriesState.TERMINADA
+            // Si TMDB no publica próximo episodio (la temporada ya "terminó" en su
+            // país), la fecha de estreno en España es la fecha del próximo capítulo.
+            val nextAirDate = nextEpisodeAirDate
+                ?: spanishReleaseDate.takeIf { pendingInSpain }
+            val nextSeasonNumber = nextEpisodeSeasonNumber ?: pendingEsSeason.takeIf { pendingInSpain }
+            val nextEpisode = nextEpisodeNumber ?: if (nextAirDate != null) 1 else null
             val isFinalEpisode = airedEpisodes != null && airedEpisodes > 0 &&
-                    nextEpisodeAirDate != null && inProduction == false &&
+                    nextAirDate != null && inProduction == false &&
                     !isFinished
 
             if (isFinalEpisode || isFinished) {
@@ -236,12 +249,12 @@ fun LibraryItemCard(
                 }
             }
 
-            if (nextEpisodeAirDate != null || (state == SeriesState.AL_DIA)) {
+            if (nextAirDate != null || (state == SeriesState.AL_DIA)) {
                 Spacer(Modifier.height(4.dp))
                 NextEpisodeLabel(
-                    airDate = nextEpisodeAirDate,
-                    season = nextEpisodeSeasonNumber,
-                    episode = nextEpisodeNumber,
+                    airDate = nextAirDate,
+                    season = nextSeasonNumber,
+                    episode = nextEpisode,
                     isCaughtUp = isCaughtUp
                 )
             }
@@ -472,6 +485,38 @@ private fun PlatformBadgeRow(platforms: List<StreamingAvailability>, maxVisible:
     }
 }
 
+/**
+ * Texto del próximo capítulo/temporada. Función pura (sin Compose ni reloj) para
+ * poder testearla: devuelve null si la fecha ya pasó o no es parseable.
+ */
+internal fun nextEpisodeLabel(
+    airDate: String?,
+    episode: Int?,
+    isCaughtUp: Boolean,
+    today: LocalDate = LocalDate.now()
+): String? {
+    if (airDate == null) return null
+    val startsSeason = episode == 1 || (episode == null && isCaughtUp)
+    return try {
+        val date = LocalDate.parse(airDate)
+        val days = ChronoUnit.DAYS.between(today, date)
+        when {
+            days < 0 -> null
+            days == 0L -> if (startsSeason) "¡Hoy nueva temporada!" else "¡Hoy nuevo episodio!"
+            days == 1L -> if (startsSeason) "Mañana nueva temporada" else "Mañana nuevo episodio"
+            days <= 7 -> if (startsSeason) "Próxima temporada en $days días" else "Próximo en $days días"
+            else -> if (startsSeason) {
+                "Próxima temporada: ${date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}"
+            } else {
+                "Próximo: ${date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}"
+            }
+        }
+    } catch (e: Exception) {
+        AppLogger.e("LibraryItemCard", "nextEpisodeLabel: $airDate", e)
+        null
+    }
+}
+
 @Composable
 private fun NextEpisodeLabel(
     airDate: String?,
@@ -503,23 +548,8 @@ private fun NextEpisodeLabel(
 
     if (airDate == null) return
 
-    val startsSeason = episode == 1 || (episode == null && isCaughtUp)
-    val label = remember(airDate) {
-        try {
-            val date = LocalDate.parse(airDate)
-            val now = LocalDate.now()
-            val days = ChronoUnit.DAYS.between(now, date)
-            when {
-                days < 0 -> null
-                days == 0L -> if (startsSeason) "¡Hoy nueva temporada!" else "¡Hoy nuevo episodio!"
-                days == 1L -> if (startsSeason) "Mañana nueva temporada" else "Mañana nuevo episodio"
-                days <= 7 -> if (startsSeason) "Próxima temporada en $days días" else "Próximo en $days días"
-                else -> if (startsSeason) "Próxima temporada: ${date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}" else "Próximo: ${date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}"
-            }
-        } catch (e: Exception) {
-            AppLogger.e("LibraryItemCard", "nextEpisodeLabel: $airDate", e)
-            null
-        }
+    val label = remember(airDate, episode, isCaughtUp) {
+        nextEpisodeLabel(airDate, episode, isCaughtUp)
     }
     val seasonEpisode = if (season != null && episode != null) "T${season}E$episode" else null
 

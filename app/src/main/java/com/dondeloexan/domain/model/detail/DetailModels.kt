@@ -45,8 +45,22 @@ data class SeriesTracking(
     val finishedAt: Long? = null,
     val inProduction: Boolean? = null,
     val seriesStatus: String? = null,
-    val nextEpisodeAirDate: String? = null
+    val nextEpisodeAirDate: String? = null,
+    /** Temporada pendiente de estreno en España (persistida, no depende de la red). */
+    val pendingEsSeason: Int? = null,
+    /** Fecha ISO del estreno en España de esa temporada. */
+    val spanishReleaseDate: String? = null
 ) {
+    /**
+     * Temporada pendiente solo si su fecha española sigue en el futuro (regla
+     * única): mientras tanto no cuenta como emitida.
+     */
+    fun pendingSpanishSeason(today: java.time.LocalDate = java.time.LocalDate.now()): Int? =
+        com.dondeloexan.domain.model.SpanishReleaseInfo.pendingSpanishReleaseSeason(
+            season = pendingEsSeason,
+            isoDate = spanishReleaseDate,
+            today = today
+        )
     fun isEpisodeWatched(season: Int, episode: Int): Boolean =
         watchedEpisodes.contains("S${season}E${episode}")
 

@@ -2,6 +2,7 @@ package com.dondeloexan.data.local.entity
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -11,7 +12,9 @@ class SeriesStateLogicTest {
         released: Int? = 10,
         total: Int? = 10,
         status: String? = "Returning Series",
-        inProduction: Boolean? = true
+        inProduction: Boolean? = true,
+        pendingEsSeason: Int? = null,
+        spanishReleaseDate: String? = null
     ) = TvShowEntity(
         id = 1,
         title = "Serie",
@@ -19,7 +22,9 @@ class SeriesStateLogicTest {
         releasedEpisodes = released,
         totalEpisodes = total,
         seriesStatus = status,
-        inProduction = inProduction
+        inProduction = inProduction,
+        pendingEsSeason = pendingEsSeason,
+        spanishReleaseDate = spanishReleaseDate
     )
 
     @Test
@@ -81,5 +86,55 @@ class SeriesStateLogicTest {
         assertTrue(serie.hasFutureSeasons())
         assertTrue(serie.isCaughtUpBy(10))
         assertEquals("AL_DIA", serie.stateLabel(10))
+    }
+
+    /**
+     * Babylon Berlin: la T5 solo se ha estrenado en Alemania; en España
+     * llega el 06/11/2026. Con la fecha española en el futuro la serie NO puede
+     * salir como TERMINADA aunque TMDB marque la serie como "Ended".
+     */
+    @Test
+    fun `temporada pendiente de estreno en Espana no es TERMINADA`() {
+        val serie = show(
+            released = 24,
+            total = 32,
+            status = "Ended",
+            inProduction = false,
+            pendingEsSeason = 5,
+            spanishReleaseDate = "2099-11-06"
+        )
+        assertEquals(5, serie.pendingSpanishSeason())
+        assertTrue(serie.hasFutureSeasons())
+        assertTrue(serie.isCaughtUpBy(24))
+        assertFalse(serie.isFinishedBy(24))
+        assertEquals("AL_DIA", serie.stateLabel(24))
+    }
+
+    @Test
+    fun `al estrenarse en Espana la temporada vuelve a contar como emitida`() {
+        val serie = show(
+            released = 24,
+            total = 32,
+            status = "Ended",
+            inProduction = false,
+            pendingEsSeason = 5,
+            spanishReleaseDate = "2020-11-06"
+        )
+        assertNull(serie.pendingSpanishSeason())
+        assertFalse(serie.hasFutureSeasons())
+        assertEquals("TERMINADA", serie.stateLabel(24))
+    }
+
+    @Test
+    fun `sin fecha espanola la temporada pendiente no inventa futuro`() {
+        val serie = show(
+            released = 24,
+            total = 32,
+            status = "Ended",
+            inProduction = false,
+            pendingEsSeason = 5
+        )
+        assertNull(serie.pendingSpanishSeason())
+        assertFalse(serie.hasFutureSeasons())
     }
 }
