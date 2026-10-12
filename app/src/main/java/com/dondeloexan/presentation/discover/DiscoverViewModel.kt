@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dondeloexan.data.remote.api.TmdbApi
 import com.dondeloexan.data.remote.mapper.toContentPreview
+import com.dondeloexan.data.remote.mapper.isFictionFilmographyEntry
 import com.dondeloexan.domain.model.ContentPreview
 import com.dondeloexan.domain.model.DataResult
 import com.dondeloexan.domain.repository.DiscoverRepository
@@ -156,6 +157,7 @@ class DiscoverViewModel(
                                     else -> movieCredits.cast.orEmpty() + movieCredits.crew.orEmpty()
                                 }
                                 filtered
+                                    .filter { it.isFictionFilmographyEntry() }
                                     .distinctBy { it.id }
                                     .map { it.toContentPreview(forceType = com.dondeloexan.domain.model.ContentType.MOVIE) }
                             } else emptyList()
@@ -166,6 +168,7 @@ class DiscoverViewModel(
                                     else -> tvCredits.cast.orEmpty() + tvCredits.crew.orEmpty()
                                 }
                                 filtered
+                                    .filter { it.isFictionFilmographyEntry() }
                                     .distinctBy { it.id }
                                     .map { it.toContentPreview(forceType = com.dondeloexan.domain.model.ContentType.SERIES) }
                             } else emptyList()

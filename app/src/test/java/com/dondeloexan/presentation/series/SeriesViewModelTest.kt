@@ -272,4 +272,43 @@ class SeriesViewModelTest {
         assert(agenda.size == 1)
         assert(agenda[0].id == 8L)
     }
+
+    /**
+     * La agenda debe ordenar por la misma "fecha efectiva" que muestra la
+     * tarjeta: la del próximo capítulo o, si la temporada está pendiente en
+     * España, la fecha española. Las fechas vacías ("") o ausentes van al final
+     * (antes se colaban al principio porque "" es menor que cualquier fecha ISO).
+     */
+    @Test
+    fun `agenda ordena por fecha efectiva y deja las series sin fecha al final`() = runTest {
+        val proximo = SeriesItem(
+            id = 1, title = "Proximo", isWatched = true,
+            releasedEpisodes = 10, totalEpisodes = 10, watchedCount = 10,
+            seriesStatus = "Returning Series", inProduction = true,
+            nextEpisodeAirDate = "2999-12-31"
+        )
+        val pendienteEs = SeriesItem(
+            id = 2, title = "Pendiente ES", isWatched = true,
+            releasedEpisodes = 24, totalEpisodes = 32, watchedCount = 24,
+            seriesStatus = "Ended", inProduction = false,
+            pendingEsSeason = 2, spanishReleaseDate = "2998-06-15"
+        )
+        val fechaVacia = SeriesItem(
+            id = 3, title = "Fecha vacia", isWatched = true,
+            releasedEpisodes = 10, totalEpisodes = 10, watchedCount = 10,
+            seriesStatus = "Returning Series", inProduction = true,
+            nextEpisodeAirDate = ""
+        )
+        val sinFecha = SeriesItem(
+            id = 4, title = "Sin fecha", isWatched = true,
+            releasedEpisodes = 10, totalEpisodes = 10, watchedCount = 10,
+            seriesStatus = "Returning Series", inProduction = true,
+            nextEpisodeAirDate = null
+        )
+        stubSeries(listOf(proximo, pendienteEs, fechaVacia, sinFecha))
+
+        val agenda = stateValue(viewModel.upcomingAgenda)
+
+        assert(agenda.map { it.id } == listOf(2L, 1L, 3L, 4L))
+    }
 }

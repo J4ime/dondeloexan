@@ -44,6 +44,20 @@ data class SeriesItem(
     /** true si la temporada pendiente aún no se ha estrenado en España. */
     fun isPendingInSpain(): Boolean = pendingSpanishSeasonNumber() != null
 
+    /**
+     * Fecha efectiva del próximo estreno para la agenda, con la misma regla que
+     * usa la tarjeta: la del próximo capítulo o, si la temporada está pendiente
+     * en España, la fecha de estreno española. Devuelve null si no hay fecha,
+     * si viene vacía/no parseable o si ya pasó (esas van al final del listado).
+     */
+    fun upcomingAirDate(today: java.time.LocalDate = java.time.LocalDate.now()): String? {
+        val raw = nextEpisodeAirDate?.takeIf { it.isNotBlank() }
+            ?: spanishReleaseDate?.takeIf { isPendingInSpain() }
+            ?: return null
+        val date = runCatching { java.time.LocalDate.parse(raw) }.getOrNull() ?: return null
+        return if (date.isBefore(today)) null else raw
+    }
+
     fun hasFutureSeasons(): Boolean =
         hasFutureSeasonsFor(seriesStatus, inProduction) || isPendingInSpain() ||
                 hasUnreleasedEpisodes(releasedEpisodes, totalEpisodes)

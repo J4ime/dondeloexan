@@ -42,6 +42,7 @@ import com.dondeloexan.data.remote.api.WikidataRelationship
 import com.dondeloexan.data.remote.dto.TmdbPersonCredit
 import com.dondeloexan.data.remote.dto.TmdbTvDetailDto
 import com.dondeloexan.data.remote.mapper.toContentPreview
+import com.dondeloexan.data.remote.mapper.isFictionFilmographyEntry
 import com.dondeloexan.data.sync.SessionStore
 import com.dondeloexan.data.sync.SyncManager
 import com.dondeloexan.data.sync.toCatalogTvShowRow as toEntityCatalogTvShowRow
@@ -886,6 +887,7 @@ class DiscoverRepositoryImpl(
         return try {
             val credits = tmdbApi.getPersonTvCredits(personId)
             (credits.cast.orEmpty() + credits.crew.orEmpty())
+                .filter { it.isFictionFilmographyEntry() }
                 .distinctBy { it.id }
                 .sortedByDescending { it.firstAirDate }
                 .map { it.toContentPreview(forceType = ContentType.SERIES) }
@@ -899,6 +901,7 @@ class DiscoverRepositoryImpl(
         return try {
             val credits = tmdbApi.getPersonMovieCredits(personId)
             (credits.cast.orEmpty() + credits.crew.orEmpty())
+                .filter { it.isFictionFilmographyEntry() }
                 .distinctBy { it.id }
                 .sortedByDescending { it.releaseDate }
                 .map { it.toContentPreview(forceType = ContentType.MOVIE) }

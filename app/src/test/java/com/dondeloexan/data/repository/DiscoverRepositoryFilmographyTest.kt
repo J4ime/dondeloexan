@@ -103,6 +103,36 @@ class DiscoverRepositoryFilmographyTest {
     }
 
     @Test
+    fun `getPersonMovieCredits filters out documentary and missing-genre credits`() = runTest {
+        val credits = listOf(
+            TmdbPersonCredit(id = 1, title = "Fiction", releaseDate = "2020-01-01", genreIds = listOf(18, 53)),
+            TmdbPersonCredit(id = 2, title = "Making Of", releaseDate = "2021-01-01", genreIds = listOf(99)),
+            TmdbPersonCredit(id = 3, title = "No Genre", releaseDate = "2019-01-01", genreIds = null)
+        )
+        coEvery { tmdbApi.getPersonMovieCredits(123) } returns TmdbPersonCreditsResponse(id = 123, cast = credits)
+
+        val result = repo.getPersonMovieCredits(123)
+
+        assert(result.map { it.title } == listOf("Fiction", "No Genre"))
+    }
+
+    @Test
+    fun `getPersonTvCredits filters out talk reality and news shows`() = runTest {
+        val credits = listOf(
+            TmdbPersonCredit(id = 1, name = "Drama", firstAirDate = "2020-01-01", genreIds = listOf(18)),
+            TmdbPersonCredit(id = 2, name = "Talk Show", firstAirDate = "2021-01-01", genreIds = listOf(10767)),
+            TmdbPersonCredit(id = 3, name = "Reality", firstAirDate = "2019-01-01", genreIds = listOf(10764)),
+            TmdbPersonCredit(id = 4, name = "News", firstAirDate = "2018-01-01", genreIds = listOf(10763)),
+            TmdbPersonCredit(id = 5, name = "No Genre", firstAirDate = "2017-01-01", genreIds = null)
+        )
+        coEvery { tmdbApi.getPersonTvCredits(123) } returns TmdbPersonCreditsResponse(id = 123, cast = credits)
+
+        val result = repo.getPersonTvCredits(123)
+
+        assert(result.map { it.title } == listOf("Drama", "No Genre"))
+    }
+
+    @Test
     fun `searchPerson returns results`() = runTest {
         val results = listOf(
             TmdbPersonSearchResult(id = 1, name = "Steven Spielberg", knownForDepartment = "Directing")

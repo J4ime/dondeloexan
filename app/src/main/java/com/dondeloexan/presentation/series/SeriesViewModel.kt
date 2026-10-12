@@ -34,7 +34,7 @@ class SeriesViewModel(
     val upcomingAgenda: StateFlow<List<SeriesItem>> = repository.all.map { list ->
         list.filter { s ->
             s.isCaughtUp() && s.hasFutureSeasons() && !s.isFinished()
-        }.sortedWith(compareBy(nullsLast<String>()) { it.nextEpisodeAirDate })
+        }.sortedWith(compareBy(nullsLast<String>()) { it.upcomingAirDate() })
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     fun refreshSeriesData() {

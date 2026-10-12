@@ -276,7 +276,8 @@ data class TmdbPersonCredit(
     @SerialName("media_type") val mediaType: String? = null,
     @SerialName("character") val character: String? = null,
     val department: String? = null,
-    val job: String? = null
+    val job: String? = null,
+    @SerialName("genre_ids") val genreIds: List<Int>? = null
 )
 
 @Serializable
