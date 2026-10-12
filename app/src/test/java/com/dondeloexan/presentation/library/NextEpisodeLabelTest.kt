@@ -10,6 +10,9 @@ import java.time.LocalDate
  * en España y TMDB sin `next_episode_to_air`, la fecha que se le pasa es la
  * española (p. ej. Babylon Berlin T5 → 06/11/2026), de modo que bajo el % de
  * episodios debe verse la fecha del estreno y no un hueco.
+ *
+ * La primera temporada es el "Estreno" de la serie; de la T2 en adelante es
+ * "Próxima temporada".
  */
 class NextEpisodeLabelTest {
 
@@ -19,7 +22,15 @@ class NextEpisodeLabelTest {
     fun `estreno lejano de una temporada nueva`() {
         assertEquals(
             "Próxima temporada: 06/11/2026",
-            nextEpisodeLabel("2026-11-06", episode = 1, isCaughtUp = true, today = today)
+            nextEpisodeLabel("2026-11-06", season = 2, episode = 1, isCaughtUp = true, today = today)
+        )
+    }
+
+    @Test
+    fun `estreno lejano de la primera temporada`() {
+        assertEquals(
+            "Estreno: 06/11/2026",
+            nextEpisodeLabel("2026-11-06", season = 1, episode = 1, isCaughtUp = false, today = today)
         )
     }
 
@@ -27,7 +38,11 @@ class NextEpisodeLabelTest {
     fun `estreno de una temporada nueva a menos de una semana`() {
         assertEquals(
             "Próxima temporada en 4 días",
-            nextEpisodeLabel("2026-10-02", episode = 1, isCaughtUp = true, today = today)
+            nextEpisodeLabel("2026-10-02", season = 2, episode = 1, isCaughtUp = true, today = today)
+        )
+        assertEquals(
+            "Estreno en 4 días",
+            nextEpisodeLabel("2026-10-02", season = 1, episode = 1, isCaughtUp = false, today = today)
         )
     }
 
@@ -35,11 +50,19 @@ class NextEpisodeLabelTest {
     fun `manana y hoy`() {
         assertEquals(
             "Mañana nueva temporada",
-            nextEpisodeLabel("2026-09-29", episode = 1, isCaughtUp = true, today = today)
+            nextEpisodeLabel("2026-09-29", season = 2, episode = 1, isCaughtUp = true, today = today)
         )
         assertEquals(
             "¡Hoy nueva temporada!",
-            nextEpisodeLabel("2026-09-28", episode = 1, isCaughtUp = true, today = today)
+            nextEpisodeLabel("2026-09-28", season = 2, episode = 1, isCaughtUp = true, today = today)
+        )
+        assertEquals(
+            "Mañana se estrena",
+            nextEpisodeLabel("2026-09-29", season = 1, episode = 1, isCaughtUp = false, today = today)
+        )
+        assertEquals(
+            "¡Hoy se estrena!",
+            nextEpisodeLabel("2026-09-28", season = 1, episode = 1, isCaughtUp = false, today = today)
         )
     }
 
@@ -47,11 +70,11 @@ class NextEpisodeLabelTest {
     fun `un capitulo suelto no habla de temporada`() {
         assertEquals(
             "Próximo: 06/11/2026",
-            nextEpisodeLabel("2026-11-06", episode = 3, isCaughtUp = false, today = today)
+            nextEpisodeLabel("2026-11-06", season = 1, episode = 3, isCaughtUp = false, today = today)
         )
         assertEquals(
             "Próximo en 4 días",
-            nextEpisodeLabel("2026-10-02", episode = 3, isCaughtUp = false, today = today)
+            nextEpisodeLabel("2026-10-02", season = 1, episode = 3, isCaughtUp = false, today = today)
         )
     }
 
@@ -59,22 +82,34 @@ class NextEpisodeLabelTest {
     fun `sin numero de capitulo se deduce temporada si esta al dia`() {
         assertEquals(
             "Próxima temporada: 06/11/2026",
-            nextEpisodeLabel("2026-11-06", episode = null, isCaughtUp = true, today = today)
+            nextEpisodeLabel("2026-11-06", season = 2, episode = null, isCaughtUp = true, today = today)
+        )
+        assertEquals(
+            "Estreno: 06/11/2026",
+            nextEpisodeLabel("2026-11-06", season = 1, episode = null, isCaughtUp = true, today = today)
         )
         assertEquals(
             "Próximo: 06/11/2026",
-            nextEpisodeLabel("2026-11-06", episode = null, isCaughtUp = false, today = today)
+            nextEpisodeLabel("2026-11-06", season = 2, episode = null, isCaughtUp = false, today = today)
+        )
+    }
+
+    @Test
+    fun `sin temporada conocida mantiene la redaccion de temporada nueva`() {
+        assertEquals(
+            "Próxima temporada: 06/11/2026",
+            nextEpisodeLabel("2026-11-06", season = null, episode = 1, isCaughtUp = true, today = today)
         )
     }
 
     @Test
     fun `una fecha ya pasada no pinta nada`() {
-        assertNull(nextEpisodeLabel("2026-09-10", episode = 1, isCaughtUp = true, today = today))
+        assertNull(nextEpisodeLabel("2026-09-10", season = 1, episode = 1, isCaughtUp = true, today = today))
     }
 
     @Test
     fun `sin fecha o con fecha invalida no rompe nada`() {
-        assertNull(nextEpisodeLabel(null, episode = 1, isCaughtUp = false, today = today))
-        assertNull(nextEpisodeLabel("sin fecha", episode = 1, isCaughtUp = false, today = today))
+        assertNull(nextEpisodeLabel(null, season = 1, episode = 1, isCaughtUp = false, today = today))
+        assertNull(nextEpisodeLabel("sin fecha", season = 1, episode = 1, isCaughtUp = false, today = today))
     }
 }

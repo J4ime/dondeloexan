@@ -247,10 +247,9 @@ class MediaDetailUseCases(
     suspend fun toggleSeasonWatched(
         content: Content,
         selectedSeason: Int,
-        seasonDetail: SeasonDetail?
+        episodeNumbers: List<Int>
     ): SeriesTracking {
-        if (seasonDetail == null || seasonDetail.episodes.isEmpty()) return repository.getSeriesTracking(content)
-        val episodeNumbers = seasonDetail.episodes.map { it.episodeNumber }
+        if (episodeNumbers.isEmpty()) return repository.getSeriesTracking(content)
         val tracking = repository.getSeriesTracking(content)
         val alreadyWatched = episodeNumbers.all { tracking.isEpisodeWatched(selectedSeason, it) }
         return if (alreadyWatched) {

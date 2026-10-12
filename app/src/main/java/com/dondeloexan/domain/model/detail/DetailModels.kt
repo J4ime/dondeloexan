@@ -27,7 +27,41 @@ data class SeasonDetail(
     val name: String? = null,
     val overview: String? = null,
     val airDate: String? = null
-)
+) {
+    /**
+     * Números de los capítulos que el usuario PUEDE marcar/desmarcar: los ya
+     * emitidos y no bloqueados por un estreno pendiente en España. Es la MISMA
+     * regla que usa la fila de capítulo y el botón de "marcar todo", de modo que
+     * cuando todos los marcables están vistos el botón dice "Desmarcar todo".
+     */
+    fun markableEpisodeNumbers(
+        pendingInSpain: Boolean = false,
+        today: java.time.LocalDate = java.time.LocalDate.now()
+    ): List<Int> =
+        if (pendingInSpain) emptyList()
+        else episodes.filter { it.isAiredOn(today) }.map { it.episodeNumber }
+
+    /** true si todos los capítulos marcables de la temporada están vistos. */
+    fun isFullyWatched(
+        season: Int,
+        watchedEpisodes: Set<String>,
+        pendingInSpain: Boolean = false,
+        today: java.time.LocalDate = java.time.LocalDate.now()
+    ): Boolean {
+        val markable = markableEpisodeNumbers(pendingInSpain, today)
+        return markable.isNotEmpty() && markable.all { watchedEpisodes.contains("S${season}E$it") }
+    }
+}
+
+/** true si el capítulo ya se ha emitido (o no tiene fecha fiable). */
+fun Episode.isAiredOn(today: java.time.LocalDate = java.time.LocalDate.now()): Boolean {
+    val date = airDate ?: return true
+    return try {
+        !java.time.LocalDate.parse(date).isAfter(today)
+    } catch (e: Exception) {
+        true
+    }
+}
 
 data class MovieWatchState(
     val isWatched: Boolean = false,

@@ -482,6 +482,78 @@ class MediaDetailViewModelTest {
     }
 
     @Test
+    fun `markSeasonWatched toggles only aired episodes`() = runTest {
+        val content = seriesContent()
+        val seasonDetail = SeasonDetail(
+            seasonNumber = 1,
+            episodes = listOf(
+                com.dondeloexan.domain.model.detail.Episode(episodeNumber = 1, name = "E1", airDate = "2020-01-01", seasonNumber = 1),
+                com.dondeloexan.domain.model.detail.Episode(episodeNumber = 2, name = "E2", airDate = "2999-01-01", seasonNumber = 1),
+                com.dondeloexan.domain.model.detail.Episode(episodeNumber = 3, name = "E3", airDate = null, seasonNumber = 1)
+            )
+        )
+        coEvery { useCases.getDetail(any(), any()) } returns flowOf(DataResult.Success(content))
+        coEvery { useCases.loadSeriesState(content) } returns SeriesState(
+            seasons = listOf(Season(seasonNumber = 1, name = "T1", episodeCount = 3)),
+            tracking = SeriesTracking(exists = true),
+            selectedSeason = 1,
+            seasonDetail = seasonDetail
+        )
+        coEvery { useCases.getCollectionMovies(content) } returns emptyList()
+        coEvery { useCases.getSimilar(content) } returns emptyList()
+        coEvery { useCases.getCriticReviews(content) } returns emptyList()
+        coEvery { useCases.getFaId(content) } returns null
+        coEvery {
+            useCases.toggleSeasonWatched(content, 1, listOf(1, 3))
+        } returns SeriesTracking(exists = true, watchedEpisodes = setOf("S1E1", "S1E3"))
+
+        viewModel.loadContent("tmdb-2")
+        advanceUntilIdle()
+        viewModel.markSeasonWatched()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assert(state.watchedEpisodes.contains("S1E1"))
+        assert(state.watchedEpisodes.contains("S1E3"))
+        assert(!state.watchedEpisodes.contains("S1E2"))
+        coVerify { useCases.toggleSeasonWatched(content, 1, listOf(1, 3)) }
+    }
+
+    @Test
+    fun `markSeasonWatched on pending season does not toggle anything`() = runTest {
+        val content = seriesContent()
+        val seasonDetail = SeasonDetail(
+            seasonNumber = 1,
+            episodes = listOf(
+                com.dondeloexan.domain.model.detail.Episode(episodeNumber = 1, name = "E1", airDate = "2020-01-01", seasonNumber = 1)
+            )
+        )
+        coEvery { useCases.getDetail(any(), any()) } returns flowOf(DataResult.Success(content))
+        coEvery { useCases.loadSeriesState(content) } returns SeriesState(
+            seasons = listOf(Season(seasonNumber = 1, name = "T1", episodeCount = 1)),
+            tracking = SeriesTracking(
+                exists = true,
+                pendingEsSeason = 1,
+                spanishReleaseDate = "2999-01-01"
+            ),
+            selectedSeason = 1,
+            seasonDetail = seasonDetail
+        )
+        coEvery { useCases.getCollectionMovies(content) } returns emptyList()
+        coEvery { useCases.getSimilar(content) } returns emptyList()
+        coEvery { useCases.getCriticReviews(content) } returns emptyList()
+        coEvery { useCases.getFaId(content) } returns null
+        coEvery { useCases.toggleSeasonWatched(content, 1, emptyList()) } returns SeriesTracking(exists = true)
+
+        viewModel.loadContent("tmdb-2")
+        advanceUntilIdle()
+        viewModel.markSeasonWatched()
+        advanceUntilIdle()
+
+        coVerify { useCases.toggleSeasonWatched(content, 1, emptyList()) }
+    }
+
+    @Test
     fun `confirmCascadeWatched applies cascade and clears proposal`() = runTest {
         val content = seriesContent()
         coEvery { useCases.getDetail(any(), any()) } returns flowOf(DataResult.Success(content))

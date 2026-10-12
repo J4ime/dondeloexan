@@ -814,6 +814,7 @@ private fun EpisodiosTab(
                     selectedSeason = selectedSeason,
                     seasonDetail = seasonDetail,
                     watchedEpisodes = watchedEpisodes,
+                    pendingInSpain = selectedSeasonPendingInSpain,
                     onSeasonSelected = onSeasonSelected,
                     onMarkSeasonToggle = onMarkSeasonToggle
                 )
@@ -1713,6 +1714,7 @@ private fun SeasonsSectionHeader(
     selectedSeason: Int,
     seasonDetail: SeasonDetail?,
     watchedEpisodes: Set<String>,
+    pendingInSpain: Boolean = false,
     onSeasonSelected: (Int) -> Unit,
     onMarkSeasonToggle: () -> Unit
 ) {
@@ -1755,27 +1757,31 @@ private fun SeasonsSectionHeader(
         }
 
         if (seasonDetail != null) {
-            Spacer(Modifier.height(4.dp))
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.End
-            ) {
-                val allWatched = seasonDetail.episodes.isNotEmpty() &&
-                    seasonDetail.episodes.all { ep ->
-                        watchedEpisodes.contains("S${selectedSeason}E${ep.episodeNumber}")
+            val markableEpisodes = seasonDetail.markableEpisodeNumbers(pendingInSpain)
+            if (markableEpisodes.isNotEmpty()) {
+                Spacer(Modifier.height(4.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    val allWatched = seasonDetail.isFullyWatched(
+                        season = selectedSeason,
+                        watchedEpisodes = watchedEpisodes,
+                        pendingInSpain = pendingInSpain
+                    )
+                    TextButton(onClick = onMarkSeasonToggle) {
+                        Icon(
+                            Icons.Outlined.DoneAll,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            if (allWatched) "Desmarcar todo" else "Marcar todo visto"
+                        )
                     }
-                TextButton(onClick = onMarkSeasonToggle) {
-                    Icon(
-                        Icons.Outlined.DoneAll,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(Modifier.width(4.dp))
-                    Text(
-                        if (allWatched) "Desmarcar todo" else "Marcar todo visto"
-                    )
                 }
             }
         }

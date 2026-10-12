@@ -71,16 +71,14 @@ class DiscoverViewModel(
     private var isSearching = false
     private var cachedResults = listOf<ContentPreview>()
     private var lastCompanySearchResults: List<CompanySearchResult> = emptyList()
+    /** Sugerencias de personas/compañías de la búsqueda activa. Vive fuera del
+     *  estado para sobrevivir a las reemisiones de paginación/mutaciones. */
+    private var currentPersonSuggestions: List<FilmographyEntity> = emptyList()
     private var filmographyCache = listOf<ContentPreview>()
     private var filmographyRaw = listOf<ContentPreview>()
-    private var filmographyPage = 0
     private var filmographyEnrichJob: Job? = null
     private var searchJob: Job? = null
     private var trendingJob: Job? = null
-
-    private companion object {
-        const val FILMOGRAPHY_PAGE_SIZE = 20
-    }
 
     private val _isLoadingMore = MutableStateFlow(false)
     val isLoadingMore: StateFlow<Boolean> = _isLoadingMore.asStateFlow()
@@ -101,7 +99,7 @@ class DiscoverViewModel(
             watchedIds.drop(1).collect { newWatched ->
                 cachedResults = cachedResults.filter { it.id !in newWatched }
                 if (_uiState.value is DiscoverUiState.Success) {
-                    emitWithFaData(DiscoverUiState.Success(cachedResults))
+                    emitWithFaData(DiscoverUiState.Success(cachedResults, currentPersonSuggestions))
                 }
             }
         }
@@ -109,7 +107,7 @@ class DiscoverViewModel(
             likedIds.drop(1).collect { newLiked ->
                 cachedResults = cachedResults.filter { it.id !in newLiked }
                 if (_uiState.value is DiscoverUiState.Success) {
-                    emitWithFaData(DiscoverUiState.Success(cachedResults))
+                    emitWithFaData(DiscoverUiState.Success(cachedResults, currentPersonSuggestions))
                 }
             }
         }
@@ -126,7 +124,6 @@ class DiscoverViewModel(
 
     fun onSelectEntity(entity: FilmographyEntity) {
         _filmographyView.value = FilmographyView(entity = entity, isLoading = true)
-        filmographyPage = 0
         filmographyCache = emptyList()
         filmographyRaw = emptyList()
         viewModelScope.launch {
@@ -202,41 +199,37 @@ class DiscoverViewModel(
             }
 
             val filtered = raw.filter { it.id !in blacklisted }
-            // Se pinta la primera página YA (sin esperar a las plataformas, que
-            // para filmografías largas son cientos de peticiones a TMDB) y se
-            // enriquece en segundo plano página a página.
+            // Toda la filmografía de golpe: la lista completa se pinta de
+            // inmediato (sin paginado) y las plataformas se enriquecen en
+            // segundo plano.
             filmographyRaw = filtered
-            filmographyPage = 1
-            val shown = filmographyRaw.take(FILMOGRAPHY_PAGE_SIZE)
             _filmographyView.value = FilmographyView(
                 entity = entity,
-                movies = shown,
+                movies = filtered,
                 isLoading = false,
-                hasMore = filmographyRaw.size > shown.size,
-                totalCount = filmographyRaw.size
+                hasMore = false,
+                totalCount = filtered.size
             )
             enrichFilmography(entity)
         }
     }
 
     /**
-     * Enriquecimiento progresivo: sólo se piden las plataformas de las páginas ya
-     * visibles y se van añadiendo a medida que el usuario carga más.
+     * Enriquecimiento en segundo plano: se piden las plataformas de toda la
+     * filmografía y se sustituyen en la lista ya visible.
      */
     private fun enrichFilmography(entity: FilmographyEntity) {
         filmographyEnrichJob?.cancel()
         filmographyEnrichJob = viewModelScope.launch {
             try {
-                val target = filmographyRaw.take(filmographyPage * FILMOGRAPHY_PAGE_SIZE)
-                val enriched = discoverRepository.fetchPlatforms(target)
+                val enriched = discoverRepository.fetchPlatforms(filmographyRaw)
                 val current = _filmographyView.value ?: return@launch
                 if (current.entity.id != entity.id) return@launch
                 filmographyCache = enriched
-                val displayed = filmographyDisplay()
                 _filmographyView.value = current.copy(
-                    movies = displayed,
+                    movies = filmographyDisplay(),
                     isLoadingMore = false,
-                    hasMore = filmographyRaw.size > displayed.size,
+                    hasMore = false,
                     totalCount = filmographyRaw.size
                 )
             } catch (e: kotlinx.coroutines.CancellationException) {
@@ -253,33 +246,22 @@ class DiscoverViewModel(
     }
 
     /**
-     * Página actual construida SIEMPRE sobre la filmografía completa
-     * ([filmographyRaw]), sustituyendo cada crédito por su versión enriquecida
+     * Filmografía completa sustituyendo cada crédito por su versión enriquecida
      * cuando ya está disponible. Así el orden y el total nunca se recortan.
      */
     private fun filmographyDisplay(): List<ContentPreview> {
-        val target = filmographyRaw.take(filmographyPage * FILMOGRAPHY_PAGE_SIZE)
-        if (filmographyCache.isEmpty()) return target
+        if (filmographyCache.isEmpty()) return filmographyRaw
         val byId = filmographyCache.associateBy { it.id }
-        return target.map { byId[it.id] ?: it }
+        return filmographyRaw.map { byId[it.id] ?: it }
     }
 
     fun onFilmographyLoadMore() {
-        val view = _filmographyView.value ?: return
-        if (!view.hasMore || view.isLoading || view.isLoadingMore) return
-        filmographyPage++
-        val merged = filmographyDisplay()
-        _filmographyView.value = view.copy(
-            movies = merged,
-            isLoadingMore = true,
-            hasMore = filmographyRaw.size > merged.size,
-            totalCount = filmographyRaw.size
-        )
-        enrichFilmography(view.entity)
+        // La filmografía se muestra completa; no hay paginación.
     }
 
     fun onSearchQueryChanged(query: String) {
         _searchQuery.value = query
+        currentPersonSuggestions = emptyList()
         filmographyEnrichJob?.cancel()
         filmographyEnrichJob = null
         _filmographyView.value = null
@@ -355,8 +337,7 @@ class DiscoverViewModel(
             lastCompanySearchResults = companies
 
             val suggestions = mutableListOf<FilmographyEntity>()
-            people.take(5).forEach { p ->
-                val roles = mutableSetOf<String>()
+            people.take(3).forEach { p ->
                 val personDetail = try {
                     tmdbApi.getPersonDetail(p.id)
                 } catch (e: kotlinx.coroutines.CancellationException) {
@@ -365,53 +346,19 @@ class DiscoverViewModel(
                     AppLogger.e("DiscoverVM", "personDetail for ${p.id}", e)
                     null
                 }
-                val isFemale = personDetail?.gender == 1
-                val creditsResponse = try {
-                    tmdbApi.getPersonMovieCredits(p.id)
-                } catch (e: kotlinx.coroutines.CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    AppLogger.e("DiscoverVM", "personMovieCredits for ${p.id}", e)
-                    null
-                }
-                if (creditsResponse != null) {
-                    if (creditsResponse.cast.orEmpty().isNotEmpty()) {
-                        roles.add(if (isFemale) "Actriz" else "Actor")
-                    }
-                    creditsResponse.crew.orEmpty().forEach { credit ->
-                        if (credit.job == "Director") {
-                            roles.add(if (isFemale) "Directora" else "Director")
-                        }
-                    }
-                }
                 val flag = PersonFlagUtil.countryFlag(personDetail?.placeOfBirth)
                 val countryStr = if (flag.isNotEmpty()) " $flag" else ""
                 val ageN = PersonFlagUtil.age(personDetail?.birthday, personDetail?.deathday)
                 val ageStr = if (ageN != null) " · $ageN" else ""
-                if (roles.isEmpty()) {
-                    suggestions.add(
-                        FilmographyEntity(
-                            id = "person-${p.id}",
-                            name = "$countryStr${p.name}$ageStr",
-                            type = EntityType.PERSON,
-                            profilePath = p.profilePath,
-                            knownForDepartment = p.knownForDepartment
-                        )
+                suggestions.add(
+                    FilmographyEntity(
+                        id = "person-${p.id}",
+                        name = "$countryStr${p.name}$ageStr",
+                        type = EntityType.PERSON,
+                        profilePath = p.profilePath,
+                        knownForDepartment = p.knownForDepartment
                     )
-                } else {
-                    roles.sorted().forEach { role ->
-                        suggestions.add(
-                            FilmographyEntity(
-                                id = "person-${p.id}-${role.lowercase().replace(" ", "-")}",
-                                name = "$countryStr${p.name} ($role)$ageStr",
-                                type = EntityType.PERSON,
-                                profilePath = p.profilePath,
-                                knownForDepartment = p.knownForDepartment,
-                                role = role
-                            )
-                        )
-                    }
-                }
+                )
             }
             companies.filter { it.logoPath != null }.take(3).forEach { c ->
                 suggestions.add(
@@ -426,6 +373,7 @@ class DiscoverViewModel(
             }
 
             cachedResults = page
+            currentPersonSuggestions = suggestions
             if (cachedResults.isEmpty() && suggestions.isEmpty()) {
                 _uiState.value = DiscoverUiState.Empty(query)
             } else {
@@ -442,7 +390,7 @@ class DiscoverViewModel(
     private fun removeAndEmit(contentId: String) {
         cachedResults = cachedResults.filter { it.id != contentId }
         if (_uiState.value is DiscoverUiState.Success) {
-            emitWithFaData(DiscoverUiState.Success(cachedResults))
+            emitWithFaData(DiscoverUiState.Success(cachedResults, currentPersonSuggestions))
         }
     }
 
@@ -531,7 +479,7 @@ class DiscoverViewModel(
             if (cachedResults.isEmpty()) {
                 _uiState.value = DiscoverUiState.Empty(query)
             } else {
-                emitWithFaData(DiscoverUiState.Success(cachedResults))
+                emitWithFaData(DiscoverUiState.Success(cachedResults, currentPersonSuggestions))
             }
         }
     }
@@ -558,7 +506,7 @@ class DiscoverViewModel(
                 fillPagesUntil(10)
                 if (cachedResults.isEmpty()) currentPage = 1
                 when {
-                    cachedResults.isNotEmpty() -> emitWithFaData(DiscoverUiState.Success(cachedResults))
+                    cachedResults.isNotEmpty() -> emitWithFaData(DiscoverUiState.Success(cachedResults, currentPersonSuggestions))
                     hasError -> _uiState.value = DiscoverUiState.Error("No se pudo conectar con el servidor, prueba a deslizar para reintentar")
                     else -> _uiState.value = DiscoverUiState.Empty("")
                 }
@@ -588,6 +536,7 @@ class DiscoverViewModel(
         trendingJob?.cancel()
         hasError = false
         isSearching = false
+        currentPersonSuggestions = emptyList()
         trendingJob = viewModelScope.launch {
             currentPage = 1
             hasMorePages = true
@@ -602,7 +551,7 @@ class DiscoverViewModel(
             }
 
             when {
-                cachedResults.isNotEmpty() -> emitWithFaData(DiscoverUiState.Success(cachedResults))
+                cachedResults.isNotEmpty() -> emitWithFaData(DiscoverUiState.Success(cachedResults, currentPersonSuggestions))
                 hasError -> _uiState.value = DiscoverUiState.Error("No se pudo conectar con el servidor, prueba a deslizar para reintentar")
                 else -> _uiState.value = DiscoverUiState.Empty("")
             }

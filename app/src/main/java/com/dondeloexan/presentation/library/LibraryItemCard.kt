@@ -259,7 +259,7 @@ fun LibraryItemCard(
             if (streamingPlatforms.isNotEmpty()) {
                 Spacer(Modifier.height(4.dp))
                 PlatformBadgeRow(platforms = streamingPlatforms)
-            } else {
+            } else if (!isSeries) {
                 val cinemaDate = spanishReleaseDate ?: releaseDate
                 if (!cinemaDate.isNullOrBlank()) {
                     val cinemaLabel = try {
@@ -468,9 +468,13 @@ private fun PlatformBadgeRow(platforms: List<StreamingAvailability>, maxVisible:
 /**
  * Texto del próximo capítulo/temporada. Función pura (sin Compose ni reloj) para
  * poder testearla: devuelve null si la fecha ya pasó o no es parseable.
+ *
+ * [season] decide la redacción del arranque de temporada: la T1 es un "Estreno"
+ * (de la serie) y de T2 en adelante es "Próxima temporada".
  */
 internal fun nextEpisodeLabel(
     airDate: String?,
+    season: Int?,
     episode: Int?,
     isCaughtUp: Boolean,
     today: LocalDate = LocalDate.now()
@@ -482,19 +486,31 @@ internal fun nextEpisodeLabel(
         val days = ChronoUnit.DAYS.between(today, date)
         when {
             days < 0 -> null
-            days == 0L -> if (startsSeason) "¡Hoy nueva temporada!" else "¡Hoy nuevo episodio!"
-            days == 1L -> if (startsSeason) "Mañana nueva temporada" else "Mañana nuevo episodio"
-            days <= 7 -> if (startsSeason) "Próxima temporada en $days días" else "Próximo en $days días"
-            else -> if (startsSeason) {
-                "Próxima temporada: ${date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}"
-            } else {
-                "Próximo: ${date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}"
-            }
+            startsSeason -> seasonStartLabel(season, days, date)
+            else -> nextEpisodeWording(days, date)
         }
     } catch (e: Exception) {
         AppLogger.e("LibraryItemCard", "nextEpisodeLabel: $airDate", e)
         null
     }
+}
+
+private fun seasonStartLabel(season: Int?, days: Long, date: LocalDate): String {
+    val isFirstSeason = season == 1
+    val formatted = date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+    return when {
+        days == 0L -> if (isFirstSeason) "¡Hoy se estrena!" else "¡Hoy nueva temporada!"
+        days == 1L -> if (isFirstSeason) "Mañana se estrena" else "Mañana nueva temporada"
+        days <= 7L -> if (isFirstSeason) "Estreno en $days días" else "Próxima temporada en $days días"
+        else -> if (isFirstSeason) "Estreno: $formatted" else "Próxima temporada: $formatted"
+    }
+}
+
+private fun nextEpisodeWording(days: Long, date: LocalDate): String = when {
+    days == 0L -> "¡Hoy nuevo episodio!"
+    days == 1L -> "Mañana nuevo episodio"
+    days <= 7L -> "Próximo en $days días"
+    else -> "Próximo: ${date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}"
 }
 
 @Composable
@@ -528,8 +544,8 @@ private fun NextEpisodeLabel(
 
     if (airDate == null) return
 
-    val label = remember(airDate, episode, isCaughtUp) {
-        nextEpisodeLabel(airDate, episode, isCaughtUp)
+    val label = remember(airDate, season, episode, isCaughtUp) {
+        nextEpisodeLabel(airDate, season, episode, isCaughtUp)
     }
     val seasonEpisode = if (season != null && episode != null) "T${season}E$episode" else null
 

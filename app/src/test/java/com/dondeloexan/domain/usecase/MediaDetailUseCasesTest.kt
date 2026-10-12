@@ -264,7 +264,7 @@ class MediaDetailUseCasesTest {
         )
         coEvery { repository.recordEpisodes(any(), any(), any()) } returns afterTracking
 
-        val tracking = useCases.toggleSeasonWatched(content, selectedSeason = 1, seasonDetail = seasonDetail())
+        val tracking = useCases.toggleSeasonWatched(content, selectedSeason = 1, episodeNumbers = listOf(1, 2, 3))
 
         coVerify { repository.recordEpisodes(content, 1, listOf(1, 2, 3)) }
         assert(tracking.watchedEpisodes.containsAll(setOf("S1E1", "S1E2", "S1E3")))
@@ -277,9 +277,34 @@ class MediaDetailUseCasesTest {
         )
         coEvery { repository.unrecordSeasonEpisodes(any(), any(), any()) } returns SeriesTracking()
 
-        useCases.toggleSeasonWatched(content, selectedSeason = 1, seasonDetail = seasonDetail())
+        useCases.toggleSeasonWatched(content, selectedSeason = 1, episodeNumbers = listOf(1, 2, 3))
 
         coVerify { repository.unrecordSeasonEpisodes(content, 1, listOf(1, 2, 3)) }
+    }
+
+    @Test
+    fun `toggleSeasonWatched only toggles the markable episodes`() = runTest {
+        val afterTracking = SeriesTracking(exists = true, watchedEpisodes = setOf("S1E1", "S1E2"))
+        coEvery { repository.getSeriesTracking(content) } returnsMany listOf(
+            SeriesTracking(exists = true),
+            afterTracking
+        )
+        coEvery { repository.recordEpisodes(any(), any(), any()) } returns afterTracking
+
+        useCases.toggleSeasonWatched(content, selectedSeason = 1, episodeNumbers = listOf(1, 2))
+
+        coVerify { repository.recordEpisodes(content, 1, listOf(1, 2)) }
+        coVerify(exactly = 0) { repository.unrecordSeasonEpisodes(any(), any(), any()) }
+    }
+
+    @Test
+    fun `toggleSeasonWatched with no markable episodes is a no-op`() = runTest {
+        coEvery { repository.getSeriesTracking(content) } returns SeriesTracking(exists = true)
+
+        useCases.toggleSeasonWatched(content, selectedSeason = 1, episodeNumbers = emptyList())
+
+        coVerify(exactly = 0) { repository.recordEpisodes(any(), any(), any()) }
+        coVerify(exactly = 0) { repository.unrecordSeasonEpisodes(any(), any(), any()) }
     }
 
     @Test

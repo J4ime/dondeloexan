@@ -534,10 +534,15 @@ class MediaDetailViewModel(
         viewModelScope.launch {
             val currentState = _uiState.value
             val content = currentState.content ?: return@launch
+            val season = currentState.selectedSeason
+            val pendingInSpain = currentState.pendingSpanishSeason == season
+            val episodeNumbers = currentState.seasonDetail
+                ?.markableEpisodeNumbers(pendingInSpain)
+                .orEmpty()
             val tracking = useCases.toggleSeasonWatched(
                 content = content,
-                selectedSeason = currentState.selectedSeason,
-                seasonDetail = currentState.seasonDetail
+                selectedSeason = season,
+                episodeNumbers = episodeNumbers
             )
             _uiState.value = _uiState.value.copy(
                 watchedEpisodes = tracking.watchedEpisodes,

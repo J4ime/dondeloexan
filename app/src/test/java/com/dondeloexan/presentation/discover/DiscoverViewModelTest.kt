@@ -180,7 +180,7 @@ class DiscoverViewModelTest {
         assert(results.map { it.id } == listOf("tmdb-1", "tmdb-2", "tmdb-3"))
     }
 
-    // ── Filmografía (paginación real y enriquecimiento progresivo) ──
+    // ── Filmografía (completa de una vez y enriquecimiento en segundo plano) ──
 
     private fun personEntity() = FilmographyEntity(
         id = "person-1",
@@ -194,7 +194,7 @@ class DiscoverViewModelTest {
     private fun credits(count: Int) = (1..count).map { preview(it) }
 
     @Test
-    fun `filmografia carga todas las paginas al llegar al final`() = runTest {
+    fun `filmografia se muestra completa sin paginar`() = runTest {
         coEvery { discoverRepository.getPersonMovieCredits(any()) } returns credits(45)
         coEvery { discoverRepository.getPersonTvCredits(any()) } returns emptyList()
         coEvery { discoverRepository.fetchPlatforms(any()) } answers { firstArg() }
@@ -205,24 +205,15 @@ class DiscoverViewModelTest {
         viewModel.onSelectEntity(personEntity())
         advanceUntilIdle()
 
-        val first = viewModel.filmographyView.value!!
-        assert(first.movies!!.size == 20)
-        assert(first.totalCount == 45)
-        assert(first.hasMore)
-
-        viewModel.onFilmographyLoadMore()
-        advanceUntilIdle()
-        viewModel.onFilmographyLoadMore()
-        advanceUntilIdle()
-
-        val last = viewModel.filmographyView.value!!
-        assert(last.movies!!.size == 45)
-        assert(!last.hasMore)
-        assert(last.movies!!.map { it.id }.distinct().size == 45)
+        val view = viewModel.filmographyView.value!!
+        assert(view.movies!!.size == 45)
+        assert(view.totalCount == 45)
+        assert(!view.hasMore)
+        assert(view.movies!!.map { it.id }.distinct().size == 45)
     }
 
     @Test
-    fun `filmografia pinta la primera pagina sin esperar al enriquecimiento`() = runTest {
+    fun `filmografia pinta toda la lista sin esperar al enriquecimiento`() = runTest {
         coEvery { discoverRepository.getPersonMovieCredits(any()) } returns credits(45)
         coEvery { discoverRepository.getPersonTvCredits(any()) } returns emptyList()
         // El enriquecimiento se queda colgado: la lista NO debe esperar por él.
@@ -235,7 +226,7 @@ class DiscoverViewModelTest {
         advanceUntilIdle()
 
         val view = viewModel.filmographyView.value!!
-        assert(view.movies!!.size == 20)
+        assert(view.movies!!.size == 45)
         assert(view.totalCount == 45)
         assert(!view.isLoading)
     }

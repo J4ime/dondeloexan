@@ -320,6 +320,18 @@ fun DiscoverContent(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
+                        if (uiState.personSuggestions.isNotEmpty()) {
+                            item(
+                                key = "__person_suggestions__",
+                                span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }
+                            ) {
+                                PersonSuggestionsBlock(
+                                    suggestions = uiState.personSuggestions,
+                                    hasResults = uiState.results.isNotEmpty(),
+                                    onSelectEntity = onSelectEntity
+                                )
+                            }
+                        }
                         items(uiState.results, key = { it.id }) { content ->
                             AnimatedVisibility(
                                 visible = true,
@@ -367,28 +379,11 @@ fun DiscoverContent(
                     ) {
                         if (uiState.personSuggestions.isNotEmpty()) {
                             item(key = "__person_suggestions__") {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 16.dp, vertical = 4.dp),
-                                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    Text(
-                                        "Personas y compañías",
-                                        style = UbuntuTypography.labelSmall,
-                                        color = EleganteRose,
-                                        modifier = Modifier.padding(bottom = 4.dp)
-                                    )
-                                    uiState.personSuggestions.forEach { entity ->
-                                        EntityRow(entity = entity, onClick = { onSelectEntity(entity) })
-                                    }
-                                    if (uiState.results.isNotEmpty()) {
-                                        HorizontalDivider(
-                                            color = DarkSurfaceVariant.copy(alpha = 0.5f),
-                                            modifier = Modifier.padding(vertical = 4.dp)
-                                        )
-                                    }
-                                }
+                                PersonSuggestionsBlock(
+                                    suggestions = uiState.personSuggestions,
+                                    hasResults = uiState.results.isNotEmpty(),
+                                    onSelectEntity = onSelectEntity
+                                )
                             }
                         }
                         items(uiState.results, key = { it.id }) { content ->
@@ -586,6 +581,36 @@ fun FilmographyContent(
     } else {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text("No se encontraron películas", color = TextSecondary)
+        }
+    }
+}
+
+@Composable
+private fun PersonSuggestionsBlock(
+    suggestions: List<FilmographyEntity>,
+    hasResults: Boolean,
+    onSelectEntity: (FilmographyEntity) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Text(
+            "Personas y compañías",
+            style = UbuntuTypography.labelSmall,
+            color = EleganteRose,
+            modifier = Modifier.padding(bottom = 4.dp)
+        )
+        suggestions.forEach { entity ->
+            EntityRow(entity = entity, onClick = { onSelectEntity(entity) })
+        }
+        if (hasResults) {
+            HorizontalDivider(
+                color = DarkSurfaceVariant.copy(alpha = 0.5f),
+                modifier = Modifier.padding(vertical = 4.dp)
+            )
         }
     }
 }
