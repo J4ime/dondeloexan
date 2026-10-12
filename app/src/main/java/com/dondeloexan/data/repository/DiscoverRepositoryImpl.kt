@@ -934,7 +934,7 @@ class DiscoverRepositoryImpl(
             )
             response.results
                 .filter { !it.adult && it.releaseDate != null }
-                .map { it.toContentPreview() }
+                .map { it.toContentPreview(forceType = ContentType.MOVIE) }
                 .sortedByDescending { it.releaseDate }
         } catch (e: Exception) {
             AppLogger.e("DiscoverRepo", "getCompanyMovies error for $companyId", e)
@@ -952,7 +952,7 @@ class DiscoverRepositoryImpl(
             )
             response.results
                 .filter { !it.adult && it.firstAirDate != null }
-                .map { it.toContentPreview() }
+                .map { it.toContentPreview(forceType = ContentType.SERIES) }
                 .sortedByDescending { it.releaseDate }
         } catch (e: Exception) {
             AppLogger.e("DiscoverRepo", "getCompanyTvShows error for $companyId", e)
@@ -1259,7 +1259,7 @@ class DiscoverRepositoryImpl(
             response.results
                 .filter { it.posterPath != null }
                 .take(5)
-                .map { it.toContentPreview() }
+                .map { it.toContentPreview(forceType = contentType) }
         }
 
     override suspend fun getSeriesRelationships(wikidataId: String?, imdbId: String?): Pair<List<ContentPreview>, Set<String>> {

@@ -120,14 +120,14 @@ fun TmdbCollectionPartDto.toContentPreview(): ContentPreview = ContentPreview(
     ratingImdb = voteAverage
 )
 
-fun TmdbMultiSearchResult.toContentPreview(): ContentPreview = ContentPreview(
+fun TmdbMultiSearchResult.toContentPreview(forceType: ContentType? = null): ContentPreview = ContentPreview(
     id = "tmdb-$id",
     source = ContentSource.TMDB,
     tmdbId = id,
     imdbId = null,
     title = title ?: name.orEmpty(),
     originalTitle = originalTitle ?: originalName,
-    type = if (mediaType == "tv") ContentType.SERIES else ContentType.MOVIE,
+    type = forceType ?: if (mediaType == "tv") ContentType.SERIES else ContentType.MOVIE,
     year = releaseDate?.substringBefore("-")?.toIntOrNull()
         ?: firstAirDate?.substringBefore("-")?.toIntOrNull(),
     releaseDate = releaseDate ?: firstAirDate,

@@ -220,6 +220,67 @@ class DiscoverRepositoryFilmographyTest {
     }
 
     @Test
+    fun `getRecommendations maps series results to SERIES even when mediaType is null`() = runTest {
+        val results = listOf(
+            TmdbMultiSearchResult(id = 201, name = "TV Rec 1", posterPath = "/t1.jpg", mediaType = null)
+        )
+        val response = TmdbTrendingResponse(page = 1, totalResults = results.size, results = results)
+        coEvery { tmdbApi.getTvRecommendations(456) } returns response
+
+        val result = repo.getRecommendations("tmdb-456", ContentType.SERIES)
+
+        assert(result.size == 1)
+        assert(result[0].type == ContentType.SERIES)
+    }
+
+    @Test
+    fun `getCompanyTvShows maps type to SERIES even when mediaType is null`() = runTest {
+        val results = listOf(
+            TmdbMultiSearchResult(
+                id = 136315, name = "Beef", posterPath = "/b.jpg",
+                firstAirDate = "2023-04-06", mediaType = null
+            )
+        )
+        val response = TmdbTrendingResponse(page = 1, totalResults = results.size, results = results)
+        coEvery {
+            tmdbApi.discoverTv(
+                language = any(), page = any(), watchProviders = any(), watchRegion = any(),
+                firstAirDateGte = any(), firstAirDateLte = any(), sortBy = any(),
+                voteCountGte = any(), withCompanies = any()
+            )
+        } returns response
+
+        val result = repo.getCompanyTvShows(41077)
+
+        assert(result.size == 1)
+        assert(result[0].title == "Beef")
+        assert(result[0].type == ContentType.SERIES)
+    }
+
+    @Test
+    fun `getCompanyMovies maps type to MOVIE`() = runTest {
+        val results = listOf(
+            TmdbMultiSearchResult(
+                id = 1, title = "Movie", posterPath = "/m.jpg",
+                releaseDate = "2020-01-01", mediaType = null
+            )
+        )
+        val response = TmdbTrendingResponse(page = 1, totalResults = results.size, results = results)
+        coEvery {
+            tmdbApi.discoverMovie(
+                language = any(), page = any(), watchProviders = any(), watchRegion = any(),
+                releaseDateGte = any(), releaseDateLte = any(), sortBy = any(),
+                voteCountGte = any(), withPeople = any(), withCompanies = any()
+            )
+        } returns response
+
+        val result = repo.getCompanyMovies(41077)
+
+        assert(result.size == 1)
+        assert(result[0].type == ContentType.MOVIE)
+    }
+
+    @Test
     fun `getRecommendations filters out results without posterPath`() = runTest {
         val results = listOf(
             TmdbMultiSearchResult(id = 301, title = "With Poster", posterPath = "/p.jpg", mediaType = "movie"),
